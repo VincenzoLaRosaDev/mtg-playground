@@ -20,13 +20,15 @@
 | 0.6 | Landing page `/` | ✅ | 2026-07-09 |
 | 0.7 | Project docs + Cursor rules | ✅ | 2026-07-09 |
 | 0.8 | GitHub remote connected | ✅ | 2026-07-09 |
-| 0.9 | Initial commit + push to GitHub | ⬜ | |
-| 0.10 | Run first `npm run sync:scryfall` on Neon | ⬜ | |
+| 0.9 | Initial commit + push to GitHub | ✅ | 2026-07-09 |
+| 0.10 | Run first `npm run sync:scryfall` on Neon | ✅ | 2026-07-09 (38,233 cards) |
 | 0.11 | GitHub Actions daily Scryfall sync | ⬜ | |
 | 0.12 | Scryfall oracle_tags sync + card roles | ⬜ | |
 | 0.13 | `card-overrides.json` (~200 staples) | ⬜ | |
 
 **Demo:** Search Sol Ring → see card with image and type.
+
+**Remaining before / during Phase 1:** 0.11 (cron sync), 0.12 (oracle tags), 0.13 (card overrides). Core catalog is live; these are ops + classification prep for Phase 3.
 
 ---
 
@@ -34,21 +36,21 @@
 
 **Goal:** Browse cards and commanders like a lightweight EDHREC.
 
-| # | Task | Status |
-|---|---|---|
-| 1.1 | Prisma: EdhrecCommanderProfile, EdhrecCardData | ⬜ |
-| 1.2 | EDHREC slug precompute on cards | ⬜ |
-| 1.3 | `scripts/sync/edhrec-commanders.ts` (top 500) | ⬜ |
-| 1.4 | `scripts/sync/edhrec-cards.ts` (top 2000) | ⬜ |
-| 1.5 | EDHREC on-demand fetch + cache (cold tier) | ⬜ |
-| 1.6 | `/cards/[slug]` detail page | ⬜ |
-| 1.7 | `/commanders` browse + search | ⬜ |
-| 1.8 | `/commanders/[slug]` detail page | ⬜ |
-| 1.9 | `/sets` + `/sets/[code]` | ⬜ |
-| 1.10 | Relatives by subtype section | ⬜ |
-| 1.11 | SEO: metadata, sitemap | ⬜ |
-| 1.12 | GitHub Actions weekly EDHREC sync | ⬜ |
-| 1.13 | Stale cache banner when EDHREC unavailable | ⬜ |
+| # | Task | Status | Done |
+|---|---|---|---|
+| 1.1 | Prisma: EdhrecCommanderProfile, EdhrecCardData | ⬜ | |
+| 1.2 | EDHREC slug precompute on cards | ✅ | 2026-07-09 (Phase 0 sync) |
+| 1.3 | `scripts/sync/edhrec-commanders.ts` (top 500) | ⬜ | |
+| 1.4 | `scripts/sync/edhrec-cards.ts` (top 2000) | ⬜ | |
+| 1.5 | EDHREC on-demand fetch + cache (cold tier) | ⬜ | |
+| 1.6 | `/cards/[slug]` detail page | ⬜ | |
+| 1.7 | `/commanders` browse + search | ⬜ | |
+| 1.8 | `/commanders/[slug]` detail page | ⬜ | |
+| 1.9 | `/sets` + `/sets/[code]` | ⬜ | |
+| 1.10 | Relatives by subtype section | ⬜ | |
+| 1.11 | SEO: metadata, sitemap | ⬜ | |
+| 1.12 | GitHub Actions weekly EDHREC sync | ⬜ | |
+| 1.13 | Stale cache banner when EDHREC unavailable | ⬜ | |
 
 **Demo:** Search Atraxa → full commander profile with top cards, salt, rank.
 
