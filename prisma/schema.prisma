@@ -1,0 +1,59 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum SyncSource {
+  SCRYFALL
+  EDHREC
+  MTGJSON
+}
+
+enum SyncStatus {
+  RUNNING
+  SUCCESS
+  FAILED
+}
+
+model Card {
+  id            String   @id
+  oracleId      String   @unique @map("oracle_id")
+  name          String
+  searchName    String   @map("search_name")
+  edhrecSlug    String?  @map("edhrec_slug")
+  typeLine      String   @map("type_line")
+  cmc           Float
+  colors        String[]
+  colorIdentity String[] @map("color_identity")
+  oracleText    String?  @map("oracle_text") @db.Text
+  keywords      String[]
+  producedMana  String[] @map("produced_mana")
+  layout        String
+  imageUri      String?  @map("image_uri")
+  legalities    Json
+  prices        Json?
+  isCommander   Boolean  @default(false) @map("is_commander")
+  syncedAt      DateTime @default(now()) @map("synced_at")
+
+  @@index([searchName])
+  @@index([name])
+  @@index([isCommander])
+  @@map("cards")
+}
+
+model SyncLog {
+  id               String     @id @default(cuid())
+  source           SyncSource
+  jobType          String     @map("job_type")
+  status           SyncStatus
+  startedAt        DateTime   @default(now()) @map("started_at")
+  completedAt      DateTime?  @map("completed_at")
+  recordsProcessed Int?       @map("records_processed")
+  errors           Json?
+
+  @@map("sync_logs")
+}

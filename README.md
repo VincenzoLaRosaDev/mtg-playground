@@ -1,36 +1,82 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# EDHForge
 
-## Getting Started
+Commander deck analyzer and community — analyze decks, compare against EDHREC meta, publish and rate brews.
 
-First, run the development server:
+## Documentation
+
+| Doc | Purpose |
+|---|---|
+| [`AGENTS.md`](AGENTS.md) | **Start here** (AI agents + contributors) |
+| [`docs/PROJECT.md`](docs/PROJECT.md) | Product spec, features, entities |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Stack, data sources, sync |
+| [`docs/ROADMAP.md`](docs/ROADMAP.md) | Phase checklist + status |
+| [`docs/DECISIONS.md`](docs/DECISIONS.md) | Decision log |
+
+## Stack
+
+- **Next.js 16** (App Router) + TypeScript
+- **PostgreSQL** on [Neon](https://neon.tech)
+- **Prisma** ORM
+- **Scryfall** bulk data (card catalog)
+
+## Getting started
+
+### 1. Install dependencies
+
+```bash
+npm install
+```
+
+### 2. Environment
+
+Copy `.env.example` to `.env.local` and fill in Neon connection strings (pooled + direct):
+
+```bash
+cp .env.example .env.local
+```
+
+### 3. Database migration
+
+```bash
+npm run db:migrate
+```
+
+### 4. Sync Scryfall card catalog
+
+```bash
+npm run sync:scryfall
+```
+
+Downloads ~170 MB from Scryfall and upserts all oracle cards. Takes a few minutes.
+
+### 5. Run dev server
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) — try **Search cards** at `/cards`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Scripts
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Command | Description |
+|---|---|
+| `npm run dev` | Start development server |
+| `npm run sync:scryfall` | Full Scryfall oracle_cards sync |
+| `npm run db:migrate` | Apply Prisma migrations |
+| `npm run db:generate` | Regenerate Prisma client |
 
-## Learn More
+## Project phases
 
-To learn more about Next.js, take a look at the following resources:
+See [`docs/ROADMAP.md`](docs/ROADMAP.md) for the full checklist.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- **Phase 0** (current): Scryfall catalog + card search
+- **Phase 1**: EDHREC discovery (commander/card pages)
+- **Phase 2**: Deck builder + import + auth
+- **Phase 3**: Analysis + meta comparison
+- **Phase 4**: Community (publish, vote, rankings)
+- **Phase 5**: Polish, precons, launch
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Attribution
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Card data from [Scryfall](https://scryfall.com). Not affiliated with Wizards of the Coast.

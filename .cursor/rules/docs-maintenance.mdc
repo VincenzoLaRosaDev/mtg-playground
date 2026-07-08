@@ -1,0 +1,37 @@
+---
+description: Keep EDHForge docs in sync with code and product changes
+alwaysApply: true
+---
+
+# Documentation maintenance
+
+Documentation is **part of done**. Update in the same commit/PR as the change.
+
+| You changed… | Update |
+|---|---|
+| Feature scope, limits, UX flow | `docs/PROJECT.md` |
+| Tables, services, sync, env vars | `docs/ARCHITECTURE.md` |
+| Completed or new roadmap task | `docs/ROADMAP.md` |
+| Chose between alternatives (why X) | `docs/DECISIONS.md` (append, dated) |
+| Setup commands or scripts | `README.md` |
+| Agent workflow or reading order | `AGENTS.md` |
+
+## Decision log entry template
+
+```markdown
+## YYYY-MM-DD — Title
+**Context:** …
+**Decision:** …
+**Consequences:** …
+```
+
+Never delete old decisions — add a new entry that **Supersedes** the old one.
+
+## Roadmap updates
+
+Change task status: `⬜` → `✅` and add completion date where applicable.
+
+## Do not create
+
+- Extra markdown files unless the user asks or a doc above needs a new major section
+- Duplicate info across files — link between docs instead
