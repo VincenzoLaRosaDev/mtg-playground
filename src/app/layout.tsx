@@ -1,5 +1,10 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+
+import { AppFooter } from "@/components/layout/app-footer";
+import { AppHeader } from "@/components/layout/app-header";
+import { rootMetadata } from "@/lib/seo/site";
+
 import "./globals.css";
 
 const geistSans = Geist({
@@ -12,11 +17,7 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: "EDHForge — Commander deck tools",
-  description:
-    "Analyze Commander decks, compare against EDHREC meta, and share brews.",
-};
+export const metadata: Metadata = rootMetadata;
 
 export default function RootLayout({
   children,
@@ -28,7 +29,11 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="flex min-h-full flex-col">
+        <AppHeader />
+        <main className="flex-1">{children}</main>
+        <AppFooter />
+      </body>
     </html>
   );
 }

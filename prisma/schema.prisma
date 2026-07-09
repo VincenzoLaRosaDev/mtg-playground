@@ -19,6 +19,12 @@ enum SyncStatus {
   FAILED
 }
 
+enum EdhrecSyncTier {
+  HOT
+  WARM
+  COLD
+}
+
 model Card {
   id            String   @id
   oracleId      String   @unique @map("oracle_id")
@@ -39,10 +45,98 @@ model Card {
   isCommander   Boolean  @default(false) @map("is_commander")
   syncedAt      DateTime @default(now()) @map("synced_at")
 
+  edhrecCommanderProfile EdhrecCommanderProfile?
+  edhrecCardData         EdhrecCardData?
+
   @@index([searchName])
   @@index([name])
   @@index([isCommander])
+  @@index([edhrecSlug])
   @@map("cards")
+}
+
+model EdhrecCommanderProfile {
+  id            String         @id @default(cuid())
+  slug          String         @unique
+  name          String
+  cardId        String?        @unique @map("card_id")
+  rank          Int?
+  salt          Float?
+  numDecks      Int?           @map("num_decks")
+  colorIdentity String[]       @map("color_identity")
+  tagCounts     Json           @default("{}") @map("tag_counts")
+  similarSlugs  String[]       @default([]) @map("similar_slugs")
+  cardlists     Json           @default("{}")
+  bracketCounts Json?          @map("bracket_counts")
+  budgetCounts  Json?          @map("budget_counts")
+  syncTier      EdhrecSyncTier @default(HOT) @map("sync_tier")
+  syncedAt      DateTime       @default(now()) @map("synced_at")
+  expiresAt     DateTime?      @map("expires_at")
+
+  card Card? @relation(fields: [cardId], references: [id])
+
+  @@index([rank])
+  @@index([name])
+  @@index([syncTier])
+  @@map("edhrec_commander_profiles")
+}
+
+model EdhrecCardData {
+  id           String         @id @default(cuid())
+  slug         String         @unique
+  name         String
+  cardId       String?        @unique @map("card_id")
+  salt         Float?
+  numDecks     Int?           @map("num_decks")
+  inclusion    Int?
+  cardlists    Json           @default("{}")
+  similarCards Json           @default("[]") @map("similar_cards")
+  syncTier     EdhrecSyncTier @default(HOT) @map("sync_tier")
+  syncedAt     DateTime       @default(now()) @map("synced_at")
+  expiresAt    DateTime?      @map("expires_at")
+
+  card Card? @relation(fields: [cardId], references: [id])
+
+  @@index([name])
+  @@index([syncTier])
+  @@map("edhrec_card_data")
+}
+
+model MtgSet {
+  code       String    @id
+  scryfallId String    @unique @map("scryfall_id")
+  name       String
+  releasedAt DateTime? @map("released_at")
+  setType    String    @map("set_type")
+  cardCount  Int       @map("card_count")
+  iconUri    String?   @map("icon_uri")
+  digital    Boolean   @default(false)
+  syncedAt   DateTime  @default(now()) @map("synced_at")
+
+  setCards SetCard[]
+
+  @@index([releasedAt])
+  @@index([name])
+  @@index([setType])
+  @@map("mtg_sets")
+}
+
+model SetCard {
+  id              String  @id @default(cuid())
+  setCode         String  @map("set_code")
+  oracleId        String  @map("oracle_id")
+  name            String
+  collectorNumber String  @map("collector_number")
+  rarity          String
+  imageUri        String? @map("image_uri")
+
+  set MtgSet @relation(fields: [setCode], references: [code], onDelete: Cascade)
+
+  @@unique([setCode, oracleId])
+  @@index([setCode])
+  @@index([oracleId])
+  @@index([rarity])
+  @@map("set_cards")
 }
 
 model SyncLog {

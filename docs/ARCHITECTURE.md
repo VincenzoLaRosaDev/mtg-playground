@@ -28,6 +28,7 @@
 ```bash
 DATABASE_URL=   # Neon pooled (-pooler host)
 DIRECT_URL=     # Neon direct (migrations only)
+NEXT_PUBLIC_SITE_URL=  # Production URL for SEO (optional locally)
 AUTH_SECRET=    # Phase 2
 AUTH_GOOGLE_ID / AUTH_GOOGLE_SECRET=
 AUTH_DISCORD_ID / AUTH_DISCORD_SECRET=
@@ -67,7 +68,7 @@ Tier 4  Platform data     → ratings, rankings (Phase 4+)
   - `/average-decks/{slug}.json` — full average decklist
   - `/cards/{slug}.json` — inclusion, top commanders
 - `inclusion` field = **absolute deck count**, not % → normalize: `inclusion / commander.num_decks`
-- Slug: precompute `card.edhrecSlug` (lowercase, hyphenated, DFC front face)
+- Slug: precompute `card.edhrecSlug` — NFKD accent strip, apostrophes removed, DFC front face (`toEdhrecSlug`)
 
 **Sync tiers:**
 
@@ -89,14 +90,24 @@ Also weekly: top ~2000 card pages.
 | Job | When | Script |
 |---|---|---|
 | Scryfall check + prices | Daily 03:00 UTC | `scripts/sync/scryfall-process.ts` |
+| Scryfall sets metadata | Weekly Sunday | `scripts/sync/scryfall-sets.ts` |
+| Scryfall set card index | Weekly Sunday (or `--codes=` on demand) | `scripts/sync/scryfall-set-cards.ts` |
 | Scryfall full + tags | Weekly Sunday | same + `scryfall-tags.ts` (Phase 1) |
 | EDHREC hot tier | Weekly Sunday | `scripts/sync/edhrec-commanders.ts` (Phase 1) |
+| EDHREC card pages (hot) | Weekly Sunday | `scripts/sync/edhrec-cards.ts` (Phase 1) |
 | Rankings recompute | Weekly | `scripts/sync/recompute-rankings.ts` (Phase 4) |
 | MTGJSON precons | Monthly | `scripts/sync/mtgjson-precons.ts` (Phase 5) |
 
-GitHub Actions: `.github/workflows/sync.yml` (to be added Phase 1).
+GitHub Actions: `.github/workflows/sync-edhrec.yml` (weekly EDHREC HOT sync; requires `DATABASE_URL` secret).
 
-Runtime fallback: if EDHREC down → serve stale cache + show `Last updated: {date}` banner.
+Runtime fallback: if EDHREC down → serve stale cache + show page-level stale banner; browse routes show sync notice when weekly sync failed or data is older than 8 days.
+
+## SEO
+
+- `NEXT_PUBLIC_SITE_URL` — canonical base for metadata, `/sitemap.xml`, `/robots.txt`
+- `src/lib/seo/site.ts` — shared `createPageMetadata()` helper
+- Dynamic `generateMetadata` on card/commander/set detail pages
+- Sitemap includes static routes + cached EDHREC commanders/cards + all sets (revalidates daily)
 
 ## Application architecture
 
@@ -115,7 +126,7 @@ PostgreSQL
   └─ sync_logs
 ```
 
-**Rule:** user-facing requests never call Scryfall/EDHREC live. Sync jobs populate DB; pages read DB only.
+**Rule:** user-facing routes read Postgres only. On cache miss/expiry, `src/lib/edhrec/cache.ts` may fetch EDHREC once, upsert (WARM/COLD tier), then serve from DB. Never call EDHREC directly from page components.
 
 ## Folder structure
 
@@ -135,9 +146,12 @@ edhforge/
 ├── src/
 │   ├── app/                  ← Next.js routes
 │   ├── components/
+│   │   ├── layout/           ← app shell, page shell
+│   │   └── discovery/      ← card image, EDHREC sections, empty states
 │   ├── lib/
 │   │   ├── db.ts             ← Prisma client singleton
-│   │   └── scryfall/         ← types + card utils
+│   │   ├── scryfall/         ← types + card utils
+│   │   └── edhrec/           ← EDHREC types, client, parsers
 │   └── generated/prisma/     ← gitignored
 └── .cursor/rules/            ← Cursor agent rules
 ```
@@ -147,12 +161,14 @@ edhforge/
 ### Implemented (Phase 0)
 
 - `cards` — Scryfall oracle card data
+- `mtg_sets` — set metadata (code, name, release, type)
+- `set_cards` — unique oracle cards per set (indexed offline via Scryfall search)
 - `sync_logs` — job audit trail
 
 ### Phase 1
 
-- `edhrec_commander_profiles`
-- `edhrec_card_data`
+- `edhrec_commander_profiles` — indexed rank/salt/decks + JSON cardlists/tag_counts
+- `edhrec_card_data` — indexed salt/inclusion + JSON cardlists (top commanders)
 
 ### Phase 2
 

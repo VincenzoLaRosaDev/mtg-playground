@@ -9,7 +9,7 @@
 - **Repo:** https://github.com/VincenzoLaRosaDev/edhforge
 - **Language (MVP):** English only — UI, DB fields, enums
 - **Format (MVP):** Commander only (other formats → backlog)
-- **Current phase:** Phase 0 complete → starting Phase 1
+- **Current phase:** Phase 1 complete → starting Phase 2
 
 ## Required reading (in order)
 
@@ -19,6 +19,7 @@
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Stack, data sources, sync jobs, folder structure |
 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | Phase checklist with status — update as tasks complete |
 | [`docs/DECISIONS.md`](docs/DECISIONS.md) | Decision log — append new entries, never delete history |
+| [`docs/UI.md`](docs/UI.md) | Shell, tokens, discovery components — refine at polish pass |
 
 ## Documentation maintenance (mandatory)
 
@@ -56,7 +57,7 @@ Do not rely on chat history — if it is not in these files, it does not exist f
 
 ```
 Phase 0 ✅  Scryfall sync, card search API, /cards page
-Phase 1 ⬜  EDHREC discovery (commander/card pages)
+Phase 1 ✅  EDHREC discovery (commanders, cards, sets)
 Phase 2 ⬜  Deck builder, import, auth
 Phase 3 ⬜  Analysis + meta comparison
 Phase 4 ⬜  Community (publish, vote, rankings)

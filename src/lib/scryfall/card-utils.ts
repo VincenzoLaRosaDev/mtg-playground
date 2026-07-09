@@ -8,12 +8,18 @@ export function normalizeSearchName(name: string): string {
     .trim();
 }
 
-/** EDHREC slug heuristic — validated against API during EDHREC sync. */
+/**
+ * EDHREC slug heuristic — validated against API during EDHREC sync.
+ * NFKD accent strip; apostrophes removed (Gorion's → gorions, O'Maul → omaul).
+ */
 export function toEdhrecSlug(name: string): string {
   const primary = name.split("//")[0]?.trim() ?? name;
 
   return primary
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
+    .replace(/[''`´]/g, "")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
 }

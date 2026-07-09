@@ -11,7 +11,12 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",
-    "sync:scryfall": "tsx scripts/sync/scryfall-process.ts"
+    "sync:scryfall": "tsx scripts/sync/scryfall-process.ts",
+    "sync:scryfall-sets": "tsx scripts/sync/scryfall-sets.ts",
+    "sync:scryfall-set-cards": "tsx scripts/sync/scryfall-set-cards.ts",
+    "sync:edhrec-commanders": "tsx scripts/sync/edhrec-commanders.ts",
+    "sync:edhrec-cards": "tsx scripts/sync/edhrec-cards.ts",
+    "sync:backfill-edhrec-slugs": "tsx scripts/sync/backfill-edhrec-slugs.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.8.0",

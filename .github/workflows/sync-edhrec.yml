@@ -1,0 +1,38 @@
+name: Weekly EDHREC sync
+
+on:
+  schedule:
+    # Sundays 04:00 UTC
+    # - cron: "0 4 * * 0"
+  workflow_dispatch:
+
+jobs:
+  sync-edhrec:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npm run db:generate
+
+      - name: Sync EDHREC commanders (HOT tier)
+        run: npm run sync:edhrec-commanders
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+      - name: Sync EDHREC cards (HOT tier)
+        run: npm run sync:edhrec-cards
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}

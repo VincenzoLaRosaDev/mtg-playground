@@ -29,7 +29,7 @@ npm install
 
 ### 2. Environment
 
-Copy `.env.example` to `.env.local` and fill in Neon connection strings (pooled + direct):
+Copy `.env.example` to `.env.local` and fill in Neon connection strings (pooled + direct). For production SEO, set `NEXT_PUBLIC_SITE_URL` to your public URL.
 
 ```bash
 cp .env.example .env.local
@@ -63,15 +63,24 @@ Open [http://localhost:3000](http://localhost:3000) — try **Search cards** at 
 |---|---|
 | `npm run dev` | Start development server |
 | `npm run sync:scryfall` | Full Scryfall oracle_cards sync |
+| `npm run sync:scryfall-sets` | Sync Magic set metadata from Scryfall |
+| `npm run sync:scryfall-set-cards` | Index set membership (`--limit=`, `--codes=`) |
+| `npm run sync:edhrec-commanders` | Sync top EDHREC commander profiles (default: 500) |
+| `npm run sync:edhrec-cards` | Sync top EDHREC card pages (default: 2000) |
+| `npm run sync:backfill-edhrec-slugs` | Recompute `edhrec_slug` on all cards after slug rule changes |
 | `npm run db:migrate` | Apply Prisma migrations |
 | `npm run db:generate` | Regenerate Prisma client |
+
+## GitHub Actions
+
+Weekly EDHREC sync (`.github/workflows/sync-edhrec.yml`): add repository secret `DATABASE_URL` (Neon pooled URL). Runs Sundays 04:00 UTC; can also be triggered manually.
 
 ## Project phases
 
 See [`docs/ROADMAP.md`](docs/ROADMAP.md) for the full checklist.
 
-- **Phase 0** (current): Scryfall catalog + card search
-- **Phase 1**: EDHREC discovery (commander/card pages)
+- **Phase 0** ✅ Scryfall catalog + card search
+- **Phase 1** ✅ EDHREC discovery (commanders, cards, sets)
 - **Phase 2**: Deck builder + import + auth
 - **Phase 3**: Analysis + meta comparison
 - **Phase 4**: Community (publish, vote, rankings)

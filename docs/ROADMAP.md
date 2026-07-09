@@ -32,25 +32,26 @@
 
 ---
 
-## Phase 1 — Discovery (EDHREC-like) ⬜
+## Phase 1 — Discovery (EDHREC-like) ✅
 
 **Goal:** Browse cards and commanders like a lightweight EDHREC.
 
 | # | Task | Status | Done |
 |---|---|---|---|
-| 1.1 | Prisma: EdhrecCommanderProfile, EdhrecCardData | ⬜ | |
+| 1.1 | Prisma: EdhrecCommanderProfile, EdhrecCardData | ✅ | 2026-07-09 |
 | 1.2 | EDHREC slug precompute on cards | ✅ | 2026-07-09 (Phase 0 sync) |
-| 1.3 | `scripts/sync/edhrec-commanders.ts` (top 500) | ⬜ | |
-| 1.4 | `scripts/sync/edhrec-cards.ts` (top 2000) | ⬜ | |
-| 1.5 | EDHREC on-demand fetch + cache (cold tier) | ⬜ | |
-| 1.6 | `/cards/[slug]` detail page | ⬜ | |
-| 1.7 | `/commanders` browse + search | ⬜ | |
-| 1.8 | `/commanders/[slug]` detail page | ⬜ | |
-| 1.9 | `/sets` + `/sets/[code]` | ⬜ | |
-| 1.10 | Relatives by subtype section | ⬜ | |
-| 1.11 | SEO: metadata, sitemap | ⬜ | |
-| 1.12 | GitHub Actions weekly EDHREC sync | ⬜ | |
-| 1.13 | Stale cache banner when EDHREC unavailable | ⬜ | |
+| 1.3 | `scripts/sync/edhrec-commanders.ts` (top 500) | ✅ | 2026-07-09 |
+| 1.3b | Fix `toEdhrecSlug()` + improve commander sync discovery | ✅ | 2026-07-09 |
+| 1.4 | `scripts/sync/edhrec-cards.ts` (top 2000) | ✅ | 2026-07-09 |
+| 1.5 | EDHREC on-demand fetch + cache (cold tier) | ✅ | 2026-07-09 |
+| 1.6 | `/cards/[slug]` detail page | ✅ | 2026-07-09 |
+| 1.7 | `/commanders` browse + search | ✅ | 2026-07-09 |
+| 1.8 | `/commanders/[slug]` detail page | ✅ | 2026-07-09 |
+| 1.9 | `/sets` + `/sets/[code]` | ✅ | 2026-07-09 |
+| 1.10 | Relatives by subtype section | ✅ | 2026-07-09 |
+| 1.11 | SEO: metadata, sitemap | ✅ | 2026-07-09 |
+| 1.12 | GitHub Actions weekly EDHREC sync | ✅ | 2026-07-09 |
+| 1.13 | Stale cache banner when EDHREC unavailable | ✅ | 2026-07-09 |
 
 **Demo:** Search Atraxa → full commander profile with top cards, salt, rank.
 

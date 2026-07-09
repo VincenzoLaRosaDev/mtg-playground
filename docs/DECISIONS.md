@@ -156,3 +156,91 @@ Format for new entries:
 ---
 
 <!-- Add new decisions below this line -->
+
+## 2026-07-09 — Hybrid EDHREC cache schema
+
+**Context:** Phase 1 needs EDHREC commander/card pages with browse (rank) and detail (top cards, themes) without live API calls.
+
+**Decision:** Store **indexed columns** (slug, rank, salt, numDecks, syncTier, expiresAt) plus **JSON** for nested EDHREC payloads (cardlists, tag_counts, similar). Optional `cardId` FK to `cards` resolved at sync time.
+
+**Consequences:** Fast commander browse/sort; sync scripts map EDHREC JSON into typed fields. Full normalization deferred unless query patterns require it.
+
+---
+
+## 2026-07-09 — Shared app shell before visual polish
+
+**Context:** Early pages were one-off layouts; Phase 1 adds more routes (commanders, sets, card detail sections).
+
+**Decision:** Add minimal **app shell** (header nav, footer attribution, `PageShell`, placeholder `EdhrecSection`) before EDHREC sync. Styling stays functional, not final design.
+
+**Consequences:** New discovery pages reuse layout components. Polish pass happens after Phase 1 demo has real data.
+
+---
+
+## 2026-07-09 — EDHREC commander discovery fallback
+
+**Context:** `json.edhrec.com/top/commanders--N.json` returns 403 from some networks; Phase 1.3 still needs a ranked commander seed list.
+
+**Decision:** Sync script tries top JSON first, then scrapes `edhrec.com/commanders` `__NEXT_DATA__` (top 100), then supplements from local `cards` (`isCommander` + `edhrecSlug`) to reach the target limit (default 500).
+
+**Consequences:** Full top-500 ranking depends on JSON API availability; fallback guarantees HOT-tier cache population for browse/detail work in 1.7–1.8.
+
+---
+
+## 2026-07-09 — EDHREC on-demand cache service
+
+**Context:** HOT sync covers top commanders/cards; long tail needs lazy population without live API calls in page components.
+
+**Decision:** `src/lib/edhrec/cache.ts` serves card/commander data from Postgres; on miss/expiry fetches EDHREC once, upserts as **WARM** (page view, 7d TTL) or **COLD** (background, 30d TTL). Returns stale row if fetch fails.
+
+**Consequences:** Pages import cache service only. Stale banner (1.13) consumes `isStale` + `syncedAt` from cache result.
+
+---
+
+## 2026-07-09 — EDHREC slug normalization + commander discovery v2
+
+**Context:** Commander sync skipped ~50 profiles. Root cause: `toEdhrecSlug()` turned apostrophes into hyphens (`gorion-s-ward` vs `gorions-ward`) and kept accents (`ad-wal` vs `adewale`). Local catalog supplement added unverified commander slugs (planeswalkers with card pages but no commander page).
+
+**Decision:** Align `toEdhrecSlug()` with `normalizeSearchName` (NFKD + strip diacritics), then remove apostrophes before hyphenation. Drop local `cards` alphabet supplement. When site scrape yields &lt;500, use **two-phase sync**: seed top 100 → expand from `similarSlugs` on ranked profiles in DB (EDHREC-verified names). Add `sync:backfill-edhrec-slugs` to refresh stored slugs without full Scryfall re-import.
+
+**Consequences:** Fewer false skips on re-sync. HOT pool may stay below 500 if similar graph is shallow on first run; grows on subsequent weekly syncs. **Supersedes** local-catalog part of “EDHREC commander discovery fallback” (2026-07-09).
+
+---
+
+## 2026-07-09 — UI guide as living doc (pre-polish)
+
+**Context:** Phase 1 discovery pages are largely stable; Phase 2+ adds deck workspace, not discovery rewrites. User wants polish after data is solid.
+
+**Decision:** Add `docs/UI.md` — shell components, layout tokens, discovery patterns. Refine during Phase 1 demo polish pass; deck builder sections added in Phase 2.
+
+**Consequences:** Agents and future UI work share one reference. Visual polish deferred until 1.3b + remaining Phase 1 demo tasks complete.
+
+---
+
+## 2026-07-09 — Set pages: metadata + offline card index
+
+**Context:** Task 1.9 needs `/sets` browse and `/sets/[code]` with filters. `oracle_cards` has no set membership; Scryfall `all_cards` bulk is ~2.5GB.
+
+**Decision:** Add `mtg_sets` + `set_cards` tables. Sync set list from `GET /sets`. Index membership via **offline** Scryfall search (`e:CODE&unique=cards`) per set in `sync:scryfall-set-cards` — not in user hot path. Set detail joins `set_cards` to `cards` on `oracle_id` when present; filters for rarity (set row), color/commander (catalog join).
+
+**Consequences:** Full set index takes ~15–30 min for all sets; use `--limit` or `--codes=` for partial/demo runs. Unindexed sets show metadata + sync hint.
+
+---
+
+## 2026-07-09 — Card relatives by subtype (local catalog)
+
+**Context:** Task 1.10; card page MVP lists relatives like EDHREC but we already have `type_line` on all oracle cards.
+
+**Decision:** Parse subtypes from `type_line` (after `—`). Query Postgres for other **Commander-legal** cards matching any subtype with word-boundary `type_line` filters. No live Scryfall/EDHREC. Section hidden when card has no subtypes or no matches.
+
+**Consequences:** `CardRelativesBySubtype` on `/cards/[slug]`; pure catalog feature, independent of EDHREC cache tier.
+
+---
+
+## 2026-07-09 — Phase 1 SEO + ops closure
+
+**Context:** Phase 1 demo complete; need discoverability (SEO) and production ops before UI polish / Phase 2.
+
+**Decision:** Add `createPageMetadata()` + per-route metadata; dynamic `/sitemap.xml` (static routes + EDHREC HOT entities + sets) and `/robots.txt`. Weekly `.github/workflows/sync-edhrec.yml` with `DATABASE_URL` secret. Stale UX: page-level `StaleCacheBanner` on failed refresh; browse-level `EdhrecSyncNotice` when last EDHREC sync failed or &gt;8 days old (`sync_logs`).
+
+**Consequences:** Set `NEXT_PUBLIC_SITE_URL` in production. Sitemap hits DB on generate (daily revalidate).

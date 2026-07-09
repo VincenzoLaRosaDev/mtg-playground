@@ -26,6 +26,7 @@ export async function GET(request: Request) {
     select: {
       id: true,
       name: true,
+      edhrecSlug: true,
       typeLine: true,
       cmc: true,
       colorIdentity: true,

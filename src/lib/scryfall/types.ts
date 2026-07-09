@@ -26,3 +26,32 @@ export type ScryfallBulkData = {
   download_uri: string;
   jsonl_download_uri?: string;
 };
+
+export type ScryfallSet = {
+  id: string;
+  code: string;
+  name: string;
+  released_at: string | null;
+  set_type: string;
+  card_count: number;
+  icon_svg_uri: string | null;
+  digital: boolean;
+};
+
+export type ScryfallSetList = {
+  data: ScryfallSet[];
+  has_more: boolean;
+  next_page?: string | null;
+};
+
+export type ScryfallSearchCard = ScryfallCard & {
+  set: string;
+  collector_number: string;
+  rarity: string;
+};
+
+export type ScryfallSearchResult = {
+  data: ScryfallSearchCard[];
+  has_more: boolean;
+  next_page?: string | null;
+};
