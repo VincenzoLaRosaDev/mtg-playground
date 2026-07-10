@@ -1,6 +1,6 @@
 # EDHForge — Development Roadmap
 
-> Last updated: 2026-07-09 · Update checkboxes and dates as work completes.
+> Last updated: 2026-07-10 · Update checkboxes and dates as work completes.
 
 **Legend:** ✅ done · 🔄 in progress · ⬜ todo
 
@@ -22,13 +22,13 @@
 | 0.8 | GitHub remote connected | ✅ | 2026-07-09 |
 | 0.9 | Initial commit + push to GitHub | ✅ | 2026-07-09 |
 | 0.10 | Run first `npm run sync:scryfall` on Neon | ✅ | 2026-07-09 (38,233 cards) |
-| 0.11 | GitHub Actions daily Scryfall sync | ⬜ | |
-| 0.12 | Scryfall oracle_tags sync + card roles | ⬜ | |
-| 0.13 | `card-overrides.json` (~200 staples) | ⬜ | |
+| 0.11 | GitHub Actions daily Scryfall sync | ✅ | 2026-07-10 |
+| 0.12 | Scryfall oracle_tags sync + card roles | ✅ | 2026-07-10 |
+| 0.13 | `card-overrides.json` (~200 staples) | ✅ | 2026-07-10 |
 
 **Demo:** Search Sol Ring → see card with image and type.
 
-**Remaining before / during Phase 1:** 0.11 (cron sync), 0.12 (oracle tags), 0.13 (card overrides). Core catalog is live; these are ops + classification prep for Phase 3.
+**Remaining before / during Phase 1:** none — Phase 0 complete.
 
 ---
 
@@ -52,8 +52,61 @@
 | 1.11 | SEO: metadata, sitemap | ✅ | 2026-07-09 |
 | 1.12 | GitHub Actions weekly EDHREC sync | ✅ | 2026-07-09 |
 | 1.13 | Stale cache banner when EDHREC unavailable | ✅ | 2026-07-09 |
+| 1.3c | Exclude Scryfall `art_series` from catalog + relink EDHREC | ✅ | 2026-07-10 |
 
 **Demo:** Search Atraxa → full commander profile with top cards, salt, rank.
+
+---
+
+## Phase 1.4 — Commander catalog sync ✅
+
+**Goal:** Pre-populate EDHREC commander profiles for the full catalog before Phase 1.5 browse/detail UX. Spec: `docs/DECISIONS.md` (2026-07-10 commander data completeness).
+
+**Coverage expectation:** ~90% of catalog commanders get full EDHREC meta (COLD tier, 30d TTL). ~10% have no EDHREC commander page (`card_only` planeswalkers etc.) → browse shows badge **“No EDHREC meta”** in Phase 1.5.
+
+**Run (batched):**
+
+```bash
+npm run sync:edhrec-commanders-catalog                      # first 150 missing (default)
+npm run sync:edhrec-commanders-catalog -- --batch-size=500  # larger batch
+npm run sync:edhrec-commanders-catalog -- --offset=500        # continue same list
+npm run sync:edhrec-commanders-catalog -- --all             # refresh existing (preserves HOT tier)
+```
+
+Re-run until “All catalog commander slugs with EDHREC pages are cached.” Full missing set ≈45–60 min at 1 req/s for ~2.5k slugs.
+
+| # | Task | Status | Done |
+|---|---|---|
+| 1.4.1 | `scripts/sync/edhrec-commanders-catalog.ts` — iterate `cards.is_commander`, fetch commander JSON, skip `card_only` | ✅ | 2026-07-10 |
+| 1.4.2 | Batch runner: `--batch-size`, `--offset`, rate limit, resume + SyncLog | ✅ | 2026-07-10 |
+| 1.4.3 | npm script + optional GH Action (monthly / manual dispatch) | ✅ | 2026-07-10 |
+| 1.4.4 | Document expected coverage (~90% full meta, ~10% badge-only) | ✅ | 2026-07-10 |
+
+**Prerequisite for:** Phase 1.5 commander browse (All tab with badges) and commander tab on card detail.
+
+**Demo:** `npm run sync:edhrec-commanders-catalog` fills ~2.5k profiles; Abdel Adrian has rank/themes without a page visit.
+
+---
+
+## Phase 1.5 — Discovery consistency 🔄
+
+**Goal:** Coherent browse, search, and detail UX before visual polish. Spec: `docs/PROJECT.md` § Discovery consistency.
+
+| # | Task | Status |
+|---|---|---|
+| 1.5.1 | Browse API contract: `cursor`, `sort`, `total`, `nextCursor` | ✅ | 2026-07-10 |
+| 1.5.2 | `/cards` browse: tabs Popular (EDHREC) / All + sort + filters + load more | ✅ | 2026-07-10 |
+| 1.5.3 | `/commanders` browse: tabs Ranked / All + catalog fallback + load more | ✅ | 2026-07-10 |
+| 1.5.4 | `/sets` browse: pagination + sort + set-type filters | ✅ | 2026-07-10 |
+| 1.5.5 | Global navbar search (`GET /api/search`) — cards, commanders, sets | ✅ | 2026-07-10 |
+| 1.5.6 | `/cards/[slug]` commander tab + cross-link; no 404 without EDHREC | ✅ | 2026-07-10 |
+| 1.5.7 | `/commanders/[slug]` parallel route: “View as card” + soft fallback | ✅ | 2026-07-10 |
+| 1.5.8 | Set → card links with `?set=`; card detail uses `set_cards` image | ✅ | 2026-07-10 |
+| 1.5.9 | Visual polish pass (`docs/UI.md`) | ⬜ |
+
+**Backlog (post-1.5):** Card Printings tab (all reprints/arts) — see `docs/PROJECT.md`.
+
+**Demo:** Land on `/cards` → see popular staples; search Sol Ring in navbar; open Plains from MKM set → correct art; Atraxa card ↔ commander cross-nav.
 
 ---
 

@@ -1,20 +1,14 @@
 import type { Metadata } from "next";
 
-import { EdhrecSyncNotice } from "@/components/discovery/edhrec-sync-notice";
 import { createPageMetadata } from "@/lib/seo/site";
 
 export const metadata: Metadata = createPageMetadata({
   title: "Browse commanders",
   description:
-    "Browse top EDHREC commanders by rank, salt, and popularity with detailed meta profiles.",
+    "Browse ranked commanders by popularity, salt, and deck count with detailed profiles.",
   path: "/commanders",
 });
 
 export default function CommandersLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <>
-      <EdhrecSyncNotice />
-      {children}
-    </>
-  );
+  return children;
 }

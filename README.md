@@ -63,17 +63,35 @@ Open [http://localhost:3000](http://localhost:3000) — try **Search cards** at 
 |---|---|
 | `npm run dev` | Start development server |
 | `npm run sync:scryfall` | Full Scryfall oracle_cards sync |
+| | Add `--if-changed` to skip download when bulk `updated_at` is unchanged (used by GitHub Actions daily) |
 | `npm run sync:scryfall-sets` | Sync Magic set metadata from Scryfall |
 | `npm run sync:scryfall-set-cards` | Index set membership (`--limit=`, `--codes=`) |
-| `npm run sync:edhrec-commanders` | Sync top EDHREC commander profiles (default: 500) |
+| `npm run sync:scryfall-tags` | Sync Scryfall oracle_tags bulk (`--if-changed`) |
+| `npm run sync:compute-classifications` | Recompute `card_classifications` from overrides + taggings |
+| `npm run sync:build-card-overrides` | Regenerate `scripts/data/card-overrides.json` from staple list + DB |
+| `GET /api/cards/browse` | Cards browse (tabs, sort, filters, cursor pagination) |
+| `GET /api/commanders/browse` | Commanders browse (tabs, sort, filters, cursor pagination) |
+| `GET /api/search` | Unified search (cards, commanders, sets; dedupe commander/card by slug) |
+| `npm run sync:edhrec-commanders` | Sync top EDHREC commander profiles (default: 500, HOT tier) |
+| `npm run sync:edhrec-commanders-catalog` | Fill missing catalog commander profiles (COLD tier; `--batch-size=`, `--offset=`, `--all`) |
 | `npm run sync:edhrec-cards` | Sync top EDHREC card pages (default: 2000) |
 | `npm run sync:backfill-edhrec-slugs` | Recompute `edhrec_slug` on all cards after slug rule changes |
+| `npm run sync:purge-art-series` | Remove `art_series` rows and relink EDHREC `cardId` |
 | `npm run db:migrate` | Apply Prisma migrations |
 | `npm run db:generate` | Regenerate Prisma client |
 
 ## GitHub Actions
 
-Weekly EDHREC sync (`.github/workflows/sync-edhrec.yml`): add repository secret `DATABASE_URL` (Neon pooled URL). Runs Sundays 04:00 UTC; can also be triggered manually.
+Add repository secret `DATABASE_URL` (Neon pooled URL).
+
+| Workflow | Schedule | What it runs |
+|---|---|---|
+| `.github/workflows/sync-scryfall.yml` | Daily 03:00 UTC | `sync:scryfall --if-changed` (skips download when bulk unchanged) |
+| | Sundays 04:30 UTC | `sync:scryfall-sets` + `sync:scryfall-set-cards` + `sync:scryfall-tags --if-changed` + `sync:compute-classifications` |
+| `.github/workflows/sync-edhrec.yml` | Sundays 04:00 UTC (cron commented until enabled) | HOT commanders + cards |
+| `.github/workflows/sync-edhrec-catalog.yml` | Manual / optional monthly cron | Commander catalog COLD fill |
+
+All workflows support **workflow_dispatch** for manual runs. Scryfall dispatch options: `if-changed`, `full`, `sets-only`.
 
 ## Project phases
 

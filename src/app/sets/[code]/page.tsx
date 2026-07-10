@@ -13,6 +13,8 @@ import {
   formatSetType,
   parseSetCardFilters,
 } from "@/lib/scryfall/sets";
+import { playableCatalogCardWhere } from "@/lib/scryfall/catalog-filters";
+import { formatColorIdentity } from "@/lib/display/formatters";
 import { createPageMetadata } from "@/lib/seo/site";
 
 type SetDetailPageProps = {
@@ -50,10 +52,6 @@ export async function generateMetadata({ params }: SetDetailPageProps): Promise<
   });
 }
 
-function formatColorIdentity(colors: string[]): string {
-  return colors.length > 0 ? colors.join("") : "C";
-}
-
 export default async function SetDetailPage({ params, searchParams }: SetDetailPageProps) {
   const { code } = await params;
   const setCode = code.toLowerCase();
@@ -81,6 +79,7 @@ export default async function SetDetailPage({ params, searchParams }: SetDetailP
   if (filters.colors?.length || filters.commanderLegal) {
     const cardMatches = await prisma.card.findMany({
       where: {
+        ...playableCatalogCardWhere,
         ...(filters.colors?.length
           ? {
               OR: [
@@ -117,7 +116,10 @@ export default async function SetDetailPage({ params, searchParams }: SetDetailP
   const catalogCards =
     setCards.length > 0
       ? await prisma.card.findMany({
-          where: { oracleId: { in: setCards.map((card) => card.oracleId) } },
+          where: {
+            ...playableCatalogCardWhere,
+            oracleId: { in: setCards.map((card) => card.oracleId) },
+          },
           select: {
             oracleId: true,
             edhrecSlug: true,
@@ -166,7 +168,9 @@ export default async function SetDetailPage({ params, searchParams }: SetDetailP
             {setCards.map((setCard) => {
               const catalog = catalogByOracle.get(setCard.oracleId);
               const imageUri = setCard.imageUri ?? catalog?.imageUri ?? null;
-              const detailHref = catalog?.edhrecSlug ? `/cards/${catalog.edhrecSlug}` : null;
+              const detailHref = catalog?.edhrecSlug
+                ? `/cards/${catalog.edhrecSlug}?set=${mtgSet.code}`
+                : null;
 
               return (
                 <li

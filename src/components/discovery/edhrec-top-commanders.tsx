@@ -20,7 +20,7 @@ export function EdhrecTopCommanders({ cardlists }: EdhrecTopCommandersProps) {
           Top commanders
         </h2>
         <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-          No EDHREC commander data available for this card.
+          Popularity data for commanders playing this card is not available yet.
         </p>
       </section>
     );

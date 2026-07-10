@@ -5,7 +5,13 @@ import { config } from "dotenv";
 
 import { SyncSource, SyncStatus } from "../../src/generated/prisma/client";
 import type { PrismaClient } from "../../src/generated/prisma/client";
-import type { ScryfallBulkData, ScryfallCard } from "../../src/lib/scryfall/types";
+import {
+  fetchBulkMetadata,
+  getBulkDownloadUrl,
+  ORACLE_CARDS_BULK_TYPE,
+  SCRYFALL_USER_AGENT,
+} from "../../src/lib/scryfall/bulk-client";
+import type { ScryfallCard } from "../../src/lib/scryfall/types";
 import {
   getCmc,
   getImageUri,
@@ -13,27 +19,40 @@ import {
   normalizeSearchName,
   toEdhrecSlug,
 } from "../../src/lib/scryfall/card-utils";
+import { shouldIndexScryfallCard } from "../../src/lib/scryfall/catalog-filters";
 
 // Must run before importing db.ts (that module reads DATABASE_URL at load time)
 config({ path: ".env.local" });
 config({ path: ".env" });
 
 const BATCH_SIZE = 200;
-const BULK_TYPE = "oracle_cards";
+const JOB_TYPE = "oracle_cards_full";
 
-async function fetchBulkMetadata(): Promise<ScryfallBulkData> {
-  const response = await fetch(
-    `https://api.scryfall.com/bulk-data/${BULK_TYPE}`,
-    {
-      headers: { Accept: "application/json", "User-Agent": "EDHForge/1.0" },
+function parseArgs() {
+  return {
+    ifChanged: process.argv.includes("--if-changed"),
+  };
+}
+
+async function getLastSuccessfulBulkUpdatedAt(
+  prisma: PrismaClient,
+): Promise<string | null> {
+  const last = await prisma.syncLog.findFirst({
+    where: {
+      source: SyncSource.SCRYFALL,
+      jobType: JOB_TYPE,
+      status: SyncStatus.SUCCESS,
     },
-  );
+    orderBy: { completedAt: "desc" },
+    select: { errors: true },
+  });
 
-  if (!response.ok) {
-    throw new Error(`Scryfall bulk metadata failed: ${response.status}`);
+  if (!last?.errors || typeof last.errors !== "object" || Array.isArray(last.errors)) {
+    return null;
   }
 
-  return response.json() as Promise<ScryfallBulkData>;
+  const bulkUpdatedAt = (last.errors as Record<string, unknown>).bulkUpdatedAt;
+  return typeof bulkUpdatedAt === "string" ? bulkUpdatedAt : null;
 }
 
 function mapCard(card: ScryfallCard) {
@@ -86,6 +105,7 @@ async function processBulkStream(
   let batch: ReturnType<typeof mapCard>[] = [];
   let processed = 0;
   let skipped = 0;
+  let excluded = 0;
 
   for await (const line of lines) {
     const trimmed = line.trim();
@@ -104,6 +124,11 @@ async function processBulkStream(
       continue;
     }
 
+    if (!shouldIndexScryfallCard(card)) {
+      excluded += 1;
+      continue;
+    }
+
     batch.push(mapCard(card));
 
     if (batch.length >= BATCH_SIZE) {
@@ -119,37 +144,69 @@ async function processBulkStream(
     processed += batch.length;
   }
 
-  return { processed, skipped };
+  return { processed, skipped, excluded };
 }
 
 async function main() {
+  const { ifChanged } = parseArgs();
   const { createScriptPrismaClient } = await import("../../src/lib/db");
   const prisma = createScriptPrismaClient();
+
+  console.log("Fetching Scryfall bulk metadata...");
+  const bulk = await fetchBulkMetadata(ORACLE_CARDS_BULK_TYPE);
+
+  if (ifChanged) {
+    const lastBulkUpdatedAt = await getLastSuccessfulBulkUpdatedAt(prisma);
+    if (lastBulkUpdatedAt && lastBulkUpdatedAt === bulk.updated_at) {
+      console.log(
+        `Bulk unchanged (${bulk.updated_at}). Skipping download (--if-changed).`,
+      );
+      await prisma.syncLog.create({
+        data: {
+          source: SyncSource.SCRYFALL,
+          jobType: JOB_TYPE,
+          status: SyncStatus.SUCCESS,
+          completedAt: new Date(),
+          recordsProcessed: 0,
+          errors: {
+            skipped: true,
+            reason: "bulk_unchanged",
+            bulkUpdatedAt: bulk.updated_at,
+          },
+        },
+      });
+      await prisma.$disconnect();
+      return;
+    }
+  }
 
   const syncLog = await prisma.syncLog.create({
     data: {
       source: SyncSource.SCRYFALL,
-      jobType: "oracle_cards_full",
+      jobType: JOB_TYPE,
       status: SyncStatus.RUNNING,
     },
   });
 
   try {
-    console.log("Fetching Scryfall bulk metadata...");
-    const bulk = await fetchBulkMetadata();
-    const downloadUrl = bulk.jsonl_download_uri ?? bulk.download_uri;
-    console.log(`Downloading ${BULK_TYPE} (updated ${bulk.updated_at})...`);
+    const downloadUrl = getBulkDownloadUrl(bulk);
+    console.log(`Downloading ${ORACLE_CARDS_BULK_TYPE} (updated ${bulk.updated_at})...`);
 
     const response = await fetch(downloadUrl, {
-      headers: { "User-Agent": "EDHForge/1.0" },
+      headers: { "User-Agent": SCRYFALL_USER_AGENT },
     });
 
     if (!response.ok || !response.body) {
       throw new Error(`Download failed: ${response.status}`);
     }
 
-    const { processed, skipped } = await processBulkStream(prisma, response.body);
-    console.log(`\nDone. ${processed} cards upserted, ${skipped} lines skipped.`);
+    const { processed, skipped, excluded } = await processBulkStream(prisma, response.body);
+    const purged = await prisma.card.deleteMany({
+      where: { layout: "art_series" },
+    });
+    console.log(
+      `\nDone. ${processed} cards upserted, ${skipped} lines skipped, ${excluded} excluded layouts, ${purged.count} art_series purged.`,
+    );
 
     await prisma.syncLog.update({
       where: { id: syncLog.id },
@@ -157,7 +214,12 @@ async function main() {
         status: SyncStatus.SUCCESS,
         completedAt: new Date(),
         recordsProcessed: processed,
-        errors: skipped > 0 ? { skipped } : undefined,
+        errors: {
+          bulkUpdatedAt: bulk.updated_at,
+          ...(skipped > 0 || excluded > 0 || purged.count > 0
+            ? { skipped, excluded, purged: purged.count }
+            : {}),
+        },
       },
     });
   } catch (error) {

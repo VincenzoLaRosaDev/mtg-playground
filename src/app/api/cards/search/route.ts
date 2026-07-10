@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/db";
+import {
+  findPlayableCardByEdhrecSlug,
+  playableCatalogCardWhere,
+} from "@/lib/scryfall/catalog-filters";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -15,6 +19,7 @@ export async function GET(request: Request) {
 
   const cards = await prisma.card.findMany({
     where: {
+      ...playableCatalogCardWhere,
       OR: [
         { searchName: { startsWith: searchName } },
         { searchName: { contains: searchName } },

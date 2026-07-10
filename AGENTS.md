@@ -9,7 +9,7 @@
 - **Repo:** https://github.com/VincenzoLaRosaDev/edhforge
 - **Language (MVP):** English only — UI, DB fields, enums
 - **Format (MVP):** Commander only (other formats → backlog)
-- **Current phase:** Phase 1 complete → starting Phase 2
+- **Current phase:** Phase 1 complete → **Phase 1.5** (discovery consistency) before Phase 2
 
 ## Required reading (in order)
 
@@ -20,6 +20,7 @@
 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | Phase checklist with status — update as tasks complete |
 | [`docs/DECISIONS.md`](docs/DECISIONS.md) | Decision log — append new entries, never delete history |
 | [`docs/UI.md`](docs/UI.md) | Shell, tokens, discovery components — refine at polish pass |
+| [`docs/PROJECT.md`](docs/PROJECT.md) § Discovery consistency | Phase 1.5 browse/search/detail spec (read before 1.5 work) |
 
 ## Documentation maintenance (mandatory)
 
@@ -56,8 +57,10 @@ Do not rely on chat history — if it is not in these files, it does not exist f
 ## Quick status
 
 ```
-Phase 0 ✅  Scryfall sync, card search API, /cards page
+Phase 0 ✅  Scryfall sync, card search, oracle tags + classifications
 Phase 1 ✅  EDHREC discovery (commanders, cards, sets)
+Phase 1.4 ✅  Commander catalog EDHREC sync (run batched before 1.5)
+Phase 1.5 ⬜  Discovery consistency (browse, search, detail) — see docs/PROJECT.md
 Phase 2 ⬜  Deck builder, import, auth
 Phase 3 ⬜  Analysis + meta comparison
 Phase 4 ⬜  Community (publish, vote, rankings)

@@ -1,20 +1,14 @@
 import type { Metadata } from "next";
 
-import { EdhrecSyncNotice } from "@/components/discovery/edhrec-sync-notice";
 import { createPageMetadata } from "@/lib/seo/site";
 
 export const metadata: Metadata = createPageMetadata({
-  title: "Search cards",
+  title: "Browse cards",
   description:
-    "Search the Commander-legal card catalog with Scryfall data and EDHREC stats on detail pages.",
+    "Browse popular staples and the full Commander-legal card catalog with filters and sort.",
   path: "/cards",
 });
 
 export default function CardsLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <>
-      <EdhrecSyncNotice />
-      {children}
-    </>
-  );
+  return children;
 }

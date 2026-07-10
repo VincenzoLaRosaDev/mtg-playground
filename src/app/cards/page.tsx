@@ -1,124 +1,185 @@
 "use client";
 
-import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
-import { CardImage } from "@/components/discovery/card-image";
+import { BrowseTabs } from "@/components/discovery/browse-tabs";
+import {
+  buildCardBrowseSearchParams,
+  CardBrowseToolbar,
+  defaultCardBrowseToolbarState,
+  type CardBrowseToolbarState,
+} from "@/components/discovery/card-browse-toolbar";
+import { CardBrowseRow } from "@/components/discovery/card-browse-row";
+import { LoadMoreButton } from "@/components/discovery/load-more-button";
 import { PageShell } from "@/components/layout/page-shell";
+import type { CardBrowseItem, CardBrowseTab } from "@/lib/browse/cards-shared";
+import { getCardBrowseSortOptions } from "@/lib/browse/cards-shared";
 
-type CardResult = {
-  id: string;
-  name: string;
-  edhrecSlug: string | null;
-  typeLine: string;
-  cmc: number;
-  colorIdentity: string[];
-  imageUri: string | null;
-  isCommander: boolean;
-};
+const CARD_TABS = [
+  { id: "popular", label: "Popular" },
+  { id: "all", label: "All cards" },
+] as const;
 
 export default function CardsPage() {
-  const [query, setQuery] = useState("");
-  const [cards, setCards] = useState<CardResult[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [tab, setTab] = useState<CardBrowseTab>("popular");
+  const [toolbar, setToolbar] = useState<CardBrowseToolbarState>(
+    defaultCardBrowseToolbarState("popular"),
+  );
+  const [items, setItems] = useState<CardBrowseItem[]>([]);
+  const [total, setTotal] = useState(0);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const hasSearchQuery = query.trim().length >= 2;
-  const visibleCards = hasSearchQuery ? cards : [];
 
-  useEffect(() => {
-    if (!hasSearchQuery) {
-      return;
-    }
+  const fetchBrowse = useCallback(
+    async (options: {
+      tab: CardBrowseTab;
+      toolbarState: CardBrowseToolbarState;
+      cursor?: string | null;
+      append?: boolean;
+      signal?: AbortSignal;
+    }) => {
+      const isAppend = options.append === true;
 
-    const controller = new AbortController();
-    const timeout = setTimeout(async () => {
-      setLoading(true);
+      if (isAppend) {
+        setLoadingMore(true);
+      } else {
+        setLoading(true);
+      }
       setError(null);
 
       try {
-        const response = await fetch(
-          `/api/cards/search?q=${encodeURIComponent(query)}`,
-          { signal: controller.signal },
+        const params = buildCardBrowseSearchParams(
+          options.tab,
+          options.toolbarState,
+          options.cursor,
         );
 
+        const response = await fetch(`/api/cards/browse?${params.toString()}`, {
+          signal: options.signal,
+        });
+
         if (!response.ok) {
-          throw new Error("Search failed");
+          throw new Error("Failed to load cards");
         }
 
-        const data = (await response.json()) as { cards: CardResult[] };
-        setCards(data.cards);
+        const data = (await response.json()) as {
+          items: CardBrowseItem[];
+          total: number;
+          nextCursor: string | null;
+        };
+
+        setTotal(data.total);
+        setNextCursor(data.nextCursor);
+        setItems((current) => (isAppend ? [...current, ...data.items] : data.items));
       } catch (err) {
         if (err instanceof Error && err.name !== "AbortError") {
           setError(err.message);
         }
       } finally {
         setLoading(false);
+        setLoadingMore(false);
       }
-    }, 250);
+    },
+    [],
+  );
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => {
+      void fetchBrowse({
+        tab,
+        toolbarState: toolbar,
+        signal: controller.signal,
+      });
+    }, toolbar.query.trim().length >= 2 ? 250 : 0);
 
     return () => {
       clearTimeout(timeout);
       controller.abort();
     };
-  }, [hasSearchQuery, query]);
+  }, [fetchBrowse, tab, toolbar]);
+
+  function handleTabChange(nextTabId: string) {
+    const nextTab = nextTabId === "all" ? "all" : "popular";
+    setTab(nextTab);
+    setItems([]);
+    setNextCursor(null);
+    setToolbar(defaultCardBrowseToolbarState(nextTab));
+  }
+
+  function handleToolbarChange(patch: Partial<CardBrowseToolbarState>) {
+    setToolbar((current) => {
+      const next = { ...current, ...patch };
+
+      if (patch.sort) {
+        const validSorts = getCardBrowseSortOptions(tab).map((option) => option.value);
+        if (!validSorts.includes(patch.sort)) {
+          next.sort = tab === "popular" ? "inclusion" : "name";
+        }
+      }
+
+      return next;
+    });
+    setItems([]);
+    setNextCursor(null);
+  }
+
+  function handleLoadMore() {
+    if (!nextCursor || loadingMore) return;
+
+    void fetchBrowse({
+      tab,
+      toolbarState: toolbar,
+      cursor: nextCursor,
+      append: true,
+    });
+  }
+
+  const tabDescription =
+    tab === "popular"
+      ? "Top cards by deck inclusion."
+      : "Full playable catalog.";
 
   return (
     <PageShell
-      title="Card Search"
-      description="Search the Scryfall catalog synced to EDHForge."
+      title="Cards"
+      description="Browse popular staples or the full Commander catalog."
     >
-      <input
-        type="search"
-        value={query}
-        onChange={(event) => setQuery(event.target.value)}
-        placeholder="Search cards (min. 2 characters)..."
-        className="w-full rounded-lg border border-zinc-300 bg-white px-4 py-3 text-base shadow-sm outline-none ring-0 focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-950"
-        autoFocus
-      />
+      <BrowseTabs tabs={[...CARD_TABS]} activeTab={tab} onChange={handleTabChange} />
 
-      {loading && <p className="mt-4 text-sm text-zinc-500">Searching...</p>}
+      <div className="mt-4">
+        <CardBrowseToolbar tab={tab} state={toolbar} onChange={handleToolbarChange} />
+      </div>
+
+      <p className="mt-4 text-sm text-zinc-500">
+        {tabDescription}
+        {total > 0 ? ` Showing ${items.length.toLocaleString()} of ${total.toLocaleString()}.` : ""}
+      </p>
+
+      {loading && <p className="mt-4 text-sm text-zinc-500">Loading...</p>}
       {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
 
       <ul className="mt-6 space-y-3">
-        {visibleCards.map((card) => (
-          <li
-            key={card.id}
-            className="flex items-center gap-4 rounded-lg border border-zinc-200 bg-white p-3 shadow-sm dark:border-zinc-800 dark:bg-zinc-950"
-          >
-            {card.imageUri ? (
-              <CardImage src={card.imageUri} alt={card.name} variant="thumbnail" />
-            ) : (
-              <div className="flex h-[62px] w-[44px] shrink-0 items-center justify-center rounded border border-zinc-200 bg-zinc-100 text-xs text-zinc-400 dark:border-zinc-800 dark:bg-zinc-900">
-                ?
-              </div>
-            )}
-            <div>
-              {card.edhrecSlug ? (
-                <Link
-                  href={`/cards/${card.edhrecSlug}`}
-                  className="font-medium hover:underline"
-                >
-                  {card.name}
-                </Link>
-              ) : (
-                <p className="font-medium">{card.name}</p>
-              )}
-              <p className="text-sm text-zinc-600">{card.typeLine}</p>
-              <p className="text-xs text-zinc-500">
-                CMC {card.cmc}
-                {card.isCommander ? " · Commander" : ""}
-                {card.colorIdentity.length > 0
-                  ? ` · ${card.colorIdentity.join("")}`
-                  : ""}
-              </p>
-            </div>
-          </li>
+        {items.map((card) => (
+          <CardBrowseRow key={card.id} card={card} showCoverageBadge={tab === "all"} />
         ))}
       </ul>
 
-      {!loading && hasSearchQuery && visibleCards.length === 0 && (
-        <p className="mt-6 text-sm text-zinc-500">No cards found.</p>
+      {!loading && items.length === 0 && !error && (
+        <p className="mt-6 text-sm text-zinc-500">
+          {tab === "popular"
+            ? "No popular cards match these filters."
+            : "No cards match these filters."}
+        </p>
       )}
+
+      <LoadMoreButton
+        onClick={handleLoadMore}
+        loading={loadingMore}
+        disabled={!nextCursor || loading}
+      />
     </PageShell>
   );
 }

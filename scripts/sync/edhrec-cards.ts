@@ -14,6 +14,10 @@ import {
 } from "../../src/lib/edhrec/client";
 import { mapCardData } from "../../src/lib/edhrec/parse";
 import type { EdhrecCardList, EdhrecListEntry } from "../../src/lib/edhrec/types";
+import {
+  playableCatalogCardWhere,
+  resolvePlayableCardId,
+} from "../../src/lib/scryfall/catalog-filters";
 
 config({ path: ".env.local" });
 config({ path: ".env" });
@@ -108,7 +112,7 @@ async function discoverCardSlugs(
   }
 
   const localCards = await prisma.card.findMany({
-    where: { edhrecSlug: { not: null } },
+    where: { edhrecSlug: { not: null }, ...playableCatalogCardWhere },
     select: { edhrecSlug: true, name: true },
     orderBy: { name: "asc" },
     take: limit * 2,
@@ -128,12 +132,7 @@ async function discoverCardSlugs(
 }
 
 async function resolveCardId(prisma: PrismaClient, slug: string): Promise<string | null> {
-  const card = await prisma.card.findFirst({
-    where: { edhrecSlug: slug },
-    select: { id: true },
-  });
-
-  return card?.id ?? null;
+  return resolvePlayableCardId(prisma, slug);
 }
 
 async function main() {

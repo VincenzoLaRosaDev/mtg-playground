@@ -1,8 +1,8 @@
 # EDHForge — UI guide
 
-Living reference for layout and components. **Phase 1** discovery pages use this shell; **Phase 2+** deck workspace extends it (new sections below as built).
+Living reference for layout and components. **Phase 1.5** discovery consistency spec: `docs/PROJECT.md` § Discovery consistency. Visual polish (1.5.9) follows behaviour work.
 
-> Status: functional shell, not final visual design. Polish pass after Phase 1 demo data is solid.
+> Status: functional shell → **behaviour pass** (browse, search, detail) before final styling.
 
 ## Principles
 
@@ -11,12 +11,15 @@ Living reference for layout and components. **Phase 1** discovery pages use this
 3. **English only** (MVP) — labels, metadata, empty states.
 4. **Attribution** — Scryfall + EDHREC links in footer; card images via Scryfall URLs.
 5. **Progressive density** — discovery lists stay scannable; detail pages stack sections vertically.
+6. **Oracle first** — card always exists at `/cards/{slug}`; popularity stats are part of the catalog with neutral empty states.
+7. **Parallel commander URLs** — `/commanders/{slug}` uses the same `EntityDetailTabs` (Card | Commander) as the card route; cross-route navigation, not duplicate layouts.
+8. **Dev-only source transparency** — `CatalogDebugBadge` in development shows sync health; production UI does not surface upstream source names except footer attribution.
 
 ## Layout
 
 | Component | Path | Role |
 |---|---|---|
-| `AppHeader` | `src/components/layout/app-header.tsx` | Logo, main nav, active route highlight |
+| `AppHeader` | `src/components/layout/app-header.tsx` | Logo, main nav, **global search**, active route highlight |
 | `AppFooter` | `src/components/layout/app-footer.tsx` | Attribution + links |
 | `PageShell` | `src/components/layout/page-shell.tsx` | `max-w-5xl` container, breadcrumbs, H1 + description |
 | `mainNav` | `src/lib/navigation.ts` | Single source for header links |
@@ -51,6 +54,68 @@ Tailwind zinc scale for borders, muted text, nav states. Fonts: Geist via Next l
 
 **Polish backlog:** semantic colors (mana, salt warning), consistent `text-muted` utility, light/dark toggle (today: system only).
 
+## Browse list pattern (Phase 1.5)
+
+Reusable structure for `/cards`, `/commanders`, `/sets`:
+
+```
+PageShell
+  [EdhrecSyncNotice]        ← cards/commanders layouts only
+  Tabs (where applicable)
+  Toolbar: sort | filters
+  Result list (CardRow / CommanderRow / SetRow)
+  [Load more] if nextCursor
+```
+
+| Page | Tabs | Default |
+|---|---|---|
+| `/cards` | Popular · All | Popular |
+| `/commanders` | Ranked · All | Ranked |
+| `/sets` | — | Recent releases |
+
+**Load more:** append to list; show loading on button. Empty tab → short explanation + link to other tab if relevant.
+
+**Commander badge:** removed from browse lists — catalog completeness is implied; use **Popularity data** filters when needed.
+
+**Dev panel:** `CatalogDebugBadge` (fixed top-left, development only) — collapsible via ⛭ icon; popularity sync status, last success, source layering note.
+
+**Dev coverage badges:** violet “No EDHREC data/meta” pills on browse **All** tabs when popularity overlay is missing (development only).
+
+## Global search (navbar)
+
+- Combobox or `/search?q=` results page
+- Sections: **Cards**, **Commanders**, **Sets**
+- Same slug in card + commander → one commander hit + one card hit, or single row with both links (pick one pattern in impl)
+- Min 2 characters; debounce 250ms (match existing)
+
+## Detail pages (Phase 1.5)
+
+### `/cards/[slug]`
+
+```
+[StaleCacheBanner?]
+Hero: image (respect ?set= override)
+Stats | Oracle | Keywords
+[Tab: Card | Commander]  ← Commander tab only if is_commander + EDHREC profile
+  Card: Top commanders, Relatives, (future: synergy)
+  Commander: themes, top cards, similar (reuse discovery components)
+Link: "View commander page" → /commanders/{slug}
+```
+
+### `/commanders/[slug]`
+
+```
+[StaleCacheBanner?]
+Same hero + EDHREC stats block
+Themes | Top cards | Similar
+Link: "View card page" → /cards/{slug}
+If no EDHREC: card shell + banner (not 404)
+```
+
+### Set → card navigation
+
+Set list links: `/cards/{slug}?set={setCode}` so hero image matches list thumbnail.
+
 ## Discovery components
 
 Folder: `src/components/discovery/`
@@ -65,16 +130,27 @@ Folder: `src/components/discovery/`
 | `StaleCacheBanner` | Detail pages — failed on-demand EDHREC refresh |
 | `EdhrecSyncNotice` | Browse routes — weekly sync failed or stale (&gt;8d) |
 
-Pattern: **server page** loads data via `src/lib/edhrec/cache.ts`, passes props to presentational components. No fetch inside client components except future interactive search.
+**Phase 1.5 (added):** `BrowseTabs`, `LoadMoreButton`, `CardBrowseToolbar`, `CardBrowseRow`, `CommanderBrowseToolbar`, `CommanderBrowseRow`, `SetBrowseToolbar`, `SetBrowseRow`, `GlobalSearch`, `CardDetailTabs`, `CardCommanderPanel`, `DetailCrossLinks`, `NoEdhrecMetaBanner`.
 
-## Routes (Phase 1)
+Pattern: **server page** loads data via cache/Prisma; client islands for tabs, search, load more. No live EDHREC/Scryfall in browser except via our APIs.
+
+## Routes
 
 | Route | Layout notes |
 |---|---|
 | `/` | Marketing-lite home; links into discovery |
-| `/cards`, `/cards/[slug]` | Search + grid; detail with EDHREC sections |
-| `/commanders`, `/commanders/[slug]` | Browse + profile (rank, salt, tags, top cards) |
-| `/sets`, `/sets/[code]` | Browse + card list with rarity/color/commander filters |
+| `/search` | Unified search results (Phase 1.5) |
+| `/cards` | Tabs + browse; not search-only |
+| `/cards/[slug]` | Oracle detail + optional commander tab; `?set=` image |
+| `/commanders` | Ranked / All tabs + load more |
+| `/commanders/[slug]` | Commander profile; parallel to card |
+| `/sets` | Paginated browse + sort/filters |
+| `/sets/[code]` | Card list with filters; links include `?set=` |
+
+## Future UI (backlog)
+
+- **Printings tab** on card detail — grid of arts from `set_cards` / future printings table; pick default view
+- Command palette (`⌘K`) — optional upgrade to global search
 
 ## Phase 2+ (to document when built)
 
@@ -88,4 +164,8 @@ Pattern: **server page** loads data via `src/lib/edhrec/cache.ts`, passes props 
 - [ ] Breadcrumbs on detail pages
 - [ ] Loading / empty / stale states considered
 - [ ] No live external API in Server Component render
+- [ ] Browse tabs + load more on list pages
+- [x] Global search in header
+- [x] Card/commander cross-links and commander tab
+- [ ] `?set=` propagated from set pages
 - [ ] Footer attribution unchanged unless product decision says otherwise

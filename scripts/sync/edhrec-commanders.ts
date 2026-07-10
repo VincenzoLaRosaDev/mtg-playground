@@ -13,6 +13,7 @@ import {
 } from "../../src/lib/edhrec/client";
 import { mapCommanderProfile } from "../../src/lib/edhrec/parse";
 import type { CommanderListEntry } from "../../src/lib/edhrec/types";
+import { resolvePlayableCardId } from "../../src/lib/scryfall/catalog-filters";
 
 config({ path: ".env.local" });
 config({ path: ".env" });
@@ -85,12 +86,7 @@ async function discoverExpansionSlugs(
 }
 
 async function resolveCardId(prisma: PrismaClient, slug: string): Promise<string | null> {
-  const card = await prisma.card.findFirst({
-    where: { edhrecSlug: slug },
-    select: { id: true },
-  });
-
-  return card?.id ?? null;
+  return resolvePlayableCardId(prisma, slug);
 }
 
 async function syncCommanderBatch(

@@ -25,6 +25,18 @@ enum EdhrecSyncTier {
   COLD
 }
 
+enum OracleTagWeight {
+  very_strong
+  strong
+  median
+  weak
+}
+
+enum ClassificationSource {
+  OVERRIDE
+  ORACLE_TAG
+}
+
 model Card {
   id            String   @id
   oracleId      String   @unique @map("oracle_id")
@@ -150,4 +162,41 @@ model SyncLog {
   errors           Json?
 
   @@map("sync_logs")
+}
+
+model ScryfallOracleTag {
+  id        String   @id
+  slug      String   @unique
+  label     String
+  parentIds String[] @default([]) @map("parent_ids")
+  syncedAt  DateTime @default(now()) @map("synced_at")
+
+  taggings CardOracleTagging[]
+
+  @@map("scryfall_oracle_tags")
+}
+
+model CardOracleTagging {
+  id       String          @id @default(cuid())
+  oracleId String          @map("oracle_id")
+  tagId    String          @map("tag_id")
+  weight   OracleTagWeight
+
+  tag ScryfallOracleTag @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([oracleId, tagId])
+  @@index([oracleId])
+  @@index([tagId])
+  @@map("card_oracle_taggings")
+}
+
+model CardClassification {
+  oracleId   String               @id @map("oracle_id")
+  roles      String[]
+  themes     String[]
+  source     ClassificationSource
+  tagSlugs   String[]             @default([]) @map("tag_slugs")
+  computedAt DateTime             @default(now()) @map("computed_at")
+
+  @@map("card_classifications")
 }

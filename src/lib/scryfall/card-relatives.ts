@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 
 import { parseSubtypes, subtypeTypeLineFilter } from "@/lib/scryfall/type-utils";
+import { playableCatalogCardWhere } from "@/lib/scryfall/catalog-filters";
 
 const DEFAULT_LIMIT = 16;
 
@@ -24,6 +25,7 @@ export async function getCardRelativesBySubtype(
 
   const relatives = await prisma.card.findMany({
     where: {
+      ...playableCatalogCardWhere,
       id: { not: card.id },
       legalities: {
         path: ["commander"],

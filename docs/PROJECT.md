@@ -1,6 +1,6 @@
 # EDHForge — Product Specification
 
-> Last updated: 2026-07-09 · Phase 0 complete
+> Last updated: 2026-07-10 · Phase 1 complete → Phase 1.5 (discovery consistency) next
 
 ## Vision
 
@@ -66,10 +66,15 @@ PublicationRating: 1 per user per publication (power, budget, originality 1–10
 
 **Discovery (public, no login)**
 
-- Search/browse: cards, commanders, sets
-- Card page: oracle, image, top commanders (EDHREC), synergy cards, relatives by subtype
-- Commander page: rank, salt, avg curve, top cards, themes, similar commanders
-- Set page: cards with filters
+- **Global search** (navbar): cards + commanders (+ sets in results); dedupe by `edhrec_slug`
+- **Browse** with default lists, sort, filters, and pagination (not search-only empty states)
+- **Card page** (`/cards/{slug}`): oracle canonical; commander meta via tab when applicable
+- **Commander page** (`/commanders/{slug}`): parallel route; cross-link to card view
+- **Set page**: card list with filters; links to card detail preserve set printing context (`?set=`)
+- Card page sections: oracle, EDHREC (top commanders, synergy when built), relatives by subtype
+- Commander page sections: rank, salt, themes, top cards, similar commanders
+
+See [Discovery consistency (Phase 1.5)](#discovery-consistency-phase-15) for browse/search/detail behaviour.
 
 **Deck workspace (auth required to save)**
 
@@ -124,6 +129,99 @@ Priority order: (a) mana curve, (c) functional roles, (b) staples missing, (e) c
 ### Nice-to-have
 
 - UI translations, LLM deck descriptions, deck diff, API pubblica, similar commanders page
+- **Card Printings tab** on detail page — all reprints/arts per oracle (see [Printing context](#printing-context-set--future-printings-tab))
+
+## Discovery consistency (Phase 1.5)
+
+**Goal:** One coherent mental model before visual polish. Oracle card is the canonical entity; EDHREC meta and set printings attach to it.
+
+### Canonical identity
+
+| Concept | Key | Canonical URL |
+|---|---|---|
+| Oracle card | `cards.edhrec_slug` (or `oracle_id` internally) | `/cards/{slug}` |
+| Commander meta | same slug when card is a commander | `/commanders/{slug}` **parallel** |
+| Set printing | `set_cards` row (oracle + set + collector #) | context via `?set={code}` on card URL |
+
+**Catalog scope:** Scryfall `art_series` layouts are **excluded** (not playable; caused slug collisions). All browse/search/detail uses playable catalog rows only.
+
+**Slug rule:** one name → one `edhrec_slug` on the oracle row. Commander and card share the slug when the card is commander-legal. When multiple oracle rows share a slug, resolution prefers the commander-legal playable card.
+
+### Global search (navbar)
+
+Primary entry point for “find a card/commander”.
+
+- **Scope:** unified — cards (catalog), commanders (EDHREC profile + catalog fallback), sets (name/code)
+- **Results:** grouped (Cards / Commanders / Sets); dedupe card vs commander when same slug
+- **Destination:** card result → `/cards/{slug}`; commander result → `/commanders/{slug}` or `/cards/{slug}?view=commander` (implementation choice; both routes stay valid)
+- **Route:** `/search?q=` and/or header combobox; section browse pages keep local filters but are not the only search UX
+
+### Cards browse (`/cards`)
+
+**Not search-only.** Default content on load.
+
+| Tab | Data source | Default sort | Notes |
+|---|---|---|---|
+| **Popular** | `edhrec_card_data` (HOT + WARM) | `inclusion` or `num_decks` desc | Badge if no EDHREC row |
+| **All cards** | `cards` (commander-legal filter optional) | name asc | Full catalog |
+
+**Shared:** pagination (cursor), sort options, filters (color, CMC band, type contains, commander-legal, has EDHREC data). Search within browse narrows current tab or uses global search.
+
+### Commanders browse (`/commanders`)
+
+| Tab | Data source | Default sort | Notes |
+|---|---|---|---|
+| **Ranked** | `edhrec_commander_profiles` where `rank IS NOT NULL` | `rank` asc | EDHREC top list; paginated |
+| **All commanders** | Union: EDHREC profiles (rank nulls last) + catalog `cards.is_commander` without profile | `num_decks` desc, then name | **Every** catalog commander listed; badge **“No EDHREC meta”** when profile missing |
+
+Search: EDHREC names first; **All** tab always includes full catalog with badges (not hidden until synced).
+
+### Sets browse (`/sets`)
+
+- **Default:** all sets, `releasedAt` desc
+- **Pagination:** required (~733 sets; today capped at 60)
+- **Sort:** release date, name, card count
+- **Filters:** set type (commander, expansion, masters, …), digital yes/no, indexed only (has `set_cards`)
+
+Set detail (`/sets/{code}`) unchanged in spirit; improve pagination on card list if &gt;500.
+
+### Pagination pattern (all browse APIs)
+
+- Request: `limit` (default 50, max 100), `cursor`, `sort`, `order`, filters
+- Response: `{ items, total, nextCursor }`
+- UI: **Load more** button (MVP); infinite scroll optional later
+
+### Detail pages — parallel routes + unified content
+
+**`/cards/{slug}`** — always renders oracle card (Scryfall). Never `notFound` if card exists in catalog.
+
+| Section | Source |
+|---|---|
+| Image, type, oracle, keywords | `cards` |
+| EDHREC salt, top commanders | `edhrec_card_data` via cache (empty state if missing) |
+| Relatives by subtype | `cards` local query |
+| **Commander tab** (if `is_commander` and EDHREC profile exists) | same sections as commander page: rank, salt, themes, top cards, similar |
+
+**`/commanders/{slug}`** — kept as **parallel route** (SEO + EDHREC-like URLs). Same underlying data; prominent link “View as card”. If no EDHREC profile but card exists in catalog → show card shell + banner (no hard 404).
+
+**Cross-links:** both pages link to each other when slug is shared.
+
+### Printing context (`?set=`)
+
+**Problem:** `cards.imageUri` is default oracle printing; set list shows correct art in `set_cards.imageUri`.
+
+**MVP (Phase 1.5):** Set detail links to `/cards/{slug}?set={code}`. Card detail reads `set` searchParam; if `set_cards` has row for `(slug→oracle, set)`, use that `imageUri` for hero image. Fallback: oracle image.
+
+**Future — Printings tab (documented, not Phase 1.5):** Tab on card detail listing all indexed printings (from `set_cards` or future `card_printings` table); user picks art; optional URL `/cards/{slug}/prints/{id}`. See `docs/ROADMAP.md` Phase 1.5 backlog.
+
+### Empty / partial data UX
+
+| Situation | Behaviour |
+|---|---|
+| Card in catalog, no EDHREC | Card page works; EDHREC sections show “not cached yet” |
+| Commander in catalog, no EDHREC profile | Commander route + **All** browse row: card shell + badge **“No EDHREC meta”**; ranked tab omits or marks unranked |
+| EDHREC stale | Existing `StaleCacheBanner` + `EdhrecSyncNotice` |
+| Set not indexed | Set metadata + sync hint (unchanged) |
 
 ## Analysis engine
 

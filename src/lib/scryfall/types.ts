@@ -25,6 +25,34 @@ export type ScryfallBulkData = {
   updated_at: string;
   download_uri: string;
   jsonl_download_uri?: string;
+  content_encoding?: string;
+};
+
+export type ScryfallOracleTagWeight =
+  | "very_strong"
+  | "strong"
+  | "median"
+  | "weak";
+
+export type ScryfallOracleTag = {
+  object: "tag";
+  id: string;
+  slug: string;
+  label: string;
+  uri: string;
+  type: "oracle" | "illustration";
+  description?: string | null;
+  parent_ids?: string[] | null;
+  child_ids?: string[] | null;
+  aliases?: string[] | null;
+  taggings: ScryfallOracleTagging[];
+};
+
+export type ScryfallOracleTagging = {
+  illustration_id?: string | null;
+  oracle_id?: string | null;
+  weight: ScryfallOracleTagWeight;
+  annotation?: string | null;
 };
 
 export type ScryfallSet = {

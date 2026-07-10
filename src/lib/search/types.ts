@@ -1,0 +1,36 @@
+export type GlobalSearchCardResult = {
+  slug: string | null;
+  name: string;
+  typeLine: string;
+  cmc: number;
+  colorIdentity: string[];
+  imageUri: string | null;
+  isCommander: boolean;
+};
+
+export type GlobalSearchCommanderResult = {
+  slug: string;
+  name: string;
+  rank: number | null;
+  imageUri: string | null;
+  typeLine: string | null;
+};
+
+export type GlobalSearchSetResult = {
+  code: string;
+  name: string;
+  setType: string;
+  iconUri: string | null;
+  releasedAt: string | null;
+};
+
+export type GlobalSearchResponse = {
+  query: string;
+  cards: GlobalSearchCardResult[];
+  commanders: GlobalSearchCommanderResult[];
+  sets: GlobalSearchSetResult[];
+};
+
+export const GLOBAL_SEARCH_MIN_QUERY_LENGTH = 2;
+export const GLOBAL_SEARCH_DEFAULT_LIMIT = 8;
+export const GLOBAL_SEARCH_MAX_LIMIT = 20;

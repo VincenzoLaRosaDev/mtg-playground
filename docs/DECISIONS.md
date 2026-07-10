@@ -244,3 +244,78 @@ Format for new entries:
 **Decision:** Add `createPageMetadata()` + per-route metadata; dynamic `/sitemap.xml` (static routes + EDHREC HOT entities + sets) and `/robots.txt`. Weekly `.github/workflows/sync-edhrec.yml` with `DATABASE_URL` secret. Stale UX: page-level `StaleCacheBanner` on failed refresh; browse-level `EdhrecSyncNotice` when last EDHREC sync failed or &gt;8 days old (`sync_logs`).
 
 **Consequences:** Set `NEXT_PUBLIC_SITE_URL` in production. Sitemap hits DB on generate (daily revalidate).
+
+---
+
+## 2026-07-10 — Discovery consistency (Phase 1.5 scope)
+
+**Context:** Phase 1 data exists but UX feels fragmented: empty card browse, commander list capped at ranked subset, hard API limits, split card/commander detail, wrong art when opening cards from sets.
+
+**Decisions:**
+
+1. **Cards browse:** Hybrid tabs — **Popular (EDHREC)** / **All cards** (catalog).
+2. **Commanders browse:** **Ranked** tab + **All commanders** tab with EDHREC search + **catalog fallback** (`is_commander` without profile).
+3. **URLs:** Keep **`/cards/{slug}`** and **`/commanders/{slug}` parallel**; cross-links + commander tab on card page (no redirect-only canonical).
+4. **Search:** **Unified navbar search** — cards + commanders (dedupe by slug) + sets in grouped results.
+5. **Printing art:** MVP **`?set={code}`** on card URLs from set pages; card detail prefers `set_cards.imageUri`. **Future:** Printings tab (all reprints) — documented, not in 1.5.
+
+**Consequences:** Implement per `docs/ROADMAP.md` Phase 1.5 before UI polish. Browse APIs gain pagination; section pages are curated lists, not search-only. Oracle remains identity key; EDHREC optional overlay with explicit empty states.
+
+---
+
+## 2026-07-10 — Commander EDHREC coverage strategy
+
+**Context:** ~3.6k commander-legal cards in catalog; only ~800 EDHREC profiles after HOT sync. Phase 1.5 needs commander tab + “All commanders” browse. EDHREC has commander pages for ~85–90% of catalog commanders; ~10–15% are “card only” (legal PW, etc.) — no commander meta exists at source.
+
+**Decision:**
+
+1. **Sync strategy: hybrid (C), not catalog-only (B).** Keep weekly HOT sync (top + similar). Add **Phase 1.4 catalog sweep** (`edhrec-commanders-catalog.ts`) before Phase 1.5 — batch all `is_commander`, upsert commander JSON, skip when only card page exists. On-demand WARM refresh on page view remains for misses and staleness.
+2. **Browse “All commanders”:** list **all** catalog commanders; badge **“No EDHREC meta”** when no profile (after sync attempt).
+3. **Order:** Phase **1.4** (data) → then **1.5** (UX).
+
+**Why C over B:** B alone (one big catalog job, no HOT/on-demand) leaves top commanders stale between monthly sweeps and pushes first-visit latency onto users. C reuses existing HOT weekly + on-demand cache; catalog sweep is a one-time (then monthly) backfill, not the only pipeline.
+
+**Consequences:** ~90% commanders get full tab/browse meta offline; remainder show oracle + badge. Rank remains null for most non-top commanders. Rate-limit catalog job (~45–50 min full run at 1 req/s); use batched resume.
+
+---
+
+## 2026-07-10 — Exclude Scryfall art_series from catalog
+
+**Context:** Scryfall `oracle_cards` bulk includes ~2.2k `layout: art_series` collectibles (type `Card // Card`, not commander-legal). They share `edhrec_slug` with playable cards (e.g. Y'shtola, Kefka), causing wrong detail pages and mislinked EDHREC `cardId` (~92 profiles).
+
+**Decision:** Exclude `art_series` entirely from the Commander catalog:
+- Skip at `sync:scryfall` ingest; purge existing rows via `sync:purge-art-series`
+- All user-facing card queries use `playableCatalogCardWhere`
+- Slug → card resolution via `findPlayableCardByEdhrecSlug` (commander-legal preferred)
+
+**Consequences:** Search/browse/detail show playable oracle only. EDHREC profiles relinked to correct `cardId`. Set pages join catalog without art_series. Tokens/emblems remain (separate slug-collision topic).
+
+---
+
+## 2026-07-10 — Scryfall daily sync with bulk change detection
+
+**Context:** Phase 0.11 needs automated Scryfall updates without re-downloading ~170 MB on GitHub Actions when the bulk file is unchanged (Scryfall updates oracle_cards only when cards change).
+
+**Decision:** Daily workflow runs `npm run sync:scryfall -- --if-changed`: compare Scryfall bulk `updated_at` to `sync_logs.errors.bulkUpdatedAt` from the last successful full sync; skip download when equal. Manual `sync:scryfall` (no flag) always downloads. Weekly Sunday job in the same workflow syncs sets + set card index.
+
+**Consequences:** Most daily runs finish in seconds (metadata check only). First run after deploy or without prior `bulkUpdatedAt` always downloads. Shared bulk client in `src/lib/scryfall/bulk-client.ts`.
+
+---
+
+## 2026-07-10 — Card classification storage (Phase 0.12–0.13)
+
+**Context:** Phase 3 analysis needs pre-computed functional roles and synergy themes per card. Scryfall Tagger oracle tags are the primary automated source; ~200 competitive staples need manual overrides.
+
+**Decision:** Store raw taggings in `card_oracle_taggings` + derived rows in `card_classifications`. Weekly sync: `scryfall-tags.ts` (gzip JSON bulk, catalog-only taggings, skip `weak` weights) then `compute-card-classifications.ts`. Overrides in `scripts/data/card-overrides.json` keyed by `oracle_id` win entirely over tags. Removal hard/soft mapped from Tagger subtags (`removal-destroy`, `removal-bounce`, etc.). Regex fallback deferred to Phase 3.
+
+**Consequences:** ~18k classified cards on first run (232 overrides + ~18k from tags). No user-facing UI yet. Regenerate overrides via `sync:build-card-overrides` when staple list changes.
+
+---
+
+## 2026-07-10 — Unified catalog UX (pre–1.5.9 polish)
+
+**Context:** Phase 1.5 browse/search/detail exposed multiple EDHREC-branded badges, sync notices, and asymmetric card/commander detail navigation. Product goal: users perceive **one EDHForge catalog**; upstream sources are implementation detail.
+
+**Decision:** (1) **Symmetric detail tabs** — `EntityDetailTabs` on both `/cards/{slug}` and `/commanders/{slug}` navigate between routes (no inline `?view=commander` panel). (2) **Remove user-facing EDHREC badges** — browse sync notice bar; production copy uses neutral “Popularity data”. (3) **Dev-only debug** — `CatalogDebugBadge` (collapsible, top-left) + violet `DevEdhrecCoverageBadge` on browse All tabs when overlay missing; stale-cache hints in dev only. Footer attribution to Scryfall/EDHREC unchanged (Fan Content Policy).
+
+**Consequences:** Filter params (`has_edhrec`) unchanged in API; labels only. Commander without popularity overlay uses neutral `MetaUnavailableNotice`, not 404.

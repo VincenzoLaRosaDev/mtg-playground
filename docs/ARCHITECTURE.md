@@ -1,6 +1,6 @@
 # EDHForge — Architecture
 
-> Last updated: 2026-07-09
+> Last updated: 2026-07-10
 
 ## Stack
 
@@ -56,6 +56,8 @@ Tier 4  Platform data     → ratings, rankings (Phase 4+)
 
 - Download via `GET api.scryfall.com/bulk-data/oracle-cards` → `jsonl_download_uri`
 - **No live API in hot path** — autocomplete/search from local Postgres
+- **Excluded layouts:** `art_series` (Art Series collectibles — not tournament-legal; share EDHREC slugs with playable cards). Filtered at sync (`shouldIndexScryfallCard`) and in queries (`playableCatalogCardWhere`). One-time cleanup: `npm run sync:purge-art-series`.
+- Slug resolution: `findPlayableCardByEdhrecSlug` prefers commander-legal rows when multiple oracle cards share a slug.
 - Sync: check daily, full reprocess weekly + on set release
 - Images: hotlink `cards.scryfall.io` (configured in `next.config.ts`)
 
@@ -74,9 +76,10 @@ Tier 4  Platform data     → ratings, rankings (Phase 4+)
 
 | Tier | Scope | Frequency |
 |---|---|---|
-| HOT | Top ~500 commanders by rank + commanders with active user decks | Weekly |
+| HOT | Top ~500 commanders by rank + similar expansion | Weekly |
+| CATALOG | All `cards.is_commander` — commander JSON where EDHREC has a page | Before Phase 1.5 + monthly/manual |
 | WARM | Viewed in last 30 days | On-demand, TTL 7d |
-| COLD | Everything else | On-demand, TTL 30d |
+| COLD | Long-tail refresh | On-demand, TTL 30d |
 
 Also weekly: top ~2000 card pages.
 
@@ -89,16 +92,21 @@ Also weekly: top ~2000 card pages.
 
 | Job | When | Script |
 |---|---|---|
-| Scryfall check + prices | Daily 03:00 UTC | `scripts/sync/scryfall-process.ts` |
+| Scryfall oracle_cards | Daily 03:00 UTC | `scripts/sync/scryfall-process.ts` (skips `art_series`) |
+| Purge art_series + relink EDHREC | One-time / after bad import | `scripts/sync/purge-art-series.ts` |
 | Scryfall sets metadata | Weekly Sunday | `scripts/sync/scryfall-sets.ts` |
 | Scryfall set card index | Weekly Sunday (or `--codes=` on demand) | `scripts/sync/scryfall-set-cards.ts` |
-| Scryfall full + tags | Weekly Sunday | same + `scryfall-tags.ts` (Phase 1) |
-| EDHREC hot tier | Weekly Sunday | `scripts/sync/edhrec-commanders.ts` (Phase 1) |
+| Scryfall oracle_tags | Weekly Sunday | `scripts/sync/scryfall-tags.ts` (`--if-changed`) |
+| Card classifications | Weekly Sunday (after tags) | `scripts/sync/compute-card-classifications.ts` |
+| EDHREC hot tier | Weekly Sunday | `scripts/sync/edhrec-commanders.ts` |
+| EDHREC commander catalog sweep | Before Phase 1.5; then monthly or manual | `scripts/sync/edhrec-commanders-catalog.ts` |
 | EDHREC card pages (hot) | Weekly Sunday | `scripts/sync/edhrec-cards.ts` (Phase 1) |
 | Rankings recompute | Weekly | `scripts/sync/recompute-rankings.ts` (Phase 4) |
 | MTGJSON precons | Monthly | `scripts/sync/mtgjson-precons.ts` (Phase 5) |
 
-GitHub Actions: `.github/workflows/sync-edhrec.yml` (weekly EDHREC HOT sync; requires `DATABASE_URL` secret).
+GitHub Actions: `.github/workflows/sync-scryfall.yml` (daily oracle_cards with `--if-changed` at 03:00 UTC; weekly sets + set index + oracle_tags + classifications Sundays 04:30 UTC; requires `DATABASE_URL` secret). `.github/workflows/sync-edhrec.yml` (weekly EDHREC HOT sync). `.github/workflows/sync-edhrec-catalog.yml` (commander catalog COLD fill; `workflow_dispatch` + optional monthly cron).
+
+Daily Scryfall runs fetch bulk metadata only when `updated_at` matches the last successful sync (`sync_logs.errors.bulkUpdatedAt`); full download runs when Scryfall publishes a new bulk file.
 
 Runtime fallback: if EDHREC down → serve stale cache + show page-level stale banner; browse routes show sync notice when weekly sync failed or data is older than 8 days.
 
@@ -128,6 +136,27 @@ PostgreSQL
 
 **Rule:** user-facing routes read Postgres only. On cache miss/expiry, `src/lib/edhrec/cache.ts` may fetch EDHREC once, upsert (WARM/COLD tier), then serve from DB. Never call EDHREC directly from page components.
 
+## Discovery browse APIs (Phase 1.5)
+
+Common list contract for `/api/cards/browse`, `/api/commanders/browse`, `/api/sets/search` (evolved), and `GET /api/search`:
+
+```
+Query:  limit, cursor, sort, order, + resource-specific filters
+Response: { items: T[], total: number, nextCursor: string | null }
+```
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /api/search?q=` | Unified navbar search (cards, commanders, sets) |
+| `GET /api/cards/browse` | Tab `popular` \| `all`; sort/filter/paginate |
+| `GET /api/commanders/browse` | Tab `ranked` \| `all`; catalog union on `all` |
+| `GET /api/sets/search` | Cursor browse for sets (`items`, `total`, `nextCursor`; sort, filters) — reference implementation |
+| `GET /api/cards/search` | Keep for typeahead; global search preferred for UX |
+
+**Card detail printing context:** `/cards/{slug}?set={code}` — server reads `set_cards` for `(oracle_id, setCode)` to override hero `imageUri` before falling back to `cards.imageUri`.
+
+**Detail routes:** `/cards/[slug]` loads catalog first; commander tab embeds EDHREC commander sections. `/commanders/[slug]` parallel; resolves catalog + `getCachedCommanderProfile`; soft fallback when profile missing.
+
 ## Folder structure
 
 ```
@@ -150,7 +179,8 @@ edhforge/
 │   │   └── discovery/      ← card image, EDHREC sections, empty states
 │   ├── lib/
 │   │   ├── db.ts             ← Prisma client singleton
-│   │   ├── scryfall/         ← types + card utils
+│   │   ├── scryfall/         ← types + card utils + bulk client
+│   │   ├── classification/   ← roles/themes types, tag mapping, overrides loader
 │   │   └── edhrec/           ← EDHREC types, client, parsers
 │   └── generated/prisma/     ← gitignored
 └── .cursor/rules/            ← Cursor agent rules
@@ -161,6 +191,9 @@ edhforge/
 ### Implemented (Phase 0)
 
 - `cards` — Scryfall oracle card data
+- `scryfall_oracle_tags` — Tagger tag metadata (slug, label)
+- `card_oracle_taggings` — raw `(oracle_id, tag_id, weight)` for catalog cards
+- `card_classifications` — derived `roles[]` + `themes[]` per oracle (override or oracle tag)
 - `mtg_sets` — set metadata (code, name, release, type)
 - `set_cards` — unique oracle cards per set (indexed offline via Scryfall search)
 - `sync_logs` — job audit trail
@@ -189,8 +222,10 @@ Scryfall oracle_tags bulk
         ↓ fills gaps
 Conservative regex on oracle_text
         ↓
-computed roles[] + themes[] stored on Card (Phase 1: separate tables)
+computed roles[] + themes[] stored in card_classifications (batch via compute-card-classifications.ts)
 ```
+
+Classification sources: `scripts/data/card-overrides.json` (232 staples, `oracle_id` key) → Scryfall oracle tags (weight ≥ median, excludes `weak`) → regex deferred to Phase 3. Mapping: `src/lib/classification/tag-mapping.ts`.
 
 ## Ranking algorithm (Phase 4)
 

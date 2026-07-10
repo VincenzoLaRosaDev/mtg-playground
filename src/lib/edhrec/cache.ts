@@ -4,6 +4,7 @@ import { EdhrecSyncTier } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db";
 import { fetchCardPage, fetchCommanderPage } from "@/lib/edhrec/client";
 import { mapCardData, mapCommanderProfile } from "@/lib/edhrec/parse";
+import { resolvePlayableCardId } from "@/lib/scryfall/catalog-filters";
 
 export type EdhrecCacheOptions = {
   /** Page view — refresh as WARM tier (7d TTL) when fetching on demand */
@@ -26,12 +27,7 @@ function resolveOnDemandTier(options: EdhrecCacheOptions): EdhrecSyncTier {
 }
 
 async function resolveCardId(slug: string): Promise<string | null> {
-  const card = await prisma.card.findFirst({
-    where: { edhrecSlug: slug },
-    select: { id: true },
-  });
-
-  return card?.id ?? null;
+  return resolvePlayableCardId(prisma, slug);
 }
 
 function toCacheResult<T extends { syncedAt: Date; syncTier: EdhrecSyncTier }>(

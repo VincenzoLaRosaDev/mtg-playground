@@ -1,0 +1,96 @@
+name: Scryfall sync
+
+on:
+  schedule:
+    # Daily oracle_cards check + sync when bulk changed (03:00 UTC)
+    - cron: "0 3 * * *"
+    # Weekly sets + set index (Sundays 04:30 UTC, after EDHREC HOT)
+    - cron: "30 4 * * 0"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Sync mode
+        required: true
+        default: if-changed
+        type: choice
+        options:
+          - if-changed
+          - full
+          - sets-only
+
+jobs:
+  sync-oracle-cards:
+    if: >
+      (github.event_name == 'schedule' && github.event.schedule == '0 3 * * *') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.mode != 'sets-only')
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npm run db:generate
+
+      - name: Sync Scryfall oracle_cards
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.mode }}" = "full" ]; then
+            npm run sync:scryfall
+          else
+            npm run sync:scryfall -- --if-changed
+          fi
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+  sync-sets:
+    if: >
+      (github.event_name == 'schedule' && github.event.schedule == '30 4 * * 0') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.mode == 'sets-only')
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npm run db:generate
+
+      - name: Sync Scryfall set metadata
+        run: npm run sync:scryfall-sets
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+      - name: Sync Scryfall set card index
+        run: npm run sync:scryfall-set-cards
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+      - name: Sync Scryfall oracle tags
+        run: npm run sync:scryfall-tags -- --if-changed
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+      - name: Compute card classifications
+        run: npm run sync:compute-classifications
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
