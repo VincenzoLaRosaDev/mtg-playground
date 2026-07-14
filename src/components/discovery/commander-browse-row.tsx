@@ -1,26 +1,38 @@
 import Link from "next/link";
 
-import { CardImage } from "@/components/discovery/card-image";
+import { CardFacePlaceholder, CardImage } from "@/components/discovery/card-image";
 import { DevEdhrecCoverageBadge } from "@/components/dev/dev-edhrec-coverage-badge";
+import { RankBadge } from "@/components/discovery/rank-badge";
+import { SaltBadge } from "@/components/discovery/salt-badge";
+import { DecksMetricLabel } from "@/components/discovery/metric-icon-label";
+import { ColorIdentity } from "@/components/mtg/color-identity";
+import { Card, CardContent } from "@/components/ui/card";
 import type { CommanderBrowseItem } from "@/lib/browse/commanders-shared";
-import { formatColorIdentity, formatRank } from "@/lib/display/formatters";
 
 type CommanderBrowseRowProps = {
   commander: CommanderBrowseItem;
   showCoverageBadge?: boolean;
+  showRank?: boolean;
 };
 
-export function CommanderBrowseRow({ commander, showCoverageBadge = false }: CommanderBrowseRowProps) {
+export function CommanderBrowseRow({
+  commander,
+  showCoverageBadge = false,
+  showRank = true,
+}: CommanderBrowseRowProps) {
   const href = `/commanders/${commander.slug}`;
 
   return (
-    <li className="flex items-center gap-4 rounded-lg border border-zinc-200 bg-white p-3 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+    <li>
+      <Card size="sm" className="shadow-sm">
+        <CardContent className="flex items-center gap-4 py-3">
+      {showRank && commander.rank != null ? (
+        <RankBadge rank={commander.rank} className="shrink-0" />
+      ) : null}
       {commander.imageUri ? (
         <CardImage src={commander.imageUri} alt={commander.name} variant="thumbnail" />
       ) : (
-        <div className="flex h-[62px] w-[44px] shrink-0 items-center justify-center rounded border border-zinc-200 bg-zinc-100 text-xs text-zinc-400 dark:border-zinc-800 dark:bg-zinc-900">
-          ?
-        </div>
+        <CardFacePlaceholder />
       )}
 
       <div className="min-w-0 flex-1">
@@ -32,23 +44,30 @@ export function CommanderBrowseRow({ commander, showCoverageBadge = false }: Com
           {showCoverageBadge && !commander.hasEdhrecMeta && (
             <DevEdhrecCoverageBadge label="No EDHREC meta" />
           )}
+
+          {commander.salt != null && <SaltBadge salt={commander.salt} />}
         </div>
 
         {commander.typeLine && (
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">{commander.typeLine}</p>
+          <p className="text-sm text-muted-foreground">{commander.typeLine}</p>
         )}
 
-        <p className="text-xs text-zinc-500">
-          Rank {formatRank(commander.rank)}
-          {commander.salt != null ? ` · Salt ${commander.salt.toFixed(2)}` : ""}
-          {commander.numDecks != null
-            ? ` · ${commander.numDecks.toLocaleString()} decks`
-            : ""}
-          {commander.colorIdentity.length > 0
-            ? ` · ${formatColorIdentity(commander.colorIdentity)}`
-            : ""}
+        <p className="flex flex-nowrap items-center justify-between gap-2 text-xs text-muted-foreground">
+          <span className="flex shrink-0 items-center gap-1.5 whitespace-nowrap">
+            {commander.numDecks != null ? (
+              <DecksMetricLabel value={commander.numDecks.toLocaleString()} />
+            ) : null}
+            {commander.cmc != null ? <span>CMC {commander.cmc}</span> : null}
+          </span>
+          {commander.colorIdentity.length > 0 ? (
+            <span className="shrink-0">
+              <ColorIdentity colors={commander.colorIdentity} size="xs" />
+            </span>
+          ) : null}
         </p>
       </div>
+        </CardContent>
+      </Card>
     </li>
   );
 }

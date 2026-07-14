@@ -1,6 +1,8 @@
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@/generated/prisma/client";
 
+import { normalizePgConnectionString } from "@/lib/db/connection-string";
+
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
@@ -12,7 +14,9 @@ function createPrismaClient() {
     throw new Error("DATABASE_URL is not set");
   }
 
-  const adapter = new PrismaPg({ connectionString });
+  const adapter = new PrismaPg({
+    connectionString: normalizePgConnectionString(connectionString),
+  });
 
   return new PrismaClient({ adapter });
 }
@@ -30,6 +34,8 @@ export function createScriptPrismaClient() {
     throw new Error("DATABASE_URL is not set");
   }
 
-  const adapter = new PrismaPg({ connectionString });
+  const adapter = new PrismaPg({
+    connectionString: normalizePgConnectionString(connectionString),
+  });
   return new PrismaClient({ adapter });
 }

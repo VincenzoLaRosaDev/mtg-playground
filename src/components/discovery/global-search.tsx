@@ -2,10 +2,14 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 
-import { CardImage } from "@/components/discovery/card-image";
+import { CardFacePlaceholder, CardImage } from "@/components/discovery/card-image";
+import { Input } from "@/components/ui/input";
+import { LoadingSpinner } from "@/components/ui/icon";
+import { cn } from "@/lib/utils";
 import {
   GLOBAL_SEARCH_MIN_QUERY_LENGTH,
   type GlobalSearchResponse,
@@ -27,8 +31,8 @@ function SearchSection({
   children: React.ReactNode;
 }) {
   return (
-    <div className="border-t border-zinc-200 first:border-t-0 dark:border-zinc-800">
-      <p className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">
+    <div className="border-t border-border first:border-t-0">
+      <p className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         {title}
       </p>
       <ul>{children}</ul>
@@ -50,7 +54,7 @@ function SearchResultLink({
       <Link
         href={href}
         onClick={onSelect}
-        className="flex items-center gap-3 px-3 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-900"
+        className="flex items-center gap-3 px-3 py-2 text-sm hover:bg-accent"
       >
         {children}
       </Link>
@@ -154,37 +158,46 @@ export function GlobalSearch() {
         <label htmlFor="global-search" className="sr-only">
           Search cards, commanders, and sets
         </label>
-        <input
-          id="global-search"
-          type="search"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          onFocus={() => {
-            if (results && query.trim().length >= GLOBAL_SEARCH_MIN_QUERY_LENGTH) {
-              setOpen(true);
-            }
-          }}
-          placeholder="Search cards, commanders, sets..."
-          autoComplete="off"
-          role="combobox"
-          aria-expanded={showDropdown}
-          aria-controls={showDropdown ? listboxId : undefined}
-          className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm shadow-sm outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-950"
-        />
+        <div className="relative">
+          <Search
+            className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+            aria-hidden
+          />
+          <Input
+            id="global-search"
+            type="search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            onFocus={() => {
+              if (results && query.trim().length >= GLOBAL_SEARCH_MIN_QUERY_LENGTH) {
+                setOpen(true);
+              }
+            }}
+            placeholder="Search cards, commanders, sets..."
+            autoComplete="off"
+            role="combobox"
+            aria-expanded={showDropdown}
+            aria-controls={showDropdown ? listboxId : undefined}
+            className="pl-9"
+          />
+        </div>
       </form>
 
       {showDropdown && (
         <div
           id={listboxId}
           role="listbox"
-          className="absolute z-50 mt-2 max-h-[min(70vh,24rem)] w-full overflow-y-auto rounded-lg border border-zinc-200 bg-white shadow-lg dark:border-zinc-800 dark:bg-zinc-950"
+          className="absolute z-50 mt-2 max-h-[min(70vh,24rem)] w-full overflow-y-auto rounded-lg border border-border bg-popover text-popover-foreground shadow-lg"
         >
           {loading && (
-            <p className="px-3 py-3 text-sm text-zinc-500">Searching...</p>
+            <p className="flex items-center gap-2 px-3 py-3 text-sm text-muted-foreground">
+              <LoadingSpinner size="sm" />
+              Searching…
+            </p>
           )}
 
           {!loading && results && !hasResults(results) && (
-            <p className="px-3 py-3 text-sm text-zinc-500">No results found.</p>
+            <p className="px-3 py-3 text-sm text-muted-foreground">No results found.</p>
           )}
 
           {!loading && results && hasResults(results) && (
@@ -204,11 +217,11 @@ export function GlobalSearch() {
                           variant="thumbnail"
                         />
                       ) : (
-                        <span className="inline-block h-[31px] w-[22px] shrink-0 rounded border border-zinc-200 bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900" />
+                        <CardFacePlaceholder />
                       )}
                       <span className="min-w-0">
                         <span className="block truncate font-medium">{commander.name}</span>
-                        <span className="block truncate text-xs text-zinc-500">
+                        <span className="block truncate text-xs text-muted-foreground">
                           {commander.rank != null ? `Rank #${commander.rank}` : "Commander"}
                           {commander.typeLine ? ` · ${commander.typeLine}` : ""}
                         </span>
@@ -227,7 +240,7 @@ export function GlobalSearch() {
                       return (
                         <li
                           key={card.name}
-                          className="flex items-center gap-3 px-3 py-2 text-sm text-zinc-500"
+                          className="flex items-center gap-3 px-3 py-2 text-sm text-muted-foreground"
                         >
                           {card.name}
                         </li>
@@ -243,11 +256,11 @@ export function GlobalSearch() {
                         {card.imageUri ? (
                           <CardImage src={card.imageUri} alt="" variant="thumbnail" />
                         ) : (
-                          <span className="inline-block h-[31px] w-[22px] shrink-0 rounded border border-zinc-200 bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900" />
+                          <CardFacePlaceholder />
                         )}
                         <span className="min-w-0">
                           <span className="block truncate font-medium">{card.name}</span>
-                          <span className="block truncate text-xs text-zinc-500">
+                          <span className="block truncate text-xs text-muted-foreground">
                             {card.typeLine}
                             {card.isCommander ? " · Commander" : ""}
                           </span>
@@ -277,11 +290,11 @@ export function GlobalSearch() {
                           />
                         </div>
                       ) : (
-                        <span className="inline-block h-6 w-6 shrink-0 rounded bg-zinc-100 dark:bg-zinc-900" />
+                        <span className="inline-block h-6 w-6 shrink-0 rounded bg-muted" />
                       )}
                       <span className="min-w-0">
                         <span className="block truncate font-medium">{set.name}</span>
-                        <span className="block truncate text-xs text-zinc-500">
+                        <span className="block truncate text-xs text-muted-foreground">
                           {set.code.toUpperCase()} · {formatSetType(set.setType)}
                         </span>
                       </span>
@@ -290,11 +303,11 @@ export function GlobalSearch() {
                 </SearchSection>
               )}
 
-              <div className="border-t border-zinc-200 p-2 dark:border-zinc-800">
+              <div className="border-t border-border p-2">
                 <Link
                   href={`/search?q=${encodeURIComponent(results.query)}`}
                   onClick={handleSelect}
-                  className="block rounded-md px-3 py-2 text-center text-sm font-medium text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-900"
+                  className="block rounded-md px-3 py-2 text-center text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
                 >
                   View all results
                 </Link>

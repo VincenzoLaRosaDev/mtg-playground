@@ -1,19 +1,30 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
-import { CardImage } from "@/components/discovery/card-image";
+import { CardDetailCardlistSections } from "@/components/discovery/card-detail-cardlist-sections";
+import { DetailHeroAside } from "@/components/discovery/detail-hero-aside";
+import { DetailSectionPanel } from "@/components/discovery/detail-section-panel";
 import { CardRelativesBySubtype } from "@/components/discovery/card-relatives-by-subtype";
+import { EdhrecSimilarCards } from "@/components/discovery/edhrec-similar-cards";
 import { EdhrecTopCommanders } from "@/components/discovery/edhrec-top-commanders";
 import { EntityDetailTabs } from "@/components/discovery/entity-detail-tabs";
+import { PriceChip } from "@/components/discovery/price-chip";
 import { StaleCacheBanner } from "@/components/discovery/stale-cache-banner";
 import { PageShell } from "@/components/layout/page-shell";
-import { getCachedCardData } from "@/lib/edhrec/cache";
-import type { EdhrecCardList } from "@/lib/edhrec/types";
+import {
+  getTopCommandersFromCardlists,
+  parseCardDetailCardlists,
+} from "@/lib/edhrec/cardlists";
+import { getCardDetailEdhrecData } from "@/lib/edhrec/variant-cache";
 import { prisma } from "@/lib/db";
 import { findPlayableCardByEdhrecSlug } from "@/lib/scryfall/catalog-filters";
 import { getCardRelativesBySubtype } from "@/lib/scryfall/card-relatives";
 import { resolveCardHeroImage } from "@/lib/scryfall/card-printing";
-import { formatColorIdentity } from "@/lib/display/formatters";
+import { CardStatsLine } from "@/components/discovery/card-stats-line";
+import { ColorIdentity } from "@/components/mtg/color-identity";
+import { buildCardDetailNavItems } from "@/lib/ui/detail-section-nav";
+import { formatInclusionPercent } from "@/lib/display/formatters";
+import { DETAIL_HERO_GRID_CLASS, DETAIL_MAIN_COLUMN_CLASS } from "@/lib/ui/layout";
 import { createPageMetadata } from "@/lib/seo/site";
 
 type CardDetailPageProps = {
@@ -33,6 +44,7 @@ const cardSelect = {
   keywords: true,
   imageUri: true,
   isCommander: true,
+  prices: true,
 } as const;
 
 export async function generateMetadata({
@@ -86,16 +98,43 @@ export default async function CardDetailPage({ params, searchParams }: CardDetai
     setCodeParam,
   );
 
-  const edhrecCard = await getCachedCardData(slug, { warm: true });
-  const cardlists = (edhrecCard.data?.cardlists ?? {}) as Record<string, EdhrecCardList>;
+  const edhrecCard = await getCardDetailEdhrecData(slug, { warm: true });
+  const cardlists = edhrecCard.data?.cardlists;
   const { subtypes, relatives } = await getCardRelativesBySubtype(card);
+
+  const popularityInclusion = edhrecCard.data
+    ? formatInclusionPercent(
+        edhrecCard.data.inclusion,
+        edhrecCard.data.potentialDecks,
+        edhrecCard.data.numDecks,
+      )
+    : "—";
+
+  const popularityParts = [
+    popularityInclusion !== "—" ? `${popularityInclusion} inclusion` : null,
+    edhrecCard.data?.numDecks != null
+      ? `${edhrecCard.data.numDecks.toLocaleString()} decks`
+      : null,
+  ].filter(Boolean);
+
+  const cardlistSections = cardlists ? parseCardDetailCardlists(cardlists) : [];
+  const hasTopCommanders =
+    cardlists != null && getTopCommandersFromCardlists(cardlists).length > 0;
+  const hasSimilarCards = (edhrecCard.data?.similarCards.length ?? 0) > 0;
+  const hasRelatives = subtypes.length > 0 && relatives.length > 0;
+  const sectionNavItems = buildCardDetailNavItems({
+    hasTopCommanders,
+    cardlistSections,
+    hasSimilarCards,
+    hasRelatives,
+  });
 
   return (
     <PageShell
       title={card.name}
       description={card.typeLine}
       breadcrumbs={[
-        { label: "Cards", href: "/cards" },
+        { label: "Top cards", href: "/cards" },
         { label: card.name, href: `/cards/${slug}` },
       ]}
     >
@@ -109,66 +148,74 @@ export default async function CardDetailPage({ params, searchParams }: CardDetai
         <EntityDetailTabs slug={slug} activeRoute="card" setCode={setCodeParam} />
       )}
 
-      <section className="grid gap-6 md:grid-cols-[260px_1fr]">
-        <div>
-          {hero.imageUri ? (
-            <CardImage src={hero.imageUri} alt={card.name} variant="detail" />
-          ) : (
-            <div className="flex aspect-[488/680] w-full max-w-[260px] items-center justify-center rounded-lg border border-zinc-200 bg-zinc-100 text-sm text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900">
-              No image available
+      <section className={DETAIL_HERO_GRID_CLASS}>
+        <DetailHeroAside
+          imageUri={hero.imageUri}
+          imageAlt={card.name}
+          setName={hero.setName}
+          setCode={hero.setCode}
+          salt={edhrecCard.data?.salt ?? null}
+          sectionNavItems={sectionNavItems}
+        />
+
+        <div className={DETAIL_MAIN_COLUMN_CLASS}>
+          <DetailSectionPanel title="Stats">
+            <CardStatsLine
+              cmc={card.cmc}
+              colorIdentity={card.colorIdentity}
+              isCommander={card.isCommander}
+              className="mt-2"
+            />
+            <div className="mt-2">
+              <PriceChip prices={card.prices} />
             </div>
-          )}
-          {hero.setName && hero.setCode && (
-            <p className="mt-2 max-w-[260px] text-xs text-zinc-500">
-              Showing {hero.setName} ({hero.setCode.toUpperCase()}) printing
-            </p>
-          )}
-        </div>
+          </DetailSectionPanel>
 
-        <div className="space-y-5">
-          <section className="rounded-lg border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">
-              Stats
-            </h2>
-            <p className="mt-2 text-sm text-zinc-700 dark:text-zinc-300">
-              CMC {card.cmc} · {formatColorIdentity(card.colorIdentity)}
-              {card.isCommander ? " · Commander" : ""}
-              {edhrecCard.data?.salt != null ? ` · Salt ${edhrecCard.data.salt.toFixed(2)}` : ""}
-            </p>
-          </section>
+          {edhrecCard.data && (
+            <DetailSectionPanel title="Popularity">
+              <p className="mt-2 text-sm text-foreground">
+                {popularityParts.length > 0
+                  ? popularityParts.join(" · ")
+                  : "Popularity stats unavailable"}
+              </p>
+            </DetailSectionPanel>
+          )}
 
-          <section className="rounded-lg border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">
-              Oracle text
-            </h2>
-            <p className="mt-2 whitespace-pre-line text-sm leading-6 text-zinc-800 dark:text-zinc-200">
+          <DetailSectionPanel title="Oracle text">
+            <p className="mt-2 whitespace-pre-line text-sm leading-6 text-foreground">
               {card.oracleText ?? "No oracle text available."}
             </p>
-          </section>
+          </DetailSectionPanel>
 
-          <section className="rounded-lg border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">
-              Keywords
-            </h2>
-            <p className="mt-2 text-sm text-zinc-700 dark:text-zinc-300">
+          <DetailSectionPanel title="Keywords">
+            <p className="mt-2 text-sm text-muted-foreground">
               {card.keywords.length > 0 ? card.keywords.join(", ") : "None"}
             </p>
-          </section>
+          </DetailSectionPanel>
 
-          {edhrecCard.data ? (
+          {edhrecCard.data && cardlists ? (
             <EdhrecTopCommanders cardlists={cardlists} />
           ) : (
-            <section className="rounded-lg border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">
-                Top commanders
-              </h2>
-              <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+            <DetailSectionPanel title="Top commanders">
+              <p className="mt-2 text-sm text-muted-foreground">
                 Popularity data for this card is not in the catalog yet.
               </p>
-            </section>
+            </DetailSectionPanel>
           )}
 
+          {cardlists ? (
+            <CardDetailCardlistSections cardlists={cardlists} partition="unique" />
+          ) : null}
+
+          {edhrecCard.data?.similarCards.length ? (
+            <EdhrecSimilarCards similarCards={edhrecCard.data.similarCards} />
+          ) : null}
+
           <CardRelativesBySubtype subtypes={subtypes} relatives={relatives} />
+
+          {cardlists ? (
+            <CardDetailCardlistSections cardlists={cardlists} partition="shared" />
+          ) : null}
         </div>
       </section>
     </PageShell>

@@ -1,13 +1,19 @@
+import { Card, CardContent } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
+
 type EmptyStateProps = {
   title: string;
   description: string;
+  className?: string;
 };
 
-export function EmptyState({ title, description }: EmptyStateProps) {
+export function EmptyState({ title, description, className }: EmptyStateProps) {
   return (
-    <div className="rounded-lg border border-dashed border-zinc-300 bg-zinc-50 p-8 text-center dark:border-zinc-700 dark:bg-zinc-900/40">
-      <h2 className="text-lg font-medium">{title}</h2>
-      <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">{description}</p>
-    </div>
+    <Card className={cn("border-dashed shadow-none", className)}>
+      <CardContent className="py-8 text-center">
+        <h2 className="text-lg font-medium">{title}</h2>
+        <p className="mt-2 text-sm text-muted-foreground">{description}</p>
+      </CardContent>
+    </Card>
   );
 }

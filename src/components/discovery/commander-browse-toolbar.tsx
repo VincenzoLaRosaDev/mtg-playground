@@ -1,146 +1,106 @@
 import {
-  BROWSE_COLOR_OPTIONS,
-  browseToolbarInputClassName,
-  browseToolbarPanelClassName,
+  BrowseCatalogFilterFields,
+  BrowseColorPillGroup,
+  BrowseSearchField,
+  BrowseSelectField,
+} from "@/components/discovery/browse-filter-controls";
+import { BrowseFilterPanel, BrowseFilterPanelRow } from "@/components/discovery/browse-filter-panel";
+import {
+  browseToolbarListGridClassName,
 } from "@/components/discovery/browse-toolbar-shared";
 import {
   defaultOrderForCommanderTab,
   defaultSortForCommanderTab,
   getCommanderBrowseSortOptions,
   type CommanderBrowseSort,
-  type CommanderBrowseTab,
 } from "@/lib/browse/commanders-shared";
+import { colorsToParam } from "@/lib/browse/color-identity-filter";
+import type { EdhrecTopWindowParam } from "@/lib/edhrec/top-window";
 
 export type CommanderBrowseToolbarState = {
   query: string;
   sort: CommanderBrowseSort;
   order: "asc" | "desc";
-  color: string;
-  hasEdhrecMeta: "" | "true" | "false";
+  colors: string[];
+  cmcMin: string;
+  cmcMax: string;
+  typeContains: string;
 };
 
 type CommanderBrowseToolbarProps = {
-  tab: CommanderBrowseTab;
   state: CommanderBrowseToolbarState;
   onChange: (patch: Partial<CommanderBrowseToolbarState>) => void;
 };
 
-export function CommanderBrowseToolbar({ tab, state, onChange }: CommanderBrowseToolbarProps) {
-  const sortOptions = getCommanderBrowseSortOptions(tab);
+export function CommanderBrowseToolbar({ state, onChange }: CommanderBrowseToolbarProps) {
+  const sortOptions = getCommanderBrowseSortOptions();
 
   return (
-    <div className={browseToolbarPanelClassName}>
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <label className="block text-sm">
-          <span className="mb-1 block text-zinc-600 dark:text-zinc-400">Search in browse</span>
-          <input
-            type="search"
-            value={state.query}
-            onChange={(event) => onChange({ query: event.target.value })}
-            placeholder="Min. 2 characters..."
-            className={`${browseToolbarInputClassName} w-full`}
-          />
-        </label>
+    <BrowseFilterPanel>
+      <div className={browseToolbarListGridClassName}>
+        <BrowseSearchField
+          label="Search in list"
+          value={state.query}
+          onChange={(query) => onChange({ query })}
+        />
 
-        <label className="block text-sm">
-          <span className="mb-1 block text-zinc-600 dark:text-zinc-400">Sort by</span>
-          <select
-            value={state.sort}
-            onChange={(event) => onChange({ sort: event.target.value as CommanderBrowseSort })}
-            className={`${browseToolbarInputClassName} w-full`}
-          >
-            {sortOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
+        <BrowseSelectField
+          label="Sort by"
+          value={state.sort}
+          onChange={(sort) => onChange({ sort: sort as CommanderBrowseSort })}
+          options={sortOptions}
+        />
 
-        <label className="block text-sm">
-          <span className="mb-1 block text-zinc-600 dark:text-zinc-400">Order</span>
-          <select
-            value={state.order}
-            onChange={(event) =>
-              onChange({ order: event.target.value === "asc" ? "asc" : "desc" })
-            }
-            className={`${browseToolbarInputClassName} w-full`}
-          >
-            <option value="desc">Descending</option>
-            <option value="asc">Ascending</option>
-          </select>
-        </label>
-
-        <label className="block text-sm">
-          <span className="mb-1 block text-zinc-600 dark:text-zinc-400">Color identity</span>
-          <select
-            value={state.color}
-            onChange={(event) => onChange({ color: event.target.value })}
-            className={`${browseToolbarInputClassName} w-full`}
-          >
-            {BROWSE_COLOR_OPTIONS.map((option) => (
-              <option key={option.value || "any"} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
+        <BrowseCatalogFilterFields
+          values={state}
+          onChange={(patch) => onChange(patch)}
+          typePlaceholder="e.g. Legendary Creature — Elf"
+          inline
+        />
       </div>
 
-      {tab === "all" && (
-        <label className="block max-w-sm text-sm">
-          <span className="mb-1 block text-zinc-600 dark:text-zinc-400">Popularity data</span>
-          <select
-            value={state.hasEdhrecMeta}
-            onChange={(event) =>
-              onChange({
-                hasEdhrecMeta: event.target.value as CommanderBrowseToolbarState["hasEdhrecMeta"],
-              })
-            }
-            className={`${browseToolbarInputClassName} w-full`}
-          >
-            <option value="">Any</option>
-            <option value="true">Has popularity data</option>
-            <option value="false">No popularity data</option>
-          </select>
-        </label>
-      )}
-    </div>
+      <BrowseFilterPanelRow
+        sortOrder={{ order: state.order, onChange: (order) => onChange({ order }) }}
+      >
+        <BrowseColorPillGroup colors={state.colors} onChange={(colors) => onChange({ colors })} />
+      </BrowseFilterPanelRow>
+    </BrowseFilterPanel>
   );
 }
 
-export function defaultCommanderBrowseToolbarState(
-  tab: CommanderBrowseTab,
-): CommanderBrowseToolbarState {
-  const sort = defaultSortForCommanderTab(tab);
+export function defaultCommanderBrowseToolbarState(): CommanderBrowseToolbarState {
+  const sort = defaultSortForCommanderTab();
 
   return {
     query: "",
     sort,
-    order: defaultOrderForCommanderTab(tab, sort),
-    color: "",
-    hasEdhrecMeta: "",
+    order: defaultOrderForCommanderTab(sort),
+    colors: [],
+    cmcMin: "",
+    cmcMax: "",
+    typeContains: "",
   };
 }
 
 export function buildCommanderBrowseSearchParams(
-  tab: CommanderBrowseTab,
   state: CommanderBrowseToolbarState,
   cursor?: string | null,
+  window?: EdhrecTopWindowParam,
 ): URLSearchParams {
   const params = new URLSearchParams({
-    tab,
     sort: state.sort,
     order: state.order,
     limit: "50",
   });
 
   if (cursor) params.set("cursor", cursor);
+  if (window) params.set("window", window);
   if (state.query.trim().length >= 2) params.set("q", state.query.trim());
-  if (state.color) params.set("color", state.color);
-  if (tab === "all" && state.hasEdhrecMeta) {
-    params.set("has_edhrec", state.hasEdhrecMeta);
-  }
+  const colorParam = colorsToParam(state.colors);
+  if (colorParam) params.set("color", colorParam);
+  if (state.cmcMin) params.set("cmc_min", state.cmcMin);
+  if (state.cmcMax) params.set("cmc_max", state.cmcMax);
+  if (state.typeContains.trim()) params.set("type", state.typeContains.trim());
 
   return params;
 }

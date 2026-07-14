@@ -54,6 +54,7 @@ export type EdhrecCardPageCard = {
   salt?: number;
   num_decks?: number;
   inclusion?: number;
+  potential_decks?: number;
 };
 
 export type EdhrecCardPage = {

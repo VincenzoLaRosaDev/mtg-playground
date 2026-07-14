@@ -10,15 +10,6 @@ const USER_AGENT = "EDHForge/1.0 (+https://github.com/VincenzoLaRosaDev/edhforge
 const EDHREC_JSON_BASE = "https://json.edhrec.com";
 const EDHREC_SITE_BASE = "https://edhrec.com";
 
-const TOP_COMMANDER_JSON_PATTERNS = [
-  "top/commanders--{page}.json",
-  "top/commanders/year--{page}.json",
-] as const;
-
-const TOP_CARD_JSON_PATTERNS = [
-  "top/cards--{page}.json",
-  "top/cards/year--{page}.json",
-] as const;
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -39,83 +30,10 @@ export async function fetchJson<T>(url: string): Promise<T | null> {
   return response.json() as Promise<T>;
 }
 
-type TopPagePayload = {
-  container?: {
-    json_dict?: {
-      cardlists?: Record<string, { cardviews?: EdhrecCardView[] }>;
-    };
-  };
-};
-
-function extractListEntries(payload: TopPagePayload): EdhrecListEntry[] {
-  const cardlists = payload.container?.json_dict?.cardlists;
-  if (!cardlists) {
-    return [];
-  }
-
-  const entries: EdhrecListEntry[] = [];
-
-  for (const list of Object.values(cardlists)) {
-    for (const view of list.cardviews ?? []) {
-      if (!view.sanitized) {
-        continue;
-      }
-
-      entries.push({
-        slug: view.sanitized,
-        name: view.name,
-        rank: view.rank ?? null,
-      });
-    }
-  }
-
-  return entries;
-}
-
-async function fetchTopFromJson(
-  patterns: readonly string[],
-  maxCount: number,
-): Promise<EdhrecListEntry[]> {
-  const entries: EdhrecListEntry[] = [];
-  const seen = new Set<string>();
-
-  for (const pattern of patterns) {
-    for (let page = 1; page <= 25 && entries.length < maxCount; page += 1) {
-      const url = `${EDHREC_JSON_BASE}/${pattern.replace("{page}", String(page))}`;
-      const payload = await fetchJson<TopPagePayload>(url);
-
-      if (!payload) {
-        break;
-      }
-
-      const pageEntries = extractListEntries(payload);
-      if (pageEntries.length === 0) {
-        break;
-      }
-
-      for (const entry of pageEntries) {
-        if (seen.has(entry.slug)) {
-          continue;
-        }
-
-        seen.add(entry.slug);
-        entries.push(entry);
-
-        if (entries.length >= maxCount) {
-          break;
-        }
-      }
-
-      await sleep(250);
-    }
-
-    if (entries.length >= maxCount) {
-      break;
-    }
-  }
-
-  return entries.slice(0, maxCount);
-}
+import {
+  fetchCardTopEntries,
+  fetchCommanderTopEntries,
+} from "@/lib/edhrec/top-index";
 
 type NextDataPayload = {
   props?: {
@@ -174,11 +92,21 @@ async function fetchTopFromSite(path: string, maxCount: number): Promise<EdhrecL
 }
 
 export async function fetchTopCommandersFromJson(maxCount: number) {
-  return fetchTopFromJson(TOP_COMMANDER_JSON_PATTERNS, maxCount);
+  const entries = await fetchCommanderTopEntries("year");
+  return entries.slice(0, maxCount).map((entry) => ({
+    slug: entry.slug,
+    name: entry.name,
+    rank: entry.rank,
+  }));
 }
 
 export async function fetchTopCardsFromJson(maxCount: number) {
-  return fetchTopFromJson(TOP_CARD_JSON_PATTERNS, maxCount);
+  const entries = await fetchCardTopEntries("year");
+  return entries.slice(0, maxCount).map((entry) => ({
+    slug: entry.slug,
+    name: entry.name,
+    rank: entry.rank,
+  }));
 }
 
 export async function fetchTopCommandersFromSite(maxCount: number) {

@@ -319,3 +319,182 @@ Format for new entries:
 **Decision:** (1) **Symmetric detail tabs** — `EntityDetailTabs` on both `/cards/{slug}` and `/commanders/{slug}` navigate between routes (no inline `?view=commander` panel). (2) **Remove user-facing EDHREC badges** — browse sync notice bar; production copy uses neutral “Popularity data”. (3) **Dev-only debug** — `CatalogDebugBadge` (collapsible, top-left) + violet `DevEdhrecCoverageBadge` on browse All tabs when overlay missing; stale-cache hints in dev only. Footer attribution to Scryfall/EDHREC unchanged (Fan Content Policy).
 
 **Consequences:** Filter params (`has_edhrec`) unchanged in API; labels only. Commander without popularity overlay uses neutral `MetaUnavailableNotice`, not 404.
+
+---
+
+## 2026-07-12 — Phase 1.6 Discovery parity scope and implementation order
+
+**Context:** Phase 1.5 delivered coherent browse/search/detail behaviour but EDHREC-like density (grid lists, multi-section commander pages, interactive filters) was deferred. Phase 2 deck builder should not start until discovery feels complete.
+
+**Decision:**
+
+1. **New phase 1.6** (absorbs cancelled 1.5.9 visual polish). Single epic branch; includes uncommitted Phase 1.5 UX work. **Gates Phase 2.**
+2. **Browse:** toggle list/grid, **default grid**; tabs renamed **Most played / Top commanders / All**; All tabs kept but de-emphasized; Popular pool stays **HOT+WARM** (no full card catalog sync).
+3. **Commander detail:** expose **all known `cardlists` sections**; Themes split **Themes | Kindred** with **inline filter** (no `/themes` hub in 1.6); **Budget + Bracket + Theme** interactive filters with **on-demand EDHREC fetch on detail only** (browse stays Postgres-only).
+4. **Card detail:** similar cards, Scryfall USD prices, salt badge, synergy on top commanders; keep relatives; keep `EntityDetailTabs`.
+5. **Time window** `year | all` on browse — in scope (sync/API task).
+6. **Out of scope:** `/themes` hub, dedicated Saltiest routes, external deck links, average deck unless already in cached JSON.
+7. **UX:** production neutral badge for missing popularity data; footer-only attribution; EDHREC loose visual reference, desktop-dense, system dark mode.
+8. **Implementation waves (order matters):** shared UI kit → browse → commander sections → filter cache → card detail → time window → search/sets/home → polish.
+
+**Why this order:** shared grid/metric components unblock cards + commanders browse and detail; commander cardlists parser before filter infrastructure; filter spike before schema/cache changes; card detail reuses metric rows; time window needs data pipeline after browse contract is stable; peripheral pages last.
+
+**Consequences:** Task list in `docs/ROADMAP.md` § Phase 1.6. Filter-variant caching documented in ARCHITECTURE after 1.6.9 spike. `/themes` hub and Printings tab remain backlog.
+
+---
+
+## 2026-07-12 — EDHREC top index + page variants (extends 1.6)
+
+**Context:** User confirmed closer EDHREC parity: browse top lists should match EDHREC numerically; card detail needs Theme/Budget filters like commander detail. Current browse uses HOT+WARM subset (~2k cards) and `rank IS NOT NULL` on profiles; top JSON client URLs partly broken (`top/cards--N` 403); working paths are `pages/top/{window}.json` and `pages/commanders/{window}.json`.
+
+**Decision:**
+
+1. **Top list parity (D+):** New table **`edhrec_top_entries`** — `(entity_type, window, rank, slug, metrics…)` populated by **`scripts/sync/edhrec-top-lists.ts`** (paginated top JSON). Browse **Most played / Top commanders** read this table, not `sync_tier IN (HOT,WARM)` or ad-hoc `rank IS NOT NULL`.
+2. **Time window:** `week | month | year | all` on browse (default **`year`** = EDHREC “Past 2 Years”).
+3. **Filter variants (F1):** New table **`edhrec_page_variants`** — keyed by `(entity_type, slug, theme?, budget?, bracket?)` with full JSON payload. Commander paths proven (`pages/commanders/{slug}/{theme}.json`, `/budget.json`, combined). Card filter URLs mapped in **spike 1.6.9b** before UI.
+4. **Fix `edhrec/client.ts`** top fetchers to use `pages/top/…` and `pages/commanders/…` patterns (task 1.6.9c).
+5. **No deprecation:** `edhrec_commander_profiles`, `edhrec_card_data`, HOT weekly sync, commander catalog sweep, and on-demand default cache **remain required** for detail bodies, All-tab joins, search, sitemap, and profile freshness. HOT does not replace top index; top index does not store full `cardlists`.
+
+**Why not one table:** Top index is a **ranked, windowed, lightweight** list for browse sort/pagination. Profile tables hold **fat JSON** (cardlists, tag_counts) for detail — different shape, TTL, and update cadence.
+
+**Supersedes:** Phase 1.6 decision (same date) item 2 “Popular pool stays HOT+WARM” for **browse primary tabs only**.
+
+**Consequences:** Prisma migration in 1.6.10. GH Action adds top-list job. Phase 3 meta comparison still uses `edhrec_commander_profiles.tag_counts` and `card_classifications`, unchanged.
+
+## 2026-07-13 — Commander bracket filter URL mapping
+
+**Context:** Spike 1.6.9 — EDHREC bracket filter on commander detail; numeric `bracket-3` paths return 403.
+
+**Decision:** Map UI bracket values `1–5` to EDHREC path slugs: `exhibition`, `core`, `upgraded`, `optimized`, `cedh`. When bracket is active, it is the **first** path segment before theme/budget (e.g. `cedh/infect/budget.json`). Filtered payloads upserted to **`edhrec_page_variants`** (WARM TTL, 7d); default profile row unchanged.
+
+**Card filters:** `?cost=` and `?theme=` query params on `pages/cards/{slug}.json` (same variant cache). Card pages expose **Budget** filter; Theme dropdown hidden until EDHREC exposes theme list on card JSON.
+
+**Consequences:** `src/lib/edhrec/variants.ts`, `variant-cache.ts`, filter bars on detail pages. Combined filters beyond two segments may 403 — UI keeps filter bar visible and shows an unavailable notice instead of the card-only catalog fallback.
+
+## 2026-07-13 — Commander Mid budget not in EDHREC JSON API
+
+**Context:** User testing (Tatyova) — selecting Budget **Mid** on commander detail hid filters and showed “Popularity data not available”. Spike assumed `pages/commanders/{slug}/middle.json` worked like `budget` / `expensive`.
+
+**Decision:** EDHREC exposes only **Budget** and **Expensive** as commander filter slices (`/budget`, `/expensive` path segments; edhrec.com links match). `middle` path returns **403**; `?cost=middle` returns **200** but **same payload as default** (no slice). Remove **Mid** from commander filter dropdown; keep Mid on card filter (query param accepted) until 1.6.16 validates card-side deltas. When an active filter has no variant payload, keep **CommanderFilterBar** / **CardFilterBar** and show **FilterUnavailableNotice** — do not fall back to the Scryfall-only commander layout.
+
+**Consequences:** `COMMANDER_BUDGET_OPTIONS` = budget + expensive; `CARD_BUDGET_OPTIONS` adds middle. `getUnsupportedCommanderFilterMessage()` short-circuits Mid before fetch. Supersedes ARCHITECTURE commander URL line listing `middle` as a path segment.
+
+## 2026-07-13 — Commander rank on browse only, not detail hero
+
+**Context:** Card/commander parity (P0) added `RankBadge` on commander detail hero. Rank in `edhrec_commander_profiles` / top index is **time-window-specific** on browse; detail has no window selector. Users landing from “Past week” could see a different rank than the global profile rank.
+
+**Decision:** Show **rank `#N` on commander browse** (grid/row) when the active tab/window supplies it. **Do not show rank on commander detail hero.** Salt stays on hero; deck count stays in Popularity. Similar-commanders block may still show rank (that list is EDHREC’s similar set, not browse window).
+
+**Consequences:** `DetailHeroBadges` on `/commanders/[slug]` passes `salt` only. `docs/UI.md` parity table updated.
+
+## 2026-07-13 — Commander detail rank: all-time profile (supersedes browse-only detail rule)
+
+**Context:** Rank was removed from commander detail hero because browse uses windowed `edhrec_top_entries` while detail had no window label — users could see conflicting ranks. Similar commanders still showed profile rank without explanation.
+
+**Decision:** Show **all-time rank** on commander detail **hero** and **similar commanders**, sourced from **`edhrec_commander_profiles.rank`** (EDHREC default commander page JSON, no time-window param). Browse (`/commanders`) continues to use **`edhrec_top_entries`** for the selected window (`week` \| `month` \| `year` \| `all`). Hero rank always reads **base profile** (`baseEdhrec`), not filtered variant payloads. UI: tooltip “All-time EDHREC rank”; similar section footnote.
+
+**Consequences:** `commander-rank.ts` documents the contract. **Supersedes** the “do not show rank on commander detail hero” part of the 2026-07-13 browse-only entry above.
+
+## 2026-07-13 — Browse: top lists only, no All tab
+
+**Context:** `/cards` and `/commanders` had **Most played / Top commanders** plus an **All** tab for full-catalog browse with EDHREC coverage badges. Phase 1.6 adds **global search** and **sets** for catalog discovery; the All tab duplicated scope and cluttered the UI.
+
+**Decision:** Remove the **All** tab from both browse pages. `/cards` → **Top cards** and `/commanders` → **Top commanders** (EDHREC top index only, **grid-only**, larger tiles, metrics below image). API `tab=all` remains for internal/dev use. Nav and home shortcuts renamed to **Top cards** / **Top commanders**.
+
+**Consequences:** `BrowseTabs` unused on browse pages. `CardBrowseToolbar` / `CommanderBrowseToolbar` drop `has_edhrec` filters. Grid tiles use `CardImage` `grid` variant.
+
+## 2026-07-13 — Dedicated `/catalog` page for full card catalog
+
+**Context:** Top cards / top commanders are EDHREC-ranked lists only. Users still need browsable access to the full Scryfall `cards` catalog with the same filters as before the All-tab removal.
+
+**Decision:** Add **`/catalog`** — grid browse over `GET /api/cards/browse?tab=all` (playable catalog `cards` rows). Reuse filter toolbar (search, color, CMC, type, commander-legal) plus **`commanders_only`** checkbox (`is_commander = true`). Sort: name or CMC. Commander rows link to `/commanders/{slug}` when slug exists. No time window, no EDHREC rank on tiles. Nav: Top cards · Top commanders · **Catalog** · Sets.
+
+**Consequences:** `CatalogBrowseToolbar`, `commandersOnly` on `CardBrowseFilters`. Top pages stay EDHREC-only; catalog replaces the old All-tab UX for cards.
+
+## 2026-07-13 — Unified browse filter UI across list pages
+
+**Context:** Set detail had multi-select color pills and rarity toggles; top cards/commanders/catalog used dropdowns or checkboxes. Set detail lacked type/CMC filters present elsewhere.
+
+**Decision:** Shared filter kit in `browse-filter-controls.tsx` + `color-identity-filter.ts` / `rarity-filter.ts`. All card lists use **multi-select color identity pills** (`colorIdentity`, param `color=W,U`), **rarity pills** where applicable, and **toggle pills** for commander legal / commanders only / indexed only. Set detail gains **type contains** and **CMC min/max**. Panel styling unified via `browseToolbarPanelClassName`.
+
+**Consequences:** `colors[]` replaces single `color` in browse APIs and toolbars. Commander ranked queries use `buildProfileColorIdentityWhere` on `edhrec_commander_profiles`.
+
+## 2026-07-13 — Store `potential_decks` on `edhrec_card_data` for card detail inclusion %
+
+**Context:** Top card browse showed inclusion % via `edhrec_top_entries` (`inclusion` + `potential_decks`). Card detail read `edhrec_card_data`, which stored `inclusion` but not `potential_decks`, so `formatInclusionPercent` returned "—" and the UI fell back to raw deck count.
+
+**Decision:** Add `potential_decks` to `edhrec_card_data`; persist it in `mapCardData` from EDHREC card page JSON. `getCardDetailEdhrecData` uses the cached value; if missing on legacy rows, fallback to `edhrec_top_entries` (window `all`).
+
+**Consequences:** Existing rows need re-sync (`sync:edhrec-cards` or on-demand warm fetch) for the column to populate; top-index fallback covers popular cards immediately. **Display:** EDHREC card JSON often omits `inclusion`; UI computes global inclusion % as `num_decks / potential_decks` (see `formatInclusionPercent`).
+
+## 2026-07-13 — Remove card detail Theme/Budget filter bar
+
+**Context:** Spike 1.6.9b mapped `?cost=` / `?theme=` on card pages. Live EDHREC JSON shows **no delta** for Budget/Mid/Expensive on staples (stats + top commanders unchanged). Phase 2–3 roadmap has no card-detail work that depends on budget slices. Commander budget remains high-value (cardlists + `num_decks` slice).
+
+**Decision:** Remove **`CardFilterBar`** from `/cards/[slug]`; card detail always loads default `edhrec_card_data` / base variant (no filter query params). Keep commander Theme + Budget + Bracket. **`edhrec_page_variants`** card rows and `buildCardPagePath` stay for a possible future theme list on card JSON.
+
+**Consequences:** `CARD_BUDGET_OPTIONS` and `card-filter-bar.tsx` removed. Card detail exposes remaining **`cardlists`** via `parseCardDetailCardlists` + `CardDetailCardlistSections` (see card detail cardlists entry below).
+
+## 2026-07-13 — Card detail EDHREC cardlists sections
+
+**Context:** Card page JSON includes many `cardlists` (top cards, game changers, type buckets) already cached in `edhrec_card_data`, but UI showed only top commanders + similar + relatives.
+
+**Decision:** Add **`parseCardDetailCardlists`** and **`CardDetailCardlistSections`** — same `CardListSection` grid as commander detail; exclude `topcommanders` (own block) and commander-only tags (`highsynergycards`, average deck). `newcommanders` links to `/commanders/{slug}`.
+
+**Consequences:** Card detail parity with EDHREC co-played sections without new sync jobs. Data requires warmed `edhrec_card_data` for the card slug.
+
+## 2026-07-13 — MTG + generic icon system (Phase 1.6.20)
+
+**Context:** Browse filters and metrics used plain text (`W`, `common`, `Ascending`, `Salt 1.23`) where EDHREC-like density benefits from icons.
+
+**Decision:** Two layers — (1) **MTG symbols** vendored once from Scryfall mana SVGs (`src/lib/mtg/mana-symbol-data.ts`, regen via `npm run vendor:mana-symbols`) + inline `RarityIcon` gems; (2) **generic UI** via **`lucide-react`** (sort order, grid/list, search, loading). Keep text labels on `<select>` sort fields and accessibility fallbacks (`aria-label`, `sr-only`, `title`).
+
+**Consequences:** No runtime CDN for mana in hot paths. Set icons and card art unchanged (Scryfall URLs). Future hybrid/mana-cost icons can extend `src/components/mtg/`.
+
+## 2026-07-13 — Oracle rarity filter uses minimum printing tier
+
+**Context:** Catalog/top-card rarity filter used “any `set_cards` row matches”, so staples with a single mythic printing (e.g. Sol Ring) appeared when filtering mythic only.
+
+**Decision:** `resolveOracleIdsForRarities` includes an oracle only when the **lowest** printing rarity tier among all `set_cards` rows is in the selected set. Set detail (`/sets/[code]`) still filters per printing row (`setCard.rarity`).
+
+**Consequences:** Mythic-only browse shows cards that are mythic at their base tier, not every card with a chase printing. Multi-select unions minimum tiers (e.g. uncommon + rare includes oracles whose floor is uncommon or rare).
+
+## 2026-07-14 — EDHREC top list full sync via `list.more`
+
+**Context:** Browse top cards/commanders showed only 100 entries per window. Spike found EDHREC paginates via `list.more` on each cardlist (e.g. `top/year-past2years-1.json`), not `--2.json` (403). Commander year ≈6.5k entries; cards year continues 20k+ pages. `window=all` top JSON returns 403.
+
+**Decision:** (1) **`fetchPaginatedTop`** follows `list.more` until end (full sync, no cap by default). (2) **`sync:edhrec-top-lists`** syncs **week/month/year only**; optional `--max-entries` for dev. (3) Browse **`window=all`**: commanders → `edhrec_commander_profiles.rank`; cards → HOT+WARM `edhrec_card_data` (no unavailable badge). (4) GH Action timeout **360 min**.
+
+**Consequences:** `edhrec_top_entries` grows large; weekly sync runtime increases. Browse load-more works beyond 100 once sync completes. Supersedes 1.6.9b pagination note (`--N.json`). First full local sync (2026-07-14): **108,173 rows**, **~32 MB** table, **~8 min** runtime — cards ≈30k/window, commanders up to 6,535/year.
+
+## 2026-07-14 — Post full-sync cleanup (dead paths)
+
+**Context:** Full top-list sync completed. Recap found dead code from pre–Option F model: `window=ALL` never populated in `edhrec_top_entries`; commander `tab=all` API unused after `/catalog`; `bracket_counts`/`budget_counts` write-only.
+
+**Decision:** (1) Remove **`EdhrecTopWindow.ALL` fallback** in `variant-cache` for `potentialDecks`. (2) **Remove `tab=all`** from `/api/commanders/browse` — return 400 pointing to `/api/cards/browse?tab=all&commanders_only=true`. (3) Keep **`bracket_counts`/`budget_counts`** columns; comment in `parse.ts` as write-only backlog. (4) Add **`scripts/sync/purge-edhrec-page-variants.ts`** for expired variant rows. (5) Dev utility **`scripts/dev/db-health-snapshot.ts`** for row/size counts.
+
+**Consequences:** Old commander browse cursors with `tab` field still decode; validation ignores removed `tab`. All-time browse (`window=all`) unchanged — deferred to separate review.
+
+## 2026-07-14 — Card top browse: no All time window (option 2c)
+
+**Context:** EDHREC has no all-time top JSON for cards (403). The `window=all` path used HOT `edhrec_card_data` (~2k rows): wrong default sort (inclusion vs rank), missing inclusion % (`potential_decks` gaps), and a different pool than week/month/year top index (~30k).
+
+**Decision:** **Remove “All time” from `/cards` browse only.** Time windows: `week` \| `month` \| `year` (default `year`). API `GET /api/cards/browse?window=all` → **400**. **Commanders** keep `all` → `edhrec_commander_profiles.rank` (true all-time rank).
+
+**Consequences:** Supersedes card slice of 2026-07-14 full-sync decision (3) for cards. Card detail inclusion still from `edhrec_card_data`; browse cards always uses `edhrec_top_entries`.
+
+## 2026-07-14 — shadcn/ui design system + violet theme (Phase 1.7 UI foundation)
+
+**Context:** UI used ad-hoc `zinc-*` Tailwind classes across 70+ components; no shared primitives for buttons, inputs, or semantic colors. Phase 1.6 functionally complete; user requested a component library baseline and visual reorganization.
+
+**Decision:** (1) Adopt **shadcn/ui v4** (`base-nova`, Tailwind v4, `@base-ui/react`) — `components.json`, `src/lib/utils.ts` (`cn`), primitives in `src/components/ui/`. (2) **Primary brand:** violet OKLCH (`--primary` ~277° hue) — distinct from EDHREC green / Scryfall blue. (3) **`next-themes`** — system light/dark, class strategy. (4) **Wave 1 refactor:** header (`NavLinks` + sticky blur), `PageShell` toolbar slot + separator, `BrowseFilterPanel` (Card), filter pills → primary tokens, `LoadMoreButton` → Button, home shortcuts → Card grid, `RankBadge` → Badge. (5) **Keep** MTG-specific components (`ManaSymbol`, `RarityIcon`, `CardFaceTile`) unchanged.
+
+**Consequences:** Remaining pages (detail, sets, search) still mix legacy zinc classes — migrate in follow-up waves. No light/dark toggle yet.
+
+## 2026-07-14 — Browse layout closure (grid-only, search rows, sets grid)
+
+**Context:** Phase 1.6 Wave 6–7 needed final layout choices for `/cards`, `/commanders`, `/search`, and `/sets` before marking the epic complete.
+
+**Decision:** (1) **`/cards` and `/commanders`** — **grid-only**; no `BrowseViewToggle` wired (defer list mode to backlog). (2) **`/search`** — keep **compact horizontal rows** (`Card` + thumbnail), not `CardFaceTile` grid. (3) **`/sets` browse** — keep horizontal row card layout inside each item, but lay out items in **`SET_BROWSE_GRID_CLASS`** (1 → 2 → 3 columns). Set detail: filters in `PageShell` toolbar + `PageListMeta`.
+
+**Consequences:** `BrowseViewToggle` component exists but unused. Sets filter toolbar keeps dense grid (`browseToolbarDenseGridClassName`). Phase 1.6 marked complete in roadmap; Phase 2 unblocked.

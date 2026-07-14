@@ -1,23 +1,46 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
 
-import { CardImage } from "@/components/discovery/card-image";
+import { CommanderCardlistSections } from "@/components/discovery/commander-cardlist-sections";
+import { CommanderFilterBar } from "@/components/discovery/commander-filter-bar";
+import { DetailHeroAside } from "@/components/discovery/detail-hero-aside";
+import { DetailSectionPanel } from "@/components/discovery/detail-section-panel";
+import { FilterUnavailableNotice } from "@/components/discovery/filter-unavailable-notice";
+import { EdhrecAverageDeck } from "@/components/discovery/edhrec-average-deck";
 import { EdhrecSimilarCommanders } from "@/components/discovery/edhrec-similar-commanders";
 import { EdhrecThemes } from "@/components/discovery/edhrec-themes";
-import { EdhrecTopCards } from "@/components/discovery/edhrec-top-cards";
 import { EntityDetailTabs } from "@/components/discovery/entity-detail-tabs";
 import { MetaUnavailableNotice } from "@/components/discovery/meta-unavailable-notice";
+import { PriceChip } from "@/components/discovery/price-chip";
 import { StaleCacheBanner } from "@/components/discovery/stale-cache-banner";
 import { PageShell } from "@/components/layout/page-shell";
 import { getCachedCommanderProfile } from "@/lib/edhrec/cache";
-import type { EdhrecCardList } from "@/lib/edhrec/types";
+import {
+  parseAverageDeckSections,
+  parseCommanderCardlists,
+  splitTagCounts,
+} from "@/lib/edhrec/cardlists";
+import {
+  getUnsupportedCommanderFilterMessage,
+  parseBracketFilterParam,
+  parseBudgetFilterParam,
+  parseThemeFilterParam,
+} from "@/lib/edhrec/filter-options";
+import { getCommanderDetailData } from "@/lib/edhrec/variant-cache";
+import { commanderAllTimeRank } from "@/lib/edhrec/commander-rank";
+import { hasActivePageFilters } from "@/lib/edhrec/variants";
 import { prisma } from "@/lib/db";
 import { findPlayableCardByEdhrecSlug } from "@/lib/scryfall/catalog-filters";
-import { formatColorIdentity, formatRank } from "@/lib/display/formatters";
+import { CardStatsLine } from "@/components/discovery/card-stats-line";
+import { ColorIdentity } from "@/components/mtg/color-identity";
+import { buildCommanderDetailNavItems, commanderCardlistSectionsForNav } from "@/lib/ui/detail-section-nav";
+import { DETAIL_HERO_GRID_CLASS, DETAIL_MAIN_COLUMN_CLASS } from "@/lib/ui/layout";
 import { createPageMetadata } from "@/lib/seo/site";
 
 type CommanderDetailPageProps = {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ theme?: string; budget?: string; bracket?: string }>;
 };
 
 const cardSelect = {
@@ -29,6 +52,7 @@ const cardSelect = {
   cmc: true,
   colorIdentity: true,
   isCommander: true,
+  prices: true,
 } as const;
 
 export async function generateMetadata({ params }: CommanderDetailPageProps): Promise<Metadata> {
@@ -66,78 +90,105 @@ export async function generateMetadata({ params }: CommanderDetailPageProps): Pr
   });
 }
 
-export default async function CommanderDetailPage({ params }: CommanderDetailPageProps) {
+export default async function CommanderDetailPage({
+  params,
+  searchParams,
+}: CommanderDetailPageProps) {
   const { slug } = await params;
+  const { theme, budget, bracket } = await searchParams;
 
-  const [edhrec, card] = await Promise.all([
+  const filters = {
+    theme: parseThemeFilterParam(theme),
+    budget: parseBudgetFilterParam(budget),
+    bracket: parseBracketFilterParam(bracket),
+  };
+
+  const [baseEdhrec, detail, card] = await Promise.all([
     getCachedCommanderProfile(slug, { warm: true }),
+    getCommanderDetailData(slug, { warm: true, filters }),
     findPlayableCardByEdhrecSlug(prisma, slug, cardSelect),
   ]);
 
-  if (!edhrec.data && !card) {
+  if (!baseEdhrec.data && !detail.data && !card) {
     notFound();
   }
 
-  const profile = edhrec.data;
-  const displayName = card?.name ?? profile!.name;
+  const profile = detail.data;
+  const hasFilters = hasActivePageFilters(filters);
+  const filterUnavailableMessage = getUnsupportedCommanderFilterMessage(filters);
+  const displayName = card?.name ?? profile?.name ?? baseEdhrec.data?.name ?? slug;
   const typeLine = card?.typeLine ?? "Legendary Creature";
+  const allTimeRank = commanderAllTimeRank(baseEdhrec.data);
+  const baseTagCounts = (baseEdhrec.data?.tagCounts ?? {}) as Record<string, number>;
+  const themeOptions = splitTagCounts(baseTagCounts)
+    .themes.map((entry) => entry.name)
+    .slice(0, 40);
 
-  if (!profile && card) {
+  if (!profile && hasFilters && (baseEdhrec.data || card)) {
     return (
       <PageShell
         title={displayName}
         description={typeLine}
         breadcrumbs={[
-          { label: "Commanders", href: "/commanders" },
+          { label: "Top commanders", href: "/commanders" },
           { label: displayName, href: `/commanders/${slug}` },
         ]}
       >
+        {detail.isStale && detail.syncedAt && (
+          <div className="mb-6">
+            <StaleCacheBanner syncedAt={detail.syncedAt} context="page" />
+          </div>
+        )}
+
         <EntityDetailTabs slug={slug} activeRoute="commander" />
 
-        <section className="grid gap-6 md:grid-cols-[260px_1fr]">
-          <div>
-            {card.imageUri ? (
-              <CardImage src={card.imageUri} alt={displayName} variant="detail" />
-            ) : (
-              <div className="flex aspect-[488/680] w-full max-w-[260px] items-center justify-center rounded-lg border border-zinc-200 bg-zinc-100 text-sm text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900">
-                No image available
-              </div>
+        <section className={DETAIL_HERO_GRID_CLASS}>
+          <DetailHeroAside
+            imageUri={card?.imageUri ?? null}
+            imageAlt={displayName}
+            rank={allTimeRank}
+            salt={baseEdhrec.data?.salt ?? null}
+            allTimeRank
+          />
+
+          <div className={DETAIL_MAIN_COLUMN_CLASS}>
+            <Suspense fallback={null}>
+              <CommanderFilterBar
+                themeOptions={themeOptions}
+                activeTheme={filters.theme}
+                activeBudget={filters.budget}
+                activeBracket={filters.bracket}
+              />
+            </Suspense>
+
+            <FilterUnavailableNotice message={filterUnavailableMessage ?? undefined} />
+
+            {card && (
+              <DetailSectionPanel title="Stats">
+                <CardStatsLine
+                  cmc={card.cmc}
+                  colorIdentity={card.colorIdentity}
+                  isCommander={card.isCommander}
+                  className="mt-2"
+                />
+                <div className="mt-2">
+                  <PriceChip prices={card.prices} />
+                </div>
+              </DetailSectionPanel>
             )}
-          </div>
 
-          <div className="space-y-5">
-            <MetaUnavailableNotice context="commander-page" />
-
-            <section className="rounded-lg border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">
-                Stats
-              </h2>
-              <p className="mt-2 text-sm text-zinc-700 dark:text-zinc-300">
-                CMC {card.cmc} · {formatColorIdentity(card.colorIdentity)}
-                {card.isCommander ? " · Commander" : ""}
-              </p>
-            </section>
-
-            {card.oracleText && (
-              <section className="rounded-lg border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950">
-                <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">
-                  Oracle text
-                </h2>
-                <p className="mt-2 whitespace-pre-line text-sm leading-6 text-zinc-800 dark:text-zinc-200">
+            {card?.oracleText && (
+              <DetailSectionPanel title="Oracle text">
+                <p className="mt-2 whitespace-pre-line text-sm leading-6 text-foreground">
                   {card.oracleText}
                 </p>
-              </section>
+              </DetailSectionPanel>
             )}
 
-            {card.keywords.length > 0 && (
-              <section className="rounded-lg border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950">
-                <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">
-                  Keywords
-                </h2>
-                <p className="mt-2 text-sm text-zinc-700 dark:text-zinc-300">
-                  {card.keywords.join(", ")}
-                </p>
-              </section>
+            {card && card.keywords.length > 0 && (
+              <DetailSectionPanel title="Keywords">
+                <p className="mt-2 text-sm text-muted-foreground">{card.keywords.join(", ")}</p>
+              </DetailSectionPanel>
             )}
           </div>
         </section>
@@ -145,78 +196,173 @@ export default async function CommanderDetailPage({ params }: CommanderDetailPag
     );
   }
 
-  const cardlists = (profile!.cardlists ?? {}) as Record<string, EdhrecCardList>;
-  const tagCounts = (profile!.tagCounts ?? {}) as Record<string, number>;
+  if (!profile && card) {
+    return (
+      <PageShell
+        title={displayName}
+        description={typeLine}
+        breadcrumbs={[
+          { label: "Top commanders", href: "/commanders" },
+          { label: displayName, href: `/commanders/${slug}` },
+        ]}
+      >
+        <EntityDetailTabs slug={slug} activeRoute="commander" />
+
+        <section className={DETAIL_HERO_GRID_CLASS}>
+          <DetailHeroAside
+            imageUri={card.imageUri}
+            imageAlt={displayName}
+            rank={allTimeRank}
+            allTimeRank
+          />
+
+          <div className={DETAIL_MAIN_COLUMN_CLASS}>
+            <MetaUnavailableNotice context="commander-page" />
+
+            <DetailSectionPanel title="Stats">
+              <CardStatsLine
+                cmc={card.cmc}
+                colorIdentity={card.colorIdentity}
+                isCommander={card.isCommander}
+                className="mt-2"
+              />
+              <div className="mt-2">
+                <PriceChip prices={card.prices} />
+              </div>
+            </DetailSectionPanel>
+
+            {card.oracleText && (
+              <DetailSectionPanel title="Oracle text">
+                <p className="mt-2 whitespace-pre-line text-sm leading-6 text-foreground">
+                  {card.oracleText}
+                </p>
+              </DetailSectionPanel>
+            )}
+
+            {card.keywords.length > 0 && (
+              <DetailSectionPanel title="Keywords">
+                <p className="mt-2 text-sm text-muted-foreground">{card.keywords.join(", ")}</p>
+              </DetailSectionPanel>
+            )}
+          </div>
+        </section>
+      </PageShell>
+    );
+  }
+
+  if (!profile) {
+    notFound();
+  }
+
+  const cardlists = profile.cardlists;
+  const tagCounts = profile.tagCounts;
+  const colorIdentity =
+    profile.colorIdentity.length > 0
+      ? profile.colorIdentity
+      : (card?.colorIdentity ?? []);
+  const themeSplit = splitTagCounts(tagCounts);
+  const commanderCardlistSections = commanderCardlistSectionsForNav(
+    cardlists,
+    parseCommanderCardlists(cardlists),
+  );
+  const sectionNavItems = buildCommanderDetailNavItems({
+    hasThemes: themeSplit.themes.length > 0 || themeSplit.kindred.length > 0,
+    cardlistSections: commanderCardlistSections,
+    hasAverageDeck: parseAverageDeckSections(cardlists).length > 0,
+    hasSimilarCommanders: profile.similarSlugs.length > 0,
+  });
 
   return (
     <PageShell
       title={displayName}
       description={typeLine}
       breadcrumbs={[
-        { label: "Commanders", href: "/commanders" },
+        { label: "Top commanders", href: "/commanders" },
         { label: displayName, href: `/commanders/${slug}` },
       ]}
     >
-      {edhrec.isStale && edhrec.syncedAt && (
+      {detail.isStale && detail.syncedAt && (
         <div className="mb-6">
-          <StaleCacheBanner syncedAt={edhrec.syncedAt} context="page" />
+          <StaleCacheBanner syncedAt={detail.syncedAt} context="page" />
         </div>
       )}
 
       <EntityDetailTabs slug={slug} activeRoute="commander" />
 
-      <section className="grid gap-6 md:grid-cols-[260px_1fr]">
-        <div>
-          {card?.imageUri ? (
-            <CardImage src={card.imageUri} alt={displayName} variant="detail" />
-          ) : (
-            <div className="flex aspect-[488/680] w-full max-w-[260px] items-center justify-center rounded-lg border border-zinc-200 bg-zinc-100 text-sm text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900">
-              No image available
-            </div>
-          )}
-        </div>
+      <section className={DETAIL_HERO_GRID_CLASS}>
+        <DetailHeroAside
+          imageUri={card?.imageUri ?? null}
+          imageAlt={displayName}
+          rank={allTimeRank}
+          salt={profile.salt}
+          allTimeRank
+          sectionNavItems={sectionNavItems}
+        />
 
-        <div className="space-y-5">
-          <section className="rounded-lg border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">
-              Popularity
-            </h2>
-            <p className="mt-2 text-sm text-zinc-700 dark:text-zinc-300">
-              Rank {formatRank(profile!.rank)} · Salt{" "}
-              {profile!.salt != null ? profile!.salt.toFixed(2) : "—"}
-              {profile!.numDecks != null
-                ? ` · ${profile!.numDecks.toLocaleString()} decks`
-                : ""}
-              {" · "}
-              {formatColorIdentity(profile!.colorIdentity)}
+        <div className={DETAIL_MAIN_COLUMN_CLASS}>
+          <Suspense fallback={null}>
+            <CommanderFilterBar
+              themeOptions={themeOptions}
+              activeTheme={filters.theme}
+              activeBudget={filters.budget}
+              activeBracket={filters.bracket}
+            />
+          </Suspense>
+
+          {card && (
+            <DetailSectionPanel title="Stats">
+              <CardStatsLine
+                cmc={card.cmc}
+                colorIdentity={card.colorIdentity}
+                isCommander={card.isCommander}
+                className="mt-2"
+              />
+              <div className="mt-2">
+                <PriceChip prices={card.prices} />
+              </div>
+            </DetailSectionPanel>
+          )}
+
+          <DetailSectionPanel title="Popularity">
+            <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-foreground">
+              <span>
+                {profile.numDecks != null
+                  ? `${profile.numDecks.toLocaleString()} decks`
+                  : "Deck count unavailable"}
+              </span>
+              {!card && colorIdentity.length > 0 ? (
+                <ColorIdentity colors={colorIdentity} size="sm" />
+              ) : null}
             </p>
-          </section>
+          </DetailSectionPanel>
 
           {card?.oracleText && (
-            <section className="rounded-lg border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">
-                Oracle text
-              </h2>
-              <p className="mt-2 whitespace-pre-line text-sm leading-6 text-zinc-800 dark:text-zinc-200">
+            <DetailSectionPanel title="Oracle text">
+              <p className="mt-2 whitespace-pre-line text-sm leading-6 text-foreground">
                 {card.oracleText}
               </p>
-            </section>
+            </DetailSectionPanel>
           )}
 
           {card && card.keywords.length > 0 && (
-            <section className="rounded-lg border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">
-                Keywords
-              </h2>
-              <p className="mt-2 text-sm text-zinc-700 dark:text-zinc-300">
-                {card.keywords.join(", ")}
-              </p>
-            </section>
+            <DetailSectionPanel title="Keywords">
+              <p className="mt-2 text-sm text-muted-foreground">{card.keywords.join(", ")}</p>
+            </DetailSectionPanel>
           )}
 
           <EdhrecThemes tagCounts={tagCounts} />
-          <EdhrecTopCards cardlists={cardlists} numDecks={profile!.numDecks} />
-          <EdhrecSimilarCommanders similarSlugs={profile!.similarSlugs} />
+          <CommanderCardlistSections
+            cardlists={cardlists}
+            numDecks={profile.numDecks}
+            partition="unique"
+          />
+          <EdhrecAverageDeck cardlists={cardlists} numDecks={profile.numDecks} />
+          <EdhrecSimilarCommanders similarSlugs={profile.similarSlugs} />
+          <CommanderCardlistSections
+            cardlists={cardlists}
+            numDecks={profile.numDecks}
+            partition="shared"
+          />
         </div>
       </section>
     </PageShell>

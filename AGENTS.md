@@ -9,7 +9,7 @@
 - **Repo:** https://github.com/VincenzoLaRosaDev/edhforge
 - **Language (MVP):** English only — UI, DB fields, enums
 - **Format (MVP):** Commander only (other formats → backlog)
-- **Current phase:** Phase 1 complete → **Phase 1.5** (discovery consistency) before Phase 2
+- **Current phase:** Phase 1.6 complete → **Phase 2** (deck builder, import, auth)
 
 ## Required reading (in order)
 
@@ -19,8 +19,8 @@
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Stack, data sources, sync jobs, folder structure |
 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | Phase checklist with status — update as tasks complete |
 | [`docs/DECISIONS.md`](docs/DECISIONS.md) | Decision log — append new entries, never delete history |
-| [`docs/UI.md`](docs/UI.md) | Shell, tokens, discovery components — refine at polish pass |
-| [`docs/PROJECT.md`](docs/PROJECT.md) § Discovery consistency | Phase 1.5 browse/search/detail spec (read before 1.5 work) |
+| [`docs/UI.md`](docs/UI.md) | Shell, tokens, discovery components — Phase 1.6 parity spec |
+| [`docs/PROJECT.md`](docs/PROJECT.md) § Discovery parity | Phase 1.6 browse/detail/filter spec |
 
 ## Documentation maintenance (mandatory)
 
@@ -59,9 +59,10 @@ Do not rely on chat history — if it is not in these files, it does not exist f
 ```
 Phase 0 ✅  Scryfall sync, card search, oracle tags + classifications
 Phase 1 ✅  EDHREC discovery (commanders, cards, sets)
-Phase 1.4 ✅  Commander catalog EDHREC sync (run batched before 1.5)
-Phase 1.5 ⬜  Discovery consistency (browse, search, detail) — see docs/PROJECT.md
-Phase 2 ⬜  Deck builder, import, auth
+Phase 1.4 ✅  Commander catalog EDHREC sync
+Phase 1.5 ✅  Discovery consistency (browse, search, detail)
+Phase 1.6 ✅  Discovery parity (EDHREC-like UI)
+Phase 2 ⬜  Deck builder, import, auth — **current**
 Phase 3 ⬜  Analysis + meta comparison
 Phase 4 ⬜  Community (publish, vote, rankings)
 Phase 5 ⬜  Polish, precons, launch

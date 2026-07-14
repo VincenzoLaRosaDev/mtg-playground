@@ -1,6 +1,13 @@
 import {
-  browseToolbarInputClassName,
-  browseToolbarPanelClassName,
+  BrowseFilterPill,
+  BrowseFilterPillRow,
+  BrowseFilterSection,
+  BrowseSearchField,
+  BrowseSelectField,
+} from "@/components/discovery/browse-filter-controls";
+import { BrowseFilterPanel, BrowseFilterPanelRow } from "@/components/discovery/browse-filter-panel";
+import {
+  browseToolbarDenseGridClassName,
 } from "@/components/discovery/browse-toolbar-shared";
 import {
   defaultSetBrowseOrder,
@@ -28,93 +35,57 @@ export function SetBrowseToolbar({ state, onChange }: SetBrowseToolbarProps) {
   const sortOptions = getSetBrowseSortOptions();
 
   return (
-    <div className={browseToolbarPanelClassName}>
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <label className="block text-sm">
-          <span className="mb-1 block text-zinc-600 dark:text-zinc-400">Search in browse</span>
-          <input
-            type="search"
-            value={state.query}
-            onChange={(event) => onChange({ query: event.target.value })}
-            placeholder="Name or code (min. 2 chars)..."
-            className={`${browseToolbarInputClassName} w-full`}
-          />
-        </label>
+    <BrowseFilterPanel>
+      <div className={browseToolbarDenseGridClassName}>
+        <BrowseSearchField
+          label="Search in browse"
+          value={state.query}
+          onChange={(query) => onChange({ query })}
+          placeholder="Name or code (min. 2 chars)..."
+        />
 
-        <label className="block text-sm">
-          <span className="mb-1 block text-zinc-600 dark:text-zinc-400">Sort by</span>
-          <select
-            value={state.sort}
-            onChange={(event) => onChange({ sort: event.target.value as SetBrowseSort })}
-            className={`${browseToolbarInputClassName} w-full`}
-          >
-            {sortOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
+        <BrowseSelectField
+          label="Sort by"
+          value={state.sort}
+          onChange={(sort) => onChange({ sort: sort as SetBrowseSort })}
+          options={sortOptions}
+        />
 
-        <label className="block text-sm">
-          <span className="mb-1 block text-zinc-600 dark:text-zinc-400">Order</span>
-          <select
-            value={state.order}
-            onChange={(event) =>
-              onChange({ order: event.target.value === "asc" ? "asc" : "desc" })
-            }
-            className={`${browseToolbarInputClassName} w-full`}
-          >
-            <option value="desc">Descending</option>
-            <option value="asc">Ascending</option>
-          </select>
-        </label>
+        <BrowseSelectField
+          label="Set type"
+          value={state.setType}
+          onChange={(setType) => onChange({ setType })}
+          options={SET_BROWSE_TYPE_OPTIONS}
+        />
 
-        <label className="block text-sm">
-          <span className="mb-1 block text-zinc-600 dark:text-zinc-400">Set type</span>
-          <select
-            value={state.setType}
-            onChange={(event) => onChange({ setType: event.target.value })}
-            className={`${browseToolbarInputClassName} w-full`}
-          >
-            {SET_BROWSE_TYPE_OPTIONS.map((option) => (
-              <option key={option.value || "any"} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
+        <BrowseSelectField
+          label="Digital"
+          value={state.digital}
+          onChange={(digital) =>
+            onChange({ digital: digital as SetBrowseToolbarState["digital"] })
+          }
+          options={[
+            { value: "", label: "Any" },
+            { value: "false", label: "Paper only" },
+            { value: "true", label: "Digital only" },
+          ]}
+        />
       </div>
 
-      <div className="flex flex-wrap items-center gap-4">
-        <label className="block text-sm">
-          <span className="mb-1 block text-zinc-600 dark:text-zinc-400">Digital</span>
-          <select
-            value={state.digital}
-            onChange={(event) =>
-              onChange({
-                digital: event.target.value as SetBrowseToolbarState["digital"],
-              })
-            }
-            className={`${browseToolbarInputClassName} min-w-[10rem]`}
-          >
-            <option value="">Any</option>
-            <option value="false">Paper only</option>
-            <option value="true">Digital only</option>
-          </select>
-        </label>
-
-        <label className="flex items-center gap-2 pt-5 text-sm text-zinc-700 dark:text-zinc-300">
-          <input
-            type="checkbox"
-            checked={state.indexedOnly}
-            onChange={(event) => onChange({ indexedOnly: event.target.checked })}
-            className="rounded border-zinc-300"
-          />
-          Indexed only (has set cards)
-        </label>
-      </div>
-    </div>
+      <BrowseFilterPanelRow
+        sortOrder={{ order: state.order, onChange: (order) => onChange({ order }) }}
+      >
+        <BrowseFilterSection title="Options">
+          <BrowseFilterPillRow>
+            <BrowseFilterPill
+              label="Indexed only"
+              selected={state.indexedOnly}
+              onClick={() => onChange({ indexedOnly: !state.indexedOnly })}
+            />
+          </BrowseFilterPillRow>
+        </BrowseFilterSection>
+      </BrowseFilterPanelRow>
+    </BrowseFilterPanel>
   );
 }
 

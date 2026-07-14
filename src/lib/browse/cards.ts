@@ -1,5 +1,5 @@
 import type { Prisma, PrismaClient } from "@/generated/prisma/client";
-import { EdhrecSyncTier } from "@/generated/prisma/client";
+import { EdhrecSyncTier, EdhrecTopEntityType } from "@/generated/prisma/client";
 
 import {
   type AllCardSort,
@@ -8,12 +8,26 @@ import {
   type CardBrowseTab,
   type PopularCardSort,
   defaultOrderForTab,
-  defaultSortForTab,
 } from "@/lib/browse/cards-shared";
 import { decodeBrowseCursor } from "@/lib/browse/cursor";
 import { parseBrowseColorsParam, parseBrowseLimit, parseBrowseOptionalNumber, parseBrowseOrder } from "@/lib/browse/params";
 import { buildBrowseListResponse } from "@/lib/browse/response";
+import {
+  filterTopEntriesByQuery,
+  loadTopEntryRows,
+  sliceAfterTopCursor,
+  sortTopEntries,
+  topIndexHasEntries,
+} from "@/lib/browse/top-entries";
 import type { BrowseListResponse, BrowseOrder } from "@/lib/browse/types";
+import {
+  DEFAULT_EDHREC_CARD_TOP_WINDOW,
+  parseCardTopWindowParam,
+  type EdhrecCardTopWindowParam,
+} from "@/lib/edhrec/top-window";
+import { buildColorIdentityWhere } from "@/lib/browse/color-identity-filter";
+import { parseRaritiesParam } from "@/lib/browse/rarity-filter";
+import { resolveOracleIdsForRarities } from "@/lib/browse/rarity-filter-server";
 import { playableCatalogCardWhere } from "@/lib/scryfall/catalog-filters";
 
 export type {
@@ -32,11 +46,14 @@ export type CardBrowseFilters = {
   cmcMax?: number;
   typeContains?: string;
   commanderLegal?: boolean;
+  commandersOnly?: boolean;
+  rarities?: string[];
   hasEdhrec?: boolean;
 };
 
 export type CardBrowseParams = {
   tab?: CardBrowseTab;
+  window?: EdhrecCardTopWindowParam;
   limit?: number;
   cursor?: string | null;
   sort?: CardBrowseSort;
@@ -46,11 +63,13 @@ export type CardBrowseParams = {
 
 type CardBrowseCursor = {
   tab: CardBrowseTab;
+  window?: EdhrecCardTopWindowParam;
   sort: CardBrowseSort;
   order: BrowseOrder;
   slug?: string;
   id?: string;
   name: string;
+  rank?: number | null;
   inclusion?: number | null;
   numDecks?: number | null;
   salt?: number | null;
@@ -72,18 +91,33 @@ function parseCardBrowseTab(value: string | null | undefined): CardBrowseTab {
   return value === "all" ? "all" : "popular";
 }
 
+function defaultOrderForCardBrowseTab(tab: CardBrowseTab, sort: CardBrowseSort): "asc" | "desc" {
+  if (tab === "all") {
+    if (sort === "name" || sort === "cmc") return "asc";
+    return "desc";
+  }
+
+  return defaultOrderForTab(sort);
+}
+
 function parseCardBrowseSort(tab: CardBrowseTab, value: string | null | undefined): CardBrowseSort {
   if (tab === "popular") {
-    if (value === "numDecks" || value === "name" || value === "salt" || value === "inclusion") {
+    if (
+      value === "rank" ||
+      value === "numDecks" ||
+      value === "name" ||
+      value === "salt" ||
+      value === "inclusion"
+    ) {
       return value;
     }
-    return "inclusion";
+    return "rank";
   }
 
   return value === "cmc" ? "cmc" : "name";
 }
 
-function buildCatalogCardWhere(filters: CardBrowseFilters): Prisma.CardWhereInput {
+export function buildCatalogCardWhere(filters: CardBrowseFilters): Prisma.CardWhereInput {
   const where: Prisma.CardWhereInput = {
     ...playableCatalogCardWhere,
   };
@@ -98,15 +132,10 @@ function buildCatalogCardWhere(filters: CardBrowseFilters): Prisma.CardWhereInpu
   }
 
   if (filters.colors?.length) {
-    const colorFilters: Prisma.CardWhereInput[] = [
-      { colorIdentity: { hasSome: filters.colors.filter((color) => color !== "C") } },
+    where.AND = [
+      ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+      buildColorIdentityWhere(filters.colors),
     ];
-
-    if (filters.colors.includes("C")) {
-      colorFilters.push({ colorIdentity: { equals: [] } });
-    }
-
-    where.AND = [...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []), { OR: colorFilters }];
   }
 
   if (filters.cmcMin != null || filters.cmcMax != null) {
@@ -124,13 +153,45 @@ function buildCatalogCardWhere(filters: CardBrowseFilters): Prisma.CardWhereInpu
     where.legalities = { path: ["commander"], equals: "legal" };
   }
 
+  if (filters.commandersOnly) {
+    where.isCommander = true;
+  }
+
   return where;
 }
 
-function buildPopularWhere(filters: CardBrowseFilters): Prisma.EdhrecCardDataWhereInput {
+async function applyRarityOracleFilter(
+  prisma: PrismaClient,
+  where: Prisma.CardWhereInput,
+  rarities?: string[],
+): Promise<Prisma.CardWhereInput> {
+  if (!rarities?.length) {
+    return where;
+  }
+
+  const oracleIds = await resolveOracleIdsForRarities(prisma, rarities);
+
+  if (oracleIds.length === 0) {
+    return { AND: [where, { oracleId: { in: ["__no_match__"] } }] };
+  }
+
+  return { AND: [where, { oracleId: { in: oracleIds } }] };
+}
+
+async function buildPopularCardWhere(
+  prisma: PrismaClient,
+  filters: CardBrowseFilters,
+): Promise<Prisma.CardWhereInput> {
+  return applyRarityOracleFilter(prisma, buildCatalogCardWhere(filters), filters.rarities);
+}
+
+async function buildPopularWhere(
+  prisma: PrismaClient,
+  filters: CardBrowseFilters,
+): Promise<Prisma.EdhrecCardDataWhereInput> {
   const where: Prisma.EdhrecCardDataWhereInput = {
     syncTier: { in: [EdhrecSyncTier.HOT, EdhrecSyncTier.WARM] },
-    card: { is: buildCatalogCardWhere(filters) },
+    card: { is: await buildPopularCardWhere(prisma, filters) },
   };
 
   if (filters.query && filters.query.length >= 2) {
@@ -163,6 +224,7 @@ function mapPopularRow(
       salt: true;
       numDecks: true;
       inclusion: true;
+      potentialDecks: true;
       card: { select: typeof cardBrowseSelect };
     };
   }>,
@@ -172,9 +234,11 @@ function mapPopularRow(
   return {
     ...row.card,
     hasEdhrecData: true,
+    rank: null,
     salt: row.salt,
     numDecks: row.numDecks,
     inclusion: row.inclusion,
+    potentialDecks: row.potentialDecks,
   };
 }
 
@@ -195,9 +259,11 @@ function mapAllRow(
     imageUri: row.imageUri,
     isCommander: row.isCommander,
     hasEdhrecData: row.edhrecCardData != null,
+    rank: null,
     salt: null,
     numDecks: null,
     inclusion: null,
+    potentialDecks: null,
   };
 }
 
@@ -215,6 +281,11 @@ function getPopularOrderBy(
   order: BrowseOrder,
 ): Prisma.EdhrecCardDataOrderByWithRelationInput[] {
   switch (sort) {
+    case "rank":
+      return [
+        nullableOrder("inclusion", order === "asc" ? "desc" : "asc"),
+        { slug: "asc" },
+      ];
     case "numDecks":
       return [nullableOrder("numDecks", order), { slug: "asc" }];
     case "name":
@@ -243,6 +314,18 @@ function buildPopularCursorWhere(cursor: CardBrowseCursor): Prisma.EdhrecCardDat
   const slug = cursor.slug ?? "";
 
   switch (cursor.sort) {
+    case "rank": {
+      const inclusion = cursor.inclusion;
+      const effectiveOrder = cursor.order === "asc" ? "desc" : "asc";
+      const primary = effectiveOrder === "asc" ? "gt" : "lt";
+      if (inclusion == null) return { slug: { [forwardTie]: slug } };
+      return {
+        OR: [
+          { inclusion: { [primary]: inclusion } },
+          { AND: [{ inclusion }, { slug: { [forwardTie]: slug } }] },
+        ],
+      };
+    }
     case "numDecks": {
       const numDecks = cursor.numDecks;
       if (numDecks == null) return { slug: { [forwardTie]: slug } };
@@ -312,13 +395,16 @@ function popularCursorPayload(
   slug: string,
   sort: PopularCardSort,
   order: BrowseOrder,
+  window: EdhrecCardTopWindowParam,
 ): CardBrowseCursor {
   return {
     tab: "popular",
+    window,
     sort,
     order,
     slug,
     name: row.name,
+    rank: row.rank,
     inclusion: row.inclusion,
     numDecks: row.numDecks,
     salt: row.salt,
@@ -338,15 +424,17 @@ function allCursorPayload(row: CardBrowseItem, sort: AllCardSort, order: BrowseO
 
 export function parseCardBrowseParams(searchParams: URLSearchParams): CardBrowseParams {
   const tab = parseCardBrowseTab(searchParams.get("tab"));
+  const window = parseCardTopWindowParam(searchParams.get("window"));
   const sort = parseCardBrowseSort(tab, searchParams.get("sort"));
   const hasEdhrecParam = searchParams.get("has_edhrec");
 
   return {
     tab,
+    window,
     limit: parseBrowseLimit(searchParams.get("limit")),
     cursor: searchParams.get("cursor"),
     sort,
-    order: parseBrowseOrder(searchParams.get("order"), defaultOrderForTab(tab, sort)),
+    order: parseBrowseOrder(searchParams.get("order"), defaultOrderForCardBrowseTab(tab, sort)),
     filters: {
       query: searchParams.get("q")?.trim() || undefined,
       colors: parseBrowseColorsParam(searchParams.get("color")),
@@ -354,21 +442,155 @@ export function parseCardBrowseParams(searchParams: URLSearchParams): CardBrowse
       cmcMax: parseBrowseOptionalNumber(searchParams.get("cmc_max")),
       typeContains: searchParams.get("type")?.trim() || undefined,
       commanderLegal: searchParams.get("commander") === "legal",
+      commandersOnly: searchParams.get("commanders_only") === "true",
+      rarities: parseRaritiesParam(searchParams.get("rarity")),
       hasEdhrec:
         hasEdhrecParam === "true" ? true : hasEdhrecParam === "false" ? false : undefined,
     },
   };
 }
 
-async function queryPopularCardsBrowse(
+async function queryPopularFromTopIndex(
   prisma: PrismaClient,
   params: CardBrowseParams,
-): Promise<BrowseListResponse<CardBrowseItem>> {
-  const sort = (params.sort ?? "inclusion") as PopularCardSort;
-  const order = params.order ?? "desc";
+  window: EdhrecCardTopWindowParam,
+): Promise<BrowseListResponse<CardBrowseItem> | null> {
+  const hasEntries = await topIndexHasEntries(prisma, EdhrecTopEntityType.CARD, window);
+  if (!hasEntries) {
+    return null;
+  }
+
+  const sort = (params.sort ?? "rank") as PopularCardSort;
+  const order = params.order ?? defaultOrderForTab(sort);
   const limit = params.limit ?? parseBrowseLimit(null);
   const filters = params.filters ?? {};
-  const baseWhere = buildPopularWhere(filters);
+
+  const decoded = decodeBrowseCursor<CardBrowseCursor>(params.cursor);
+  if (
+    decoded &&
+    (decoded.tab !== "popular" ||
+      decoded.sort !== sort ||
+      decoded.order !== order ||
+      (decoded.window ?? DEFAULT_EDHREC_CARD_TOP_WINDOW) !== window)
+  ) {
+    throw new Error("Cursor does not match tab/sort/order/window parameters");
+  }
+
+  const topEntries = filterTopEntriesByQuery(
+    await loadTopEntryRows(prisma, EdhrecTopEntityType.CARD, window),
+    filters.query,
+  );
+
+  const cards = await prisma.card.findMany({
+    where: {
+      ...(await buildPopularCardWhere(prisma, filters)),
+      edhrecSlug: { in: topEntries.map((entry) => entry.slug) },
+    },
+    select: {
+      ...cardBrowseSelect,
+      edhrecCardData: {
+        select: {
+          slug: true,
+          salt: true,
+          numDecks: true,
+          inclusion: true,
+          potentialDecks: true,
+        },
+      },
+    },
+  });
+
+  const cardBySlug = new Map(
+    cards
+      .filter((card) => card.edhrecSlug)
+      .map((card) => [card.edhrecSlug as string, card]),
+  );
+
+  type EnrichedTopEntry = (typeof topEntries)[number] & { salt: number | null };
+
+  const sortField =
+    sort === "name"
+      ? "name"
+      : sort === "numDecks"
+        ? "numDecks"
+        : sort === "salt"
+          ? "salt"
+          : sort === "rank"
+            ? "rank"
+            : "inclusion";
+
+  let enriched: EnrichedTopEntry[] = topEntries
+    .filter((entry) => cardBySlug.has(entry.slug))
+    .map((entry) => ({
+      ...entry,
+      salt: cardBySlug.get(entry.slug)?.edhrecCardData?.salt ?? null,
+    }));
+
+  enriched = sortTopEntries(enriched, sortField, order, (row) => row.salt);
+
+  const total = enriched.length;
+
+  if (decoded?.rank != null && decoded.slug) {
+    enriched = sliceAfterTopCursor(
+      enriched,
+      {
+        sort: sortField,
+        order,
+        rank: decoded.rank,
+        slug: decoded.slug,
+        name: decoded.name,
+        numDecks: decoded.numDecks,
+        inclusion: decoded.inclusion,
+        salt: decoded.salt,
+      },
+    );
+  }
+
+  const items: CardBrowseItem[] = enriched.slice(0, limit + 1).map((entry) => {
+    const card = cardBySlug.get(entry.slug)!;
+
+    return {
+      id: card.id,
+      name: card.name,
+      edhrecSlug: card.edhrecSlug,
+      typeLine: card.typeLine,
+      cmc: card.cmc,
+      colorIdentity: card.colorIdentity,
+      imageUri: card.imageUri,
+      isCommander: card.isCommander,
+      hasEdhrecData: card.edhrecCardData != null,
+      rank: entry.rank,
+      salt: entry.salt,
+      numDecks: entry.numDecks ?? card.edhrecCardData?.numDecks ?? null,
+      inclusion: entry.inclusion ?? card.edhrecCardData?.inclusion ?? null,
+      potentialDecks: entry.potentialDecks ?? card.edhrecCardData?.potentialDecks ?? null,
+    };
+  });
+
+  const response = buildBrowseListResponse(items, limit, total, (item) => {
+    const slug = item.edhrecSlug ?? item.id;
+    return popularCursorPayload(item, slug, sort, order, window);
+  });
+
+  return {
+    ...response,
+    meta: {
+      popularityDataAvailable: true,
+      window,
+    },
+  };
+}
+
+async function queryPopularCardsBrowseLegacy(
+  prisma: PrismaClient,
+  params: CardBrowseParams,
+  window: EdhrecCardTopWindowParam,
+): Promise<BrowseListResponse<CardBrowseItem>> {
+  const sort = (params.sort ?? "rank") as PopularCardSort;
+  const order = params.order ?? defaultOrderForTab(sort);
+  const limit = params.limit ?? parseBrowseLimit(null);
+  const filters = params.filters ?? {};
+  const baseWhere = await buildPopularWhere(prisma, filters);
 
   const decoded = decodeBrowseCursor<CardBrowseCursor>(params.cursor);
   if (decoded && (decoded.tab !== "popular" || decoded.sort !== sort || decoded.order !== order)) {
@@ -391,6 +613,7 @@ async function queryPopularCardsBrowse(
       salt: true,
       numDecks: true,
       inclusion: true,
+      potentialDecks: true,
       card: { select: cardBrowseSelect },
     },
   });
@@ -402,15 +625,48 @@ async function queryPopularCardsBrowse(
     })
     .filter((entry): entry is { item: CardBrowseItem; slug: string } => entry != null);
 
-  return buildBrowseListResponse(
-    mapped.map((entry) => entry.item),
-    limit,
-    total,
-    (item) => {
-      const slug = mapped.find((entry) => entry.item.id === item.id)?.slug ?? item.edhrecSlug ?? item.id;
-      return popularCursorPayload(item, slug, sort, order);
+  const startRank = decoded?.rank != null ? decoded.rank + 1 : 1;
+  const itemsWithRank = mapped.map((entry, index) => ({
+    ...entry,
+    item: {
+      ...entry.item,
+      rank: startRank + index,
     },
-  );
+  }));
+
+  return {
+    ...buildBrowseListResponse(
+      itemsWithRank.map((entry) => entry.item),
+      limit,
+      total,
+      (item) => {
+        const slug =
+          itemsWithRank.find((entry) => entry.item.id === item.id)?.slug ??
+          item.edhrecSlug ??
+          item.id;
+        return popularCursorPayload(item, slug, sort, order, window);
+      },
+    ),
+    meta: {
+      popularityDataAvailable: false,
+      window,
+    },
+  };
+}
+
+async function queryPopularCardsBrowse(
+  prisma: PrismaClient,
+  params: CardBrowseParams,
+): Promise<BrowseListResponse<CardBrowseItem>> {
+  const window = params.window ?? DEFAULT_EDHREC_CARD_TOP_WINDOW;
+
+  const fromTopIndex = await queryPopularFromTopIndex(prisma, params, window);
+
+  if (fromTopIndex) {
+    return fromTopIndex;
+  }
+
+  return queryPopularCardsBrowseLegacy(prisma, params, window);
 }
 
 async function queryAllCardsBrowse(
@@ -421,7 +677,7 @@ async function queryAllCardsBrowse(
   const order = params.order ?? "asc";
   const limit = params.limit ?? parseBrowseLimit(null);
   const filters = params.filters ?? {};
-  const baseWhere = buildAllWhere(filters);
+  const baseWhere = await applyRarityOracleFilter(prisma, buildAllWhere(filters), filters.rarities);
 
   const decoded = decodeBrowseCursor<CardBrowseCursor>(params.cursor);
   if (decoded && (decoded.tab !== "all" || decoded.sort !== sort || decoded.order !== order)) {

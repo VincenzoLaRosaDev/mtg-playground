@@ -2,39 +2,40 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-import { BrowseTabs } from "@/components/discovery/browse-tabs";
 import {
   buildCardBrowseSearchParams,
   CardBrowseToolbar,
   defaultCardBrowseToolbarState,
   type CardBrowseToolbarState,
 } from "@/components/discovery/card-browse-toolbar";
-import { CardBrowseRow } from "@/components/discovery/card-browse-row";
+import { CardGridTile } from "@/components/discovery/card-grid-tile";
 import { LoadMoreButton } from "@/components/discovery/load-more-button";
+import { PopularityUnavailableBadge } from "@/components/discovery/popularity-unavailable-badge";
+import { TopWindowSelector } from "@/components/discovery/top-window-selector";
+import { PageListMeta } from "@/components/layout/page-list-meta";
 import { PageShell } from "@/components/layout/page-shell";
-import type { CardBrowseItem, CardBrowseTab } from "@/lib/browse/cards-shared";
-import { getCardBrowseSortOptions } from "@/lib/browse/cards-shared";
-
-const CARD_TABS = [
-  { id: "popular", label: "Popular" },
-  { id: "all", label: "All cards" },
-] as const;
+import type { CardBrowseItem } from "@/lib/browse/cards-shared";
+import { defaultOrderForTab, defaultSortForTab, getCardBrowseSortOptions } from "@/lib/browse/cards-shared";
+import type { BrowseListMeta } from "@/lib/browse/types";
+import { DEFAULT_EDHREC_CARD_TOP_WINDOW, type EdhrecCardTopWindowParam } from "@/lib/edhrec/top-window";
+import { CARD_FACE_GRID_CLASS } from "@/lib/ui/card-face";
 
 export default function CardsPage() {
-  const [tab, setTab] = useState<CardBrowseTab>("popular");
+  const [window, setWindow] = useState<EdhrecCardTopWindowParam>(DEFAULT_EDHREC_CARD_TOP_WINDOW);
   const [toolbar, setToolbar] = useState<CardBrowseToolbarState>(
-    defaultCardBrowseToolbarState("popular"),
+    defaultCardBrowseToolbarState(DEFAULT_EDHREC_CARD_TOP_WINDOW),
   );
   const [items, setItems] = useState<CardBrowseItem[]>([]);
   const [total, setTotal] = useState(0);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [meta, setMeta] = useState<BrowseListMeta | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchBrowse = useCallback(
     async (options: {
-      tab: CardBrowseTab;
+      window: EdhrecCardTopWindowParam;
       toolbarState: CardBrowseToolbarState;
       cursor?: string | null;
       append?: boolean;
@@ -51,9 +52,9 @@ export default function CardsPage() {
 
       try {
         const params = buildCardBrowseSearchParams(
-          options.tab,
           options.toolbarState,
           options.cursor,
+          options.window,
         );
 
         const response = await fetch(`/api/cards/browse?${params.toString()}`, {
@@ -68,10 +69,12 @@ export default function CardsPage() {
           items: CardBrowseItem[];
           total: number;
           nextCursor: string | null;
+          meta?: BrowseListMeta;
         };
 
         setTotal(data.total);
         setNextCursor(data.nextCursor);
+        setMeta(data.meta ?? null);
         setItems((current) => (isAppend ? [...current, ...data.items] : data.items));
       } catch (err) {
         if (err instanceof Error && err.name !== "AbortError") {
@@ -89,7 +92,7 @@ export default function CardsPage() {
     const controller = new AbortController();
     const timeout = setTimeout(() => {
       void fetchBrowse({
-        tab,
+        window,
         toolbarState: toolbar,
         signal: controller.signal,
       });
@@ -99,25 +102,22 @@ export default function CardsPage() {
       clearTimeout(timeout);
       controller.abort();
     };
-  }, [fetchBrowse, tab, toolbar]);
-
-  function handleTabChange(nextTabId: string) {
-    const nextTab = nextTabId === "all" ? "all" : "popular";
-    setTab(nextTab);
-    setItems([]);
-    setNextCursor(null);
-    setToolbar(defaultCardBrowseToolbarState(nextTab));
-  }
+  }, [fetchBrowse, toolbar, window]);
 
   function handleToolbarChange(patch: Partial<CardBrowseToolbarState>) {
     setToolbar((current) => {
       const next = { ...current, ...patch };
 
       if (patch.sort) {
-        const validSorts = getCardBrowseSortOptions(tab).map((option) => option.value);
+        const validSorts = getCardBrowseSortOptions().map((option) => option.value);
         if (!validSorts.includes(patch.sort)) {
-          next.sort = tab === "popular" ? "inclusion" : "name";
+          next.sort = defaultSortForTab();
+          next.order = defaultOrderForTab(next.sort);
         }
+      }
+
+      if (patch.sort && !patch.order) {
+        next.order = defaultOrderForTab(next.sort);
       }
 
       return next;
@@ -126,53 +126,69 @@ export default function CardsPage() {
     setNextCursor(null);
   }
 
+  function handleWindowChange(nextWindow: EdhrecCardTopWindowParam) {
+    setWindow(nextWindow);
+    const sort = defaultSortForTab();
+    setToolbar((current) => ({
+      ...current,
+      sort,
+      order: defaultOrderForTab(sort),
+    }));
+    setItems([]);
+    setNextCursor(null);
+  }
+
   function handleLoadMore() {
     if (!nextCursor || loadingMore) return;
 
     void fetchBrowse({
-      tab,
+      window,
       toolbarState: toolbar,
       cursor: nextCursor,
       append: true,
     });
   }
 
-  const tabDescription =
-    tab === "popular"
-      ? "Top cards by deck inclusion."
-      : "Full playable catalog.";
+  const showPopularityUnavailable = meta?.popularityDataAvailable === false;
 
   return (
     <PageShell
-      title="Cards"
-      description="Browse popular staples or the full Commander catalog."
+      title="Top cards"
+      description="Most played cards in Commander decks, by EDHREC popularity."
+      toolbar={
+        <>
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <TopWindowSelector
+              value={window}
+              onChange={(nextWindow) => {
+                if (nextWindow !== "all") {
+                  handleWindowChange(nextWindow);
+                }
+              }}
+              includeAllTime={false}
+            />
+            {showPopularityUnavailable && <PopularityUnavailableBadge />}
+          </div>
+          <CardBrowseToolbar state={toolbar} onChange={handleToolbarChange} />
+        </>
+      }
     >
-      <BrowseTabs tabs={[...CARD_TABS]} activeTab={tab} onChange={handleTabChange} />
+      <PageListMeta>
+        EDHREC top cards for the selected time window.
+        {total > 0 ? ` Showing ${items.length.toLocaleString()} of ${total.toLocaleString()}.` : ""}
+      </PageListMeta>
 
-      <div className="mt-4">
-        <CardBrowseToolbar tab={tab} state={toolbar} onChange={handleToolbarChange} />
+      {loading && <p className="mt-4 text-sm text-muted-foreground">Loading...</p>}
+      {error && <p className="mt-4 text-sm text-destructive">{error}</p>}
+
+      <div className={`mt-6 ${CARD_FACE_GRID_CLASS}`}>
+        {items.map((card) => (
+          <CardGridTile key={card.id} card={card} />
+        ))}
       </div>
 
-      <p className="mt-4 text-sm text-zinc-500">
-        {tabDescription}
-        {total > 0 ? ` Showing ${items.length.toLocaleString()} of ${total.toLocaleString()}.` : ""}
-      </p>
-
-      {loading && <p className="mt-4 text-sm text-zinc-500">Loading...</p>}
-      {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
-
-      <ul className="mt-6 space-y-3">
-        {items.map((card) => (
-          <CardBrowseRow key={card.id} card={card} showCoverageBadge={tab === "all"} />
-        ))}
-      </ul>
-
       {!loading && items.length === 0 && !error && (
-        <p className="mt-6 text-sm text-zinc-500">
-          {tab === "popular"
-            ? "No popular cards match these filters."
-            : "No cards match these filters."}
-        </p>
+        <p className="mt-6 text-sm text-muted-foreground">No cards match these filters.</p>
       )}
 
       <LoadMoreButton

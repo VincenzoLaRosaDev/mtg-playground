@@ -1,11 +1,16 @@
 name: Scryfall sync
 
+# TEMP: scheduled + manual runs disabled until GitHub secrets are configured.
+# Re-enable: set SYNC_JOBS_ENABLED to "true" and uncomment `schedule` below.
+env:
+  SYNC_JOBS_ENABLED: "false"
+
 on:
-  schedule:
-    # Daily oracle_cards check + sync when bulk changed (03:00 UTC)
-    - cron: "0 3 * * *"
-    # Weekly sets + set index (Sundays 04:30 UTC, after EDHREC HOT)
-    - cron: "30 4 * * 0"
+  # schedule:
+  #   # Daily oracle_cards check + sync when bulk changed (03:00 UTC)
+  #   - cron: "0 3 * * *"
+  #   # Weekly sets + set index (Sundays 04:30 UTC, after EDHREC HOT)
+  #   - cron: "30 4 * * 0"
   workflow_dispatch:
     inputs:
       mode:
@@ -21,8 +26,9 @@ on:
 jobs:
   sync-oracle-cards:
     if: >
-      (github.event_name == 'schedule' && github.event.schedule == '0 3 * * *') ||
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.mode != 'sets-only')
+      env.SYNC_JOBS_ENABLED == 'true' &&
+      ((github.event_name == 'schedule' && github.event.schedule == '0 3 * * *') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.mode != 'sets-only'))
     runs-on: ubuntu-latest
     timeout-minutes: 90
 
@@ -54,8 +60,9 @@ jobs:
 
   sync-sets:
     if: >
-      (github.event_name == 'schedule' && github.event.schedule == '30 4 * * 0') ||
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.mode == 'sets-only')
+      env.SYNC_JOBS_ENABLED == 'true' &&
+      ((github.event_name == 'schedule' && github.event.schedule == '30 4 * * 0') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.mode == 'sets-only'))
     runs-on: ubuntu-latest
     timeout-minutes: 360
 

@@ -1,55 +1,47 @@
-import Link from "next/link";
-
-import { CardImage } from "@/components/discovery/card-image";
+import { CardFaceTile } from "@/components/discovery/card-face-tile";
 import type { CardRelative } from "@/lib/scryfall/card-relatives";
 import { formatSubtypeList } from "@/lib/scryfall/type-utils";
+import { CARD_FACE_GRID_CLASS } from "@/lib/ui/card-face";
+import { DETAIL_SECTION_HEADING_CLASS, DETAIL_SECTION_IDS, DETAIL_SECTION_SCROLL_MARGIN } from "@/lib/ui/detail-section-nav";
+import { detailSectionPanelClass } from "@/lib/ui/detail-section-nav";
 
 type CardRelativesBySubtypeProps = {
   subtypes: string[];
   relatives: CardRelative[];
+  uniqueToView?: boolean;
 };
 
-export function CardRelativesBySubtype({ subtypes, relatives }: CardRelativesBySubtypeProps) {
+export function CardRelativesBySubtype({
+  subtypes,
+  relatives,
+  uniqueToView = true,
+}: CardRelativesBySubtypeProps) {
   if (subtypes.length === 0 || relatives.length === 0) {
     return null;
   }
 
   return (
-    <section className="rounded-lg border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950">
-      <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">
-        Relatives by subtype
-      </h2>
-      <p className="mt-1 text-xs text-zinc-500">
+    <section
+      id={DETAIL_SECTION_IDS.relativesBySubtype}
+      className={`${DETAIL_SECTION_SCROLL_MARGIN} ${detailSectionPanelClass(uniqueToView)}`}
+    >
+      <h2 className={DETAIL_SECTION_HEADING_CLASS}>Relatives by subtype</h2>
+      <p className="mt-1 text-xs text-muted-foreground">
         Other Commander-legal cards sharing: {formatSubtypeList(subtypes)}
       </p>
-      <ul className="mt-4 space-y-3">
+      <ul className={`mt-4 ${CARD_FACE_GRID_CLASS}`}>
         {relatives.map((relative) => (
-          <li
-            key={`${relative.name}-${relative.typeLine}`}
-            className="flex items-center gap-3"
-          >
-            {relative.imageUri ? (
-              <CardImage src={relative.imageUri} alt={relative.name} variant="thumbnail" />
-            ) : (
-              <div className="flex h-[62px] w-[44px] shrink-0 items-center justify-center rounded border border-zinc-200 bg-zinc-100 text-xs text-zinc-400 dark:border-zinc-800 dark:bg-zinc-900">
-                ?
-              </div>
-            )}
-            <div className="min-w-0">
-              {relative.edhrecSlug ? (
-                <Link
-                  href={`/cards/${relative.edhrecSlug}`}
-                  className="text-sm font-medium hover:underline"
-                >
-                  {relative.name}
-                </Link>
-              ) : (
-                <p className="text-sm font-medium">{relative.name}</p>
-              )}
-              <p className="text-xs text-zinc-500">
-                CMC {relative.cmc} · {relative.typeLine}
-              </p>
-            </div>
+          <li key={`${relative.name}-${relative.typeLine}`}>
+            <CardFaceTile
+              href={relative.edhrecSlug ? `/cards/${relative.edhrecSlug}` : null}
+              imageUri={relative.imageUri}
+              name={relative.name}
+              footer={
+                <span className="min-w-0 truncate text-xs text-muted-foreground">
+                  CMC {relative.cmc} · {relative.typeLine}
+                </span>
+              }
+            />
           </li>
         ))}
       </ul>

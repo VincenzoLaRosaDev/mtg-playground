@@ -3,7 +3,8 @@ import { Geist, Geist_Mono } from "next/font/google";
 
 import { AppFooter } from "@/components/layout/app-footer";
 import { AppHeader } from "@/components/layout/app-header";
-import { CatalogDebugBadge } from "@/components/dev/catalog-debug-badge";
+import { ThemeProvider } from "@/components/layout/theme-provider";
+import { CatalogDebugPanel } from "@/components/dev/catalog-debug-panel";
 import { rootMetadata } from "@/lib/seo/site";
 
 import "./globals.css";
@@ -29,12 +30,15 @@ export default function RootLayout({
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
-      <body className="flex min-h-full flex-col">
-        <AppHeader />
-        <main className="flex-1">{children}</main>
-        <AppFooter />
-        <CatalogDebugBadge />
+      <body className="flex min-h-full flex-col font-sans">
+        <ThemeProvider>
+          <AppHeader />
+          <main className="flex-1">{children}</main>
+          <AppFooter />
+          <CatalogDebugPanel />
+        </ThemeProvider>
       </body>
     </html>
   );

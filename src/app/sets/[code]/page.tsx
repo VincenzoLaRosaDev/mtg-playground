@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
 
-import { CardImage } from "@/components/discovery/card-image";
+import { CardFaceTile } from "@/components/discovery/card-face-tile";
 import { EmptyState } from "@/components/discovery/empty-state";
 import { SetCardFilters } from "@/components/discovery/set-card-filters";
+import { PageListMeta } from "@/components/layout/page-list-meta";
 import { PageShell } from "@/components/layout/page-shell";
 import { prisma } from "@/lib/db";
 import {
@@ -12,10 +13,16 @@ import {
   formatReleaseDate,
   formatSetType,
   parseSetCardFilters,
+  resolvedSetCardOrder,
+  resolvedSetCardSort,
 } from "@/lib/scryfall/sets";
-import { playableCatalogCardWhere } from "@/lib/scryfall/catalog-filters";
-import { formatColorIdentity } from "@/lib/display/formatters";
+import { hasActiveSetCardFilters } from "@/lib/scryfall/set-card-search-params";
+import { sortSetCards } from "@/lib/scryfall/set-card-sort";
+import { buildSetCatalogCardWhere } from "@/lib/scryfall/set-catalog-filters";
+import { ColorIdentity } from "@/components/mtg/color-identity";
+import { RarityIcon } from "@/components/mtg/rarity-icon";
 import { createPageMetadata } from "@/lib/seo/site";
+import { CARD_FACE_GRID_CLASS } from "@/lib/ui/card-face";
 
 type SetDetailPageProps = {
   params: Promise<{ code: string }>;
@@ -24,6 +31,11 @@ type SetDetailPageProps = {
     rarity?: string;
     color?: string;
     commander?: string;
+    type?: string;
+    cmc_min?: string;
+    cmc_max?: string;
+    sort?: string;
+    order?: string;
   }>;
 };
 
@@ -76,27 +88,15 @@ export default async function SetDetailPage({ params, searchParams }: SetDetailP
 
   let matchingOracleIds: string[] | undefined;
 
-  if (filters.colors?.length || filters.commanderLegal) {
+  if (
+    filters.colors?.length ||
+    filters.commanderLegal ||
+    filters.typeContains ||
+    filters.cmcMin != null ||
+    filters.cmcMax != null
+  ) {
     const cardMatches = await prisma.card.findMany({
-      where: {
-        ...playableCatalogCardWhere,
-        ...(filters.colors?.length
-          ? {
-              OR: [
-                { colors: { hasSome: filters.colors } },
-                ...(filters.colors.includes("C") ? [{ colors: { equals: [] } }] : []),
-              ],
-            }
-          : {}),
-        ...(filters.commanderLegal
-          ? {
-              legalities: {
-                path: ["commander"],
-                equals: "legal",
-              },
-            }
-          : {}),
-      },
+      where: buildSetCatalogCardWhere(filters),
       select: { oracleId: true },
     });
 
@@ -107,18 +107,16 @@ export default async function SetDetailPage({ params, searchParams }: SetDetailP
     }
   }
 
-  const setCards = await prisma.setCard.findMany({
+  const setCardsRaw = await prisma.setCard.findMany({
     where: buildSetCardWhere(setCode, filters, matchingOracleIds),
-    orderBy: [{ collectorNumber: "asc" }],
     take: 500,
   });
 
   const catalogCards =
-    setCards.length > 0
+    setCardsRaw.length > 0
       ? await prisma.card.findMany({
           where: {
-            ...playableCatalogCardWhere,
-            oracleId: { in: setCards.map((card) => card.oracleId) },
+            oracleId: { in: setCardsRaw.map((card) => card.oracleId) },
           },
           select: {
             oracleId: true,
@@ -133,6 +131,12 @@ export default async function SetDetailPage({ params, searchParams }: SetDetailP
       : [];
 
   const catalogByOracle = new Map(catalogCards.map((card) => [card.oracleId, card]));
+  const setCards = sortSetCards(
+    setCardsRaw,
+    catalogByOracle,
+    resolvedSetCardSort(filters),
+    resolvedSetCardOrder(filters),
+  );
 
   return (
     <PageShell
@@ -142,9 +146,12 @@ export default async function SetDetailPage({ params, searchParams }: SetDetailP
         { label: "Sets", href: "/sets" },
         { label: mtgSet.name, href: `/sets/${mtgSet.code}` },
       ]}
+      toolbar={
+        <Suspense fallback={null}>
+          <SetCardFilters setCode={mtgSet.code} />
+        </Suspense>
+      }
     >
-      <SetCardFilters setCode={mtgSet.code} filters={filters} />
-
       {setCards.length === 0 ? (
         <EmptyState
           title={mtgSet.cardCount > 0 ? "Cards not indexed yet" : "No cards in this set"}
@@ -156,53 +163,47 @@ export default async function SetDetailPage({ params, searchParams }: SetDetailP
         />
       ) : (
         <>
-          <p className="mb-4 text-sm text-zinc-500">
+          <PageListMeta>
             Showing {setCards.length}
             {setCards.length >= 500 ? "+" : ""} cards
-            {filters.query || filters.rarities?.length || filters.colors?.length || filters.commanderLegal
-              ? " (filtered)"
-              : ""}
-          </p>
+            {hasActiveSetCardFilters(filters) ? " (filtered)" : ""}
+          </PageListMeta>
 
-          <ul className="space-y-3">
+          <ul className={`mt-6 ${CARD_FACE_GRID_CLASS}`}>
             {setCards.map((setCard) => {
               const catalog = catalogByOracle.get(setCard.oracleId);
               const imageUri = setCard.imageUri ?? catalog?.imageUri ?? null;
               const detailHref = catalog?.edhrecSlug
-                ? `/cards/${catalog.edhrecSlug}?set=${mtgSet.code}`
+                ? catalog.isCommander
+                  ? `/commanders/${catalog.edhrecSlug}?set=${mtgSet.code}`
+                  : `/cards/${catalog.edhrecSlug}?set=${mtgSet.code}`
                 : null;
+              const footerParts = [
+                `#${setCard.collectorNumber}`,
+                catalog?.cmc != null ? `CMC ${catalog.cmc}` : null,
+                catalog?.isCommander ? "Commander" : null,
+              ].filter(Boolean);
 
               return (
-                <li
-                  key={setCard.id}
-                  className="flex items-center gap-4 rounded-lg border border-zinc-200 bg-white p-3 shadow-sm dark:border-zinc-800 dark:bg-zinc-950"
-                >
-                  {imageUri ? (
-                    <CardImage src={imageUri} alt={setCard.name} variant="thumbnail" />
-                  ) : (
-                    <div className="flex h-[62px] w-[44px] shrink-0 items-center justify-center rounded border border-zinc-200 bg-zinc-100 text-xs text-zinc-400 dark:border-zinc-800 dark:bg-zinc-900">
-                      ?
-                    </div>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    {detailHref ? (
-                      <Link href={detailHref} className="font-medium hover:underline">
-                        {setCard.name}
-                      </Link>
-                    ) : (
-                      <p className="font-medium">{setCard.name}</p>
-                    )}
-                    <p className="text-sm text-zinc-600">
-                      #{setCard.collectorNumber} · {setCard.rarity}
-                      {catalog?.typeLine ? ` · ${catalog.typeLine}` : ""}
-                    </p>
-                    {catalog && (
-                      <p className="text-xs text-zinc-500">
-                        CMC {catalog.cmc} · {formatColorIdentity(catalog.colorIdentity)}
-                        {catalog.isCommander ? " · Commander" : ""}
-                      </p>
-                    )}
-                  </div>
+                <li key={setCard.id}>
+                  <CardFaceTile
+                    href={detailHref}
+                    imageUri={imageUri}
+                    name={setCard.name}
+                    footer={
+                      <>
+                        <span className="min-w-0 truncate text-xs text-muted-foreground">
+                          {footerParts.join(" · ")}
+                        </span>
+                        <span className="flex shrink-0 items-center gap-1.5">
+                          {setCard.rarity ? <RarityIcon rarity={setCard.rarity} size="xs" /> : null}
+                          {catalog?.colorIdentity.length ? (
+                            <ColorIdentity colors={catalog.colorIdentity} size="xs" />
+                          ) : null}
+                        </span>
+                      </>
+                    }
+                  />
                 </li>
               );
             })}

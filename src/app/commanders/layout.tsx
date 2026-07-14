@@ -3,9 +3,9 @@ import type { Metadata } from "next";
 import { createPageMetadata } from "@/lib/seo/site";
 
 export const metadata: Metadata = createPageMetadata({
-  title: "Browse commanders",
+  title: "Top commanders",
   description:
-    "Browse ranked commanders by popularity, salt, and deck count with detailed profiles.",
+    "Most popular commanders ranked by EDHREC, with deck count, salt, and filters.",
   path: "/commanders",
 });
 

@@ -19,7 +19,7 @@ function SearchPageFallback() {
       title="Search"
       description="Find cards, commanders, and sets across the EDHForge catalog."
     >
-      <p className="text-sm text-zinc-500">Loading search...</p>
+      <p className="text-sm text-muted-foreground">Loading search...</p>
     </PageShell>
   );
 }

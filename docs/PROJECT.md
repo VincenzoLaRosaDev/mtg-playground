@@ -1,6 +1,6 @@
 # EDHForge — Product Specification
 
-> Last updated: 2026-07-10 · Phase 1 complete → Phase 1.5 (discovery consistency) next
+> Last updated: 2026-07-14 · Phase 1.6 complete → Phase 2 (deck builder)
 
 ## Vision
 
@@ -158,21 +158,23 @@ Primary entry point for “find a card/commander”.
 
 ### Cards browse (`/cards`)
 
-**Not search-only.** Default content on load.
+**Not search-only.** Default content on load. **Primary tab data source updated in Phase 1.6** (`edhrec_top_entries`); table below reflects Phase 1.5 baseline.
 
 | Tab | Data source | Default sort | Notes |
 |---|---|---|---|
-| **Popular** | `edhrec_card_data` (HOT + WARM) | `inclusion` or `num_decks` desc | Badge if no EDHREC row |
+| **Popular** | `edhrec_card_data` (HOT + WARM) | `inclusion` or `num_decks` desc | → **Most played** + top index in 1.6 |
 | **All cards** | `cards` (commander-legal filter optional) | name asc | Full catalog |
 
 **Shared:** pagination (cursor), sort options, filters (color, CMC band, type contains, commander-legal, has EDHREC data). Search within browse narrows current tab or uses global search.
 
 ### Commanders browse (`/commanders`)
 
+**Primary tab data source updated in Phase 1.6** (`edhrec_top_entries`).
+
 | Tab | Data source | Default sort | Notes |
 |---|---|---|---|
-| **Ranked** | `edhrec_commander_profiles` where `rank IS NOT NULL` | `rank` asc | EDHREC top list; paginated |
-| **All commanders** | Union: EDHREC profiles (rank nulls last) + catalog `cards.is_commander` without profile | `num_decks` desc, then name | **Every** catalog commander listed; badge **“No EDHREC meta”** when profile missing |
+| **Ranked** | `edhrec_commander_profiles` where `rank IS NOT NULL` | `rank` asc | → **Top commanders** + top index in 1.6 |
+| **All commanders** | Union: EDHREC profiles + catalog `cards.is_commander` | `num_decks` desc, then name | Every catalog commander listed |
 
 Search: EDHREC names first; **All** tab always includes full catalog with badges (not hidden until synced).
 
@@ -219,9 +221,78 @@ Set detail (`/sets/{code}`) unchanged in spirit; improve pagination on card list
 | Situation | Behaviour |
 |---|---|
 | Card in catalog, no EDHREC | Card page works; EDHREC sections show “not cached yet” |
-| Commander in catalog, no EDHREC profile | Commander route + **All** browse row: card shell + badge **“No EDHREC meta”**; ranked tab omits or marks unranked |
-| EDHREC stale | Existing `StaleCacheBanner` + `EdhrecSyncNotice` |
+| Commander in catalog, no EDHREC profile | Commander route works; EDHREC sections show “not cached yet”; omitted from top browse lists |
+| EDHREC stale | Existing `StaleCacheBanner` (dev hints optional) |
 | Set not indexed | Set metadata + sync hint (unchanged) |
+
+## Discovery parity (Phase 1.6)
+
+**Goal:** EDHREC-like list density and commander/card detail behaviour while keeping **catalog-first** identity and neutral copy. **Completed 2026-07-14** — unblocks Phase 2.
+
+Decisions: `docs/DECISIONS.md` (2026-07-12, 2026-07-12 top index). UI patterns: `docs/UI.md`.
+
+### In scope
+
+- `/cards` (**Top cards**) — EDHREC top lists; **time window** `week` \| `month` \| `year` (default `year`; no all-time — EDHREC has no card top JSON)
+- `/commanders` (**Top commanders**) — EDHREC top lists + **All time** (`edhrec_commander_profiles.rank`)
+- `/catalog` — full Scryfall **`cards`** catalog (`tab=all` API); same browse filters + **Commanders only**; links commanders to `/commanders/{slug}`. Full catalog via **global search** and **sets** as well (no All tab on top pages).
+- **Top list parity** — browse primary tabs read **`edhrec_top_entries`** (synced from EDHREC top JSON), not HOT+WARM subset
+- Commander detail — all `cardlists` sections; Themes \| Kindred; **Budget + Bracket + Theme** filter bar → **`edhrec_page_variants`**
+- Card detail — similar cards, Scryfall USD prices, salt badge, synergy on top commanders; **EDHREC cardlists** (top cards, game changers, type buckets); relatives; `EntityDetailTabs` unchanged (no Theme/Budget filter bar — EDHREC `?cost=` has no effect on card JSON)
+- Similar commanders — thumbnail + rank + decks
+- `/search`, `/sets`, `/` — visual alignment
+- Production **“Popularity data unavailable”** badge when overlay missing
+
+### Out of scope (Phase 1.6)
+
+- `/themes` hub routes (inline filters on detail only)
+- Dedicated Saltiest pages/tabs
+- External deck-builder links
+- Average deck when not in cached JSON
+- Full **38k card** EDHREC catalog sweep
+- Card Printings tab (backlog)
+
+### EDHREC data layers (nothing deprecated)
+
+| Layer | Storage | Used for |
+|---|---|---|
+| **Top index** | `edhrec_top_entries` (new) | Browse Most played / Top commanders + window filter |
+| **Default profiles** | `edhrec_commander_profiles`, `edhrec_card_data` | Detail default view, All-tab joins, search, sitemap, HOT freshness |
+| **Filter variants** | `edhrec_page_variants` (new) | Detail Theme/Budget/Bracket (commander + card) |
+| **Scryfall catalog** | `cards`, `set_cards`, … | Oracle, images, prices, All tabs, legality |
+
+Sync jobs **HOT**, **commander catalog**, and **on-demand** cache remain; add **`sync:edhrec-top-lists`**. See `docs/ARCHITECTURE.md`.
+
+### Cards browse (`/cards`) — Phase 1.6
+
+| Tab | Label | Data source | Default sort |
+|---|---|---|---|
+| Primary | **Most played** | `edhrec_top_entries` where `entity_type=card` + `window` | rank asc (EDHREC order) |
+| Secondary | **All** | `cards` catalog (+ optional join `edhrec_card_data` for sort/filter) | name asc |
+
+### Commanders browse (`/commanders`) — Phase 1.6
+
+| Tab | Label | Data source | Default sort |
+|---|---|---|---|
+| Primary | **Top commanders** | `edhrec_top_entries` where `entity_type=commander` + `window` | rank asc |
+| Secondary | **All** | catalog `is_commander` + optional `edhrec_commander_profiles` | num_decks desc |
+
+### Detail filters (commander + card)
+
+On `/commanders/{slug}` and `/cards/{slug}` only (not browse):
+
+- **Theme**, **Budget**, **Bracket** (commander; bracket TBD in spike) — change stats and cardlists via **`edhrec_page_variants`**; on-demand EDHREC fetch on miss
+- **Default** view (no filters) — `edhrec_commander_profiles` / `edhrec_card_data` unchanged
+
+Browse routes remain **Postgres-only** (no live EDHREC).
+
+### Empty / partial data UX (Phase 1.6 update)
+
+| Situation | Behaviour |
+|---|---|
+| Card in catalog, no popularity row | Card page works; sections show neutral empty state |
+| Commander in catalog, no profile | Commander route + All browse: card shell + **production badge** “Popularity data unavailable” |
+| Filter variant not cached | Fetch on-demand on detail; stale banner if fetch fails |
 
 ## Analysis engine
 

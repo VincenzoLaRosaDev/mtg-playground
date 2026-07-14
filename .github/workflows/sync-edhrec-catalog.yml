@@ -1,9 +1,14 @@
 name: EDHREC commander catalog sync
 
+# TEMP: scheduled + manual runs disabled until GitHub secrets are configured.
+# Re-enable: set SYNC_JOBS_ENABLED to "true" and uncomment `schedule` below.
+env:
+  SYNC_JOBS_ENABLED: "false"
+
 on:
-  schedule:
-    # First Sunday of month 05:00 UTC (after weekly HOT sync)
-    - cron: "0 5 1-7 * 0"
+  # schedule:
+  #   # First Sunday of month 05:00 UTC (after weekly HOT sync)
+  #   - cron: "0 5 1-7 * 0"
   workflow_dispatch:
     inputs:
       batch_size:
@@ -17,6 +22,7 @@ on:
 
 jobs:
   sync-edhrec-catalog:
+    if: env.SYNC_JOBS_ENABLED == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 360
 

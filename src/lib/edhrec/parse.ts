@@ -40,6 +40,7 @@ export function mapCardData(
     salt: card.salt ?? null,
     numDecks: card.num_decks ?? null,
     inclusion: card.inclusion ?? null,
+    potentialDecks: card.potential_decks ?? null,
     cardlists: page.container.json_dict.cardlists ?? {},
     similarCards: page.similar ?? [],
     syncTier: tier,
@@ -65,6 +66,7 @@ export function mapCommanderProfile(
     tagCounts: page.tag_counts ?? {},
     similarSlugs: mapSimilarSlugs(page.similar),
     cardlists: page.container.json_dict.cardlists ?? {},
+    // Write-only until bracket/budget UI (Phase 2+); not read in app today.
     bracketCounts: page.bracket_counts ?? undefined,
     budgetCounts: page.budget_counts ?? undefined,
     syncTier: tier,

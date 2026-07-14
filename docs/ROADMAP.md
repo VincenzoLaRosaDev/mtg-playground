@@ -1,6 +1,6 @@
 # EDHForge — Development Roadmap
 
-> Last updated: 2026-07-10 · Update checkboxes and dates as work completes.
+> Last updated: 2026-07-12 · Update checkboxes and dates as work completes.
 
 **Legend:** ✅ done · 🔄 in progress · ⬜ todo
 
@@ -88,25 +88,83 @@ Re-run until “All catalog commander slugs with EDHREC pages are cached.” Ful
 
 ---
 
-## Phase 1.5 — Discovery consistency 🔄
+## Phase 1.5 — Discovery consistency ✅
 
-**Goal:** Coherent browse, search, and detail UX before visual polish. Spec: `docs/PROJECT.md` § Discovery consistency.
+**Goal:** Coherent browse, search, and detail UX. Spec: `docs/PROJECT.md` § Discovery consistency.
 
-| # | Task | Status |
-|---|---|---|
+| # | Task | Status | Done |
+|---|---|---|---|
 | 1.5.1 | Browse API contract: `cursor`, `sort`, `total`, `nextCursor` | ✅ | 2026-07-10 |
-| 1.5.2 | `/cards` browse: tabs Popular (EDHREC) / All + sort + filters + load more | ✅ | 2026-07-10 |
-| 1.5.3 | `/commanders` browse: tabs Ranked / All + catalog fallback + load more | ✅ | 2026-07-10 |
+| 1.5.2 | `/cards` browse: tabs + sort + filters + load more | ✅ | 2026-07-10 |
+| 1.5.3 | `/commanders` browse: tabs + catalog fallback + load more | ✅ | 2026-07-10 |
 | 1.5.4 | `/sets` browse: pagination + sort + set-type filters | ✅ | 2026-07-10 |
 | 1.5.5 | Global navbar search (`GET /api/search`) — cards, commanders, sets | ✅ | 2026-07-10 |
 | 1.5.6 | `/cards/[slug]` commander tab + cross-link; no 404 without EDHREC | ✅ | 2026-07-10 |
-| 1.5.7 | `/commanders/[slug]` parallel route: “View as card” + soft fallback | ✅ | 2026-07-10 |
+| 1.5.7 | `/commanders/[slug]` parallel route + soft fallback | ✅ | 2026-07-10 |
 | 1.5.8 | Set → card links with `?set=`; card detail uses `set_cards` image | ✅ | 2026-07-10 |
-| 1.5.9 | Visual polish pass (`docs/UI.md`) | ⬜ |
-
-**Backlog (post-1.5):** Card Printings tab (all reprints/arts) — see `docs/PROJECT.md`.
+| 1.5.9 | Visual polish pass | ↪️ | Absorbed into **Phase 1.6** |
 
 **Demo:** Land on `/cards` → see popular staples; search Sol Ring in navbar; open Plains from MKM set → correct art; Atraxa card ↔ commander cross-nav.
+
+---
+
+## Phase 1.6 — Discovery parity (EDHREC-like UI) ✅
+
+**Goal:** EDHREC-like discovery density and behaviour on lists + card/commander detail. **Completed 2026-07-14** — unblocks Phase 2. Spec: `docs/PROJECT.md` § Discovery parity · decisions: `docs/DECISIONS.md` (2026-07-12).
+
+**Delivery:** single epic branch (includes uncommitted Phase 1.5 UX work).
+
+**Out of scope:** `/themes` hub routes, dedicated Saltiest pages, external deck-builder links, average deck when not in cached JSON, full **38k card catalog** EDHREC sweep.
+
+**Data strategy (confirmed):** **D+** top-list parity (`edhrec_top_entries` + fixed top JSON sync) · **F1** card detail Theme/Budget via `edhrec_page_variants` (after spike). Existing HOT / catalog / profile tables **stay** — see `docs/ARCHITECTURE.md` § EDHREC cache layers.
+
+### Implementation order (do not skip waves)
+
+```
+Wave 0 → baseline + UI kit + tab labels
+Wave 1 → commander detail sections (cardlists parser)
+Wave 2 → EDHREC data parity (spikes, schema, top sync, client URL fix)
+Wave 3 → browse wired to top index + time window + grid
+Wave 4 → page variants + filter bars (commander + card detail)
+Wave 5 → card detail body (similar, prices, salt)
+Wave 6 → search / sets / home
+Wave 7 → polish
+```
+
+| # | Task | Wave | Status |
+|---|---|---|---|
+| **1.6.0** | **Epic baseline** — integrate uncommitted Phase 1.5 work; neutral user-facing copy | 0 | ✅ | 2026-07-14 |
+| **1.6.1** | **Discovery UI kit** — grid/list toggle (default grid), `CardGridTile`, rank badge, inclusion % + synergy formatters, salt badge, `PopularityUnavailableBadge` (prod) | 0 | ✅ | 2026-07-12 |
+| **1.6.2** | **Browse tabs + density** — **Most played · Top commanders · All**; primary tabs dominant; desktop-dense layout | 0 | ✅ | 2026-07-12 |
+| **1.6.5** | **`cardlists` parser** — all known EDHREC list `tag`/`header` keys; `CardListSection` + `CardMetricRow` | 1 | ✅ | 2026-07-13 |
+| **1.6.6** | **Commander detail — sections** — all parsed cardlists; Themes \| Kindred split | 1 | ✅ | 2026-07-13 |
+| **1.6.7** | **Similar commanders enriched** — thumbnail + rank + decks | 1 | ✅ | 2026-07-13 |
+| **1.6.8** | **Average deck block** — if present in cached JSON; else omit | 1 | ✅ | 2026-07-13 |
+| **1.6.9** | **Spike — commander filter URLs** — theme/budget/bracket path patterns; variant cache shape | 2 | ✅ | 2026-07-13 |
+| **1.6.9b** | **Spike — card filter URLs + top pagination** — map card Theme/Budget JSON; paginate `pages/top/{window}.json` | 2 | ✅ | 2026-07-13 |
+| **1.6.9c** | **Fix `edhrec/client.ts` top paths** — use `pages/top/{window}.json`, `pages/commanders/{window}.json` (not broken `top/cards--N` where 403) | 2 | ✅ | 2026-07-12 |
+| **1.6.10** | **Prisma schema** — `edhrec_top_entries` (browse index) + `edhrec_page_variants` (filtered detail payloads) | 2 | ✅ | 2026-07-12 |
+| **1.6.11** | **`scripts/sync/edhrec-top-lists.ts`** — full `list.more` pagination per window; weekly GH Action; `SyncLog` | 2 | ✅ | 2026-07-14 |
+| **1.6.12** | **Browse APIs** — Most played / Top commanders read **`edhrec_top_entries`**; `window=week\|month\|year\|all`; detail still uses profile tables | 3 | ✅ | 2026-07-12 |
+| **1.6.3** | **`/cards` browse UI** — grid default; wired to top-index API; time window toolbar | 3 | ✅ | 2026-07-12 |
+| **1.6.4** | **`/commanders` browse UI** — grid default; rank badge; wired to top-index API | 3 | ✅ | 2026-07-12 |
+| **1.6.13** | **Variant cache service** — `getCommanderDetailData` / `getCardDetailEdhrecData` + `edhrec_page_variants`; default row still in profile tables | 4 | ✅ | 2026-07-13 |
+| **1.6.14** | **Commander filter bar** — Theme + Budget + Bracket; reload sections on change | 4 | ✅ | 2026-07-13 |
+| **1.6.15** | **Card filter bar** — Theme + Budget (post-1.6.9b); same variant cache | 4 | ✅ | 2026-07-13 |
+| **1.6.16** | **Card detail body** — similar cards, Scryfall USD prices, salt badge, synergy on top commanders; relatives; **EDHREC cardlists** (top cards, game changers, type buckets) | 5 | ✅ | 2026-07-13 |
+| **1.6.17** | **`/search`** — compact horizontal result rows (Card + thumbnail); aligned tokens | 6 | ✅ | 2026-07-14 |
+| **1.6.18** | **`/sets` + `/sets/[code]`** — horizontal set cards in wide grid; set detail filters in toolbar | 6 | ✅ | 2026-07-14 |
+| **1.6.19** | **Home `/`** — discovery shortcuts (Most played, Top commanders) | 6 | ✅ | 2026-07-13 |
+| **1.6.20** | **Final polish** — responsive, empty states, **icon system** (mana/rarity/lucide), docs checklist; mark Phase 1.6 complete | 7 | ✅ | 2026-07-14 |
+| **1.7.1** | **UI kit** — shadcn/ui + violet theme + discovery shell refactor | — | ✅ | 2026-07-14 |
+
+**Backlog (post-1.6):** Card Printings tab · `/themes` hub · dedicated Saltiest routes · full card-catalog EDHREC sweep.
+
+**Demo:** Top lists match EDHREC year window (paginated sync) → grid browse → Atraxa with filter bar + multi-section cardlists → Sol Ring with Theme/Budget filters changing top commanders → similar + prices.
+
+**Prerequisite for:** Phase 2 deck builder.
+
+**Phase 1.6 complete** (2026-07-14) — discovery parity gate cleared; start Phase 2.
 
 ---
 

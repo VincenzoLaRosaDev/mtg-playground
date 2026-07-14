@@ -1,25 +1,34 @@
 import type { Prisma, PrismaClient } from "@/generated/prisma/client";
+import { EdhrecTopEntityType } from "@/generated/prisma/client";
 
 import {
-  type AllCommanderSort,
   type CommanderBrowseItem,
   type CommanderBrowseSort,
-  type CommanderBrowseTab,
   type RankedCommanderSort,
   defaultOrderForCommanderTab,
   defaultSortForCommanderTab,
 } from "@/lib/browse/commanders-shared";
 import { decodeBrowseCursor } from "@/lib/browse/cursor";
-import { parseBrowseColorsParam, parseBrowseLimit, parseBrowseOrder } from "@/lib/browse/params";
+import { buildProfileColorIdentityWhere } from "@/lib/browse/color-identity-filter";
+import { parseBrowseColorsParam, parseBrowseLimit, parseBrowseOptionalNumber, parseBrowseOrder } from "@/lib/browse/params";
 import { buildBrowseListResponse } from "@/lib/browse/response";
+import {
+  filterTopEntriesByQuery,
+  loadTopEntryRows,
+  sliceAfterTopCursor,
+  sortTopEntries,
+  topIndexHasEntries,
+} from "@/lib/browse/top-entries";
 import type { BrowseListResponse, BrowseOrder } from "@/lib/browse/types";
-import { playableCatalogCardWhere } from "@/lib/scryfall/catalog-filters";
+import {
+  DEFAULT_EDHREC_TOP_WINDOW,
+  parseEdhrecTopWindowParam,
+  type EdhrecTopWindowParam,
+} from "@/lib/edhrec/top-window";
 
 export type {
-  AllCommanderSort,
   CommanderBrowseItem,
   CommanderBrowseSort,
-  CommanderBrowseTab,
   RankedCommanderSort,
 } from "@/lib/browse/commanders-shared";
 export { getCommanderBrowseSortOptions } from "@/lib/browse/commanders-shared";
@@ -27,11 +36,13 @@ export { getCommanderBrowseSortOptions } from "@/lib/browse/commanders-shared";
 export type CommanderBrowseFilters = {
   query?: string;
   colors?: string[];
-  hasEdhrecMeta?: boolean;
+  cmcMin?: number;
+  cmcMax?: number;
+  typeContains?: string;
 };
 
 export type CommanderBrowseParams = {
-  tab?: CommanderBrowseTab;
+  window?: EdhrecTopWindowParam;
   limit?: number;
   cursor?: string | null;
   sort?: CommanderBrowseSort;
@@ -40,11 +51,10 @@ export type CommanderBrowseParams = {
 };
 
 type CommanderBrowseCursor = {
-  tab: CommanderBrowseTab;
+  window?: EdhrecTopWindowParam;
   sort: CommanderBrowseSort;
   order: BrowseOrder;
   slug?: string;
-  id?: string;
   name: string;
   rank?: number | null;
   numDecks?: number | null;
@@ -63,61 +73,36 @@ const rankedProfileSelect = {
       id: true,
       imageUri: true,
       typeLine: true,
+      cmc: true,
     },
   },
 } as const;
 
-const allCardSelect = {
-  id: true,
-  name: true,
-  edhrecSlug: true,
-  typeLine: true,
-  colorIdentity: true,
-  imageUri: true,
-  edhrecCommanderProfile: {
-    select: {
-      slug: true,
-      name: true,
-      rank: true,
-      salt: true,
-      numDecks: true,
-      colorIdentity: true,
-    },
-  },
-} as const;
-
-function parseCommanderBrowseTab(value: string | null | undefined): CommanderBrowseTab {
-  return value === "all" ? "all" : "ranked";
-}
-
-function parseCommanderBrowseSort(
-  tab: CommanderBrowseTab,
-  value: string | null | undefined,
-): CommanderBrowseSort {
-  if (tab === "ranked") {
-    if (value === "numDecks" || value === "name" || value === "salt" || value === "rank") {
-      return value;
-    }
-    return "rank";
-  }
-
-  if (value === "name" || value === "rank" || value === "salt" || value === "numDecks") {
+function parseCommanderBrowseSort(value: string | null | undefined): CommanderBrowseSort {
+  if (value === "numDecks" || value === "name" || value === "salt" || value === "rank") {
     return value;
   }
 
-  return "numDecks";
+  return defaultSortForCommanderTab();
 }
 
-function buildRankedColorFilter(colors: string[]): Prisma.EdhrecCommanderProfileWhereInput {
-  const parts: Prisma.EdhrecCommanderProfileWhereInput[] = [
-    { colorIdentity: { hasSome: colors.filter((color) => color !== "C") } },
-  ];
+function buildCommanderCardAttributeFilter(
+  filters: CommanderBrowseFilters,
+): Prisma.CardWhereInput {
+  const where: Prisma.CardWhereInput = {};
 
-  if (colors.includes("C")) {
-    parts.push({ colorIdentity: { equals: [] } });
+  if (filters.cmcMin != null || filters.cmcMax != null) {
+    where.cmc = {
+      ...(filters.cmcMin != null ? { gte: filters.cmcMin } : {}),
+      ...(filters.cmcMax != null ? { lte: filters.cmcMax } : {}),
+    };
   }
 
-  return { OR: parts };
+  if (filters.typeContains) {
+    where.typeLine = { contains: filters.typeContains, mode: "insensitive" };
+  }
+
+  return where;
 }
 
 function buildRankedWhere(filters: CommanderBrowseFilters): Prisma.EdhrecCommanderProfileWhereInput {
@@ -135,48 +120,16 @@ function buildRankedWhere(filters: CommanderBrowseFilters): Prisma.EdhrecCommand
   if (filters.colors?.length) {
     where.AND = [
       ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
-      buildRankedColorFilter(filters.colors),
+      buildProfileColorIdentityWhere(filters.colors),
     ];
   }
 
-  return where;
-}
-
-function buildAllWhere(filters: CommanderBrowseFilters): Prisma.CardWhereInput {
-  const where: Prisma.CardWhereInput = {
-    ...playableCatalogCardWhere,
-    isCommander: true,
-  };
-
-  if (filters.query && filters.query.length >= 2) {
-    const searchName = filters.query.toLowerCase();
-    where.OR = [
-      { searchName: { startsWith: searchName } },
-      { searchName: { contains: searchName } },
-      { name: { contains: filters.query, mode: "insensitive" } },
-      { edhrecCommanderProfile: { name: { contains: filters.query, mode: "insensitive" } } },
-    ];
-  }
-
-  if (filters.colors?.length) {
-    const colorFilters: Prisma.CardWhereInput[] = [
-      { colorIdentity: { hasSome: filters.colors.filter((color) => color !== "C") } },
-    ];
-
-    if (filters.colors.includes("C")) {
-      colorFilters.push({ colorIdentity: { equals: [] } });
-    }
-
+  const cardFilter = buildCommanderCardAttributeFilter(filters);
+  if (Object.keys(cardFilter).length > 0) {
     where.AND = [
       ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
-      { OR: colorFilters },
+      { card: { is: cardFilter } },
     ];
-  }
-
-  if (filters.hasEdhrecMeta === true) {
-    where.edhrecCommanderProfile = { isNot: null };
-  } else if (filters.hasEdhrecMeta === false) {
-    where.edhrecCommanderProfile = { is: null };
   }
 
   return where;
@@ -192,32 +145,11 @@ function mapRankedRow(
     rank: row.rank,
     salt: row.salt,
     numDecks: row.numDecks,
+    cmc: row.card?.cmc ?? null,
     colorIdentity: row.colorIdentity,
     imageUri: row.card?.imageUri ?? null,
     typeLine: row.card?.typeLine ?? null,
     hasEdhrecMeta: true,
-  };
-}
-
-function mapAllRow(
-  row: Prisma.CardGetPayload<{ select: typeof allCardSelect }>,
-): CommanderBrowseItem | null {
-  const profile = row.edhrecCommanderProfile;
-  const slug = profile?.slug ?? row.edhrecSlug;
-
-  if (!slug) return null;
-
-  return {
-    cardId: row.id,
-    slug,
-    name: profile?.name ?? row.name,
-    rank: profile?.rank ?? null,
-    salt: profile?.salt ?? null,
-    numDecks: profile?.numDecks ?? null,
-    colorIdentity: profile?.colorIdentity.length ? profile.colorIdentity : row.colorIdentity,
-    imageUri: row.imageUri,
-    typeLine: row.typeLine,
-    hasEdhrecMeta: profile != null,
   };
 }
 
@@ -244,35 +176,6 @@ function getRankedOrderBy(
     case "rank":
     default:
       return [nullableProfileOrder("rank", order), { slug: "asc" }];
-  }
-}
-
-function getAllOrderBy(
-  sort: AllCommanderSort,
-  order: BrowseOrder,
-): Prisma.CardOrderByWithRelationInput[] {
-  switch (sort) {
-    case "name":
-      return [{ name: order }, { id: "asc" }];
-    case "rank":
-      return [
-        { edhrecCommanderProfile: { rank: { sort: order, nulls: "last" } } },
-        { name: "asc" },
-        { id: "asc" },
-      ];
-    case "salt":
-      return [
-        { edhrecCommanderProfile: { salt: { sort: order, nulls: "last" } } },
-        { name: "asc" },
-        { id: "asc" },
-      ];
-    case "numDecks":
-    default:
-      return [
-        { edhrecCommanderProfile: { numDecks: { sort: order, nulls: "last" } } },
-        { name: "asc" },
-        { id: "asc" },
-      ];
   }
 }
 
@@ -325,92 +228,14 @@ function buildRankedCursorWhere(
   }
 }
 
-function profileRelationFieldIsNullWhere(
-  field: "numDecks" | "rank" | "salt",
-): Prisma.CardWhereInput {
-  return {
-    OR: [
-      { edhrecCommanderProfile: { is: null } },
-      { edhrecCommanderProfile: { [field]: null } },
-    ],
-  };
-}
-
-function buildAllNameCursorWhere(cursor: CommanderBrowseCursor): Prisma.CardWhereInput {
-  const forwardPrimary = cursor.order === "asc" ? "gt" : "lt";
-  const forwardTie = "gt";
-  const id = cursor.id ?? "";
-
-  return {
-    OR: [
-      { name: { [forwardPrimary]: cursor.name } },
-      { AND: [{ name: cursor.name }, { id: { [forwardTie]: id } }] },
-    ],
-  };
-}
-
-function buildAllRelationCursorWhere(
-  cursor: CommanderBrowseCursor,
-  field: "numDecks" | "rank" | "salt",
-): Prisma.CardWhereInput {
-  const forwardPrimary = cursor.order === "asc" ? "gt" : "lt";
-  const forwardTie = "gt";
-  const id = cursor.id ?? "";
-  const value = cursor[field];
-
-  if (value == null) {
-    return {
-      AND: [
-        profileRelationFieldIsNullWhere(field),
-        {
-          OR: [
-            { name: { [forwardTie]: cursor.name } },
-            { AND: [{ name: cursor.name }, { id: { [forwardTie]: id } }] },
-          ],
-        },
-      ],
-    };
-  }
-
-  return {
-    OR: [
-      { edhrecCommanderProfile: { [field]: { [forwardPrimary]: value } } },
-      {
-        AND: [
-          { edhrecCommanderProfile: { [field]: value } },
-          {
-            OR: [
-              { name: { [forwardTie]: cursor.name } },
-              { AND: [{ name: cursor.name }, { id: { [forwardTie]: id } }] },
-            ],
-          },
-        ],
-      },
-    ],
-  };
-}
-
-function buildAllCursorWhere(cursor: CommanderBrowseCursor): Prisma.CardWhereInput {
-  switch (cursor.sort) {
-    case "name":
-      return buildAllNameCursorWhere(cursor);
-    case "rank":
-      return buildAllRelationCursorWhere(cursor, "rank");
-    case "salt":
-      return buildAllRelationCursorWhere(cursor, "salt");
-    case "numDecks":
-    default:
-      return buildAllRelationCursorWhere(cursor, "numDecks");
-  }
-}
-
 function rankedCursorPayload(
   row: CommanderBrowseItem,
   sort: RankedCommanderSort,
   order: BrowseOrder,
+  window: EdhrecTopWindowParam,
 ): CommanderBrowseCursor {
   return {
-    tab: "ranked",
+    window,
     sort,
     order,
     slug: row.slug,
@@ -421,46 +246,162 @@ function rankedCursorPayload(
   };
 }
 
-function allCursorPayload(
-  row: CommanderBrowseItem,
-  sort: AllCommanderSort,
-  order: BrowseOrder,
-): CommanderBrowseCursor {
-  return {
-    tab: "all",
-    sort,
-    order,
-    id: row.cardId ?? undefined,
-    name: row.name,
-    rank: row.rank,
-    numDecks: row.numDecks,
-    salt: row.salt,
-  };
-}
-
 export function parseCommanderBrowseParams(searchParams: URLSearchParams): CommanderBrowseParams {
-  const tab = parseCommanderBrowseTab(searchParams.get("tab"));
-  const sort = parseCommanderBrowseSort(tab, searchParams.get("sort"));
-  const hasEdhrecParam = searchParams.get("has_edhrec");
+  if (searchParams.get("tab") === "all") {
+    throw new Error(
+      'tab=all is not supported on /api/commanders/browse. Use GET /api/cards/browse?tab=all&commanders_only=true for catalog commanders.',
+    );
+  }
+
+  const sort = parseCommanderBrowseSort(searchParams.get("sort"));
 
   return {
-    tab,
+    window: parseEdhrecTopWindowParam(searchParams.get("window")),
     limit: parseBrowseLimit(searchParams.get("limit")),
     cursor: searchParams.get("cursor"),
     sort,
-    order: parseBrowseOrder(searchParams.get("order"), defaultOrderForCommanderTab(tab, sort)),
+    order: parseBrowseOrder(searchParams.get("order"), defaultOrderForCommanderTab(sort)),
     filters: {
       query: searchParams.get("q")?.trim() || undefined,
       colors: parseBrowseColorsParam(searchParams.get("color")),
-      hasEdhrecMeta:
-        hasEdhrecParam === "true" ? true : hasEdhrecParam === "false" ? false : undefined,
+      cmcMin: parseBrowseOptionalNumber(searchParams.get("cmc_min")),
+      cmcMax: parseBrowseOptionalNumber(searchParams.get("cmc_max")),
+      typeContains: searchParams.get("type")?.trim() || undefined,
     },
   };
 }
 
-async function queryRankedCommandersBrowse(
+async function queryRankedFromTopIndex(
   prisma: PrismaClient,
   params: CommanderBrowseParams,
+  window: EdhrecTopWindowParam,
+): Promise<BrowseListResponse<CommanderBrowseItem> | null> {
+  const hasEntries = await topIndexHasEntries(prisma, EdhrecTopEntityType.COMMANDER, window);
+  if (!hasEntries) {
+    return null;
+  }
+
+  const sort = (params.sort ?? "rank") as RankedCommanderSort;
+  const order = params.order ?? "asc";
+  const limit = params.limit ?? parseBrowseLimit(null);
+  const filters = params.filters ?? {};
+
+  const decoded = decodeBrowseCursor<CommanderBrowseCursor>(params.cursor);
+  if (
+    decoded &&
+    (decoded.sort !== sort ||
+      decoded.order !== order ||
+      (decoded.window ?? DEFAULT_EDHREC_TOP_WINDOW) !== window)
+  ) {
+    throw new Error("Cursor does not match sort/order/window parameters");
+  }
+
+  const topEntries = filterTopEntriesByQuery(
+    await loadTopEntryRows(prisma, EdhrecTopEntityType.COMMANDER, window),
+    filters.query,
+  );
+
+  const profileWhere: Prisma.EdhrecCommanderProfileWhereInput = {
+    slug: { in: topEntries.map((entry) => entry.slug) },
+  };
+
+  if (filters.colors?.length) {
+    profileWhere.AND = [
+      ...(Array.isArray(profileWhere.AND) ? profileWhere.AND : profileWhere.AND ? [profileWhere.AND] : []),
+      buildProfileColorIdentityWhere(filters.colors),
+    ];
+  }
+
+  const cardFilter = buildCommanderCardAttributeFilter(filters);
+  if (Object.keys(cardFilter).length > 0) {
+    profileWhere.AND = [
+      ...(Array.isArray(profileWhere.AND) ? profileWhere.AND : profileWhere.AND ? [profileWhere.AND] : []),
+      { card: { is: cardFilter } },
+    ];
+  }
+
+  const profiles = await prisma.edhrecCommanderProfile.findMany({
+    where: profileWhere,
+    select: rankedProfileSelect,
+  });
+
+  const profileBySlug = new Map(profiles.map((profile) => [profile.slug, profile]));
+
+  type EnrichedTopEntry = (typeof topEntries)[number] & {
+    salt: number | null;
+    numDecks: number | null;
+  };
+
+  const sortField =
+    sort === "name"
+      ? "name"
+      : sort === "numDecks"
+        ? "numDecks"
+        : sort === "salt"
+          ? "salt"
+          : "rank";
+
+  let enriched: EnrichedTopEntry[] = topEntries
+    .filter((entry) => profileBySlug.has(entry.slug))
+    .map((entry) => {
+      const profile = profileBySlug.get(entry.slug)!;
+
+      return {
+        ...entry,
+        rank: entry.rank,
+        numDecks: entry.numDecks ?? profile.numDecks,
+        salt: profile.salt,
+      };
+    });
+
+  enriched = sortTopEntries(enriched, sortField, order, (row) => row.salt);
+
+  const total = enriched.length;
+
+  if (decoded?.rank != null && decoded.slug) {
+    enriched = sliceAfterTopCursor(
+      enriched,
+      {
+        sort: sortField,
+        order,
+        rank: decoded.rank,
+        slug: decoded.slug,
+        name: decoded.name,
+        numDecks: decoded.numDecks,
+        inclusion: undefined,
+        salt: decoded.salt,
+      },
+    );
+  }
+
+  const items: CommanderBrowseItem[] = enriched.slice(0, limit + 1).map((entry) => {
+    const profile = profileBySlug.get(entry.slug)!;
+
+    return mapRankedRow({
+      ...profile,
+      rank: entry.rank,
+      numDecks: entry.numDecks ?? profile.numDecks,
+    });
+  });
+
+  const response = buildBrowseListResponse(items, limit, total, (item) =>
+    rankedCursorPayload(item, sort, order, window),
+  );
+
+  return {
+    ...response,
+    meta: {
+      popularityDataAvailable: true,
+      window,
+    },
+  };
+}
+
+async function queryRankedCommandersBrowseLegacy(
+  prisma: PrismaClient,
+  params: CommanderBrowseParams,
+  window: EdhrecTopWindowParam,
+  options?: { allTimeSource?: boolean },
 ): Promise<BrowseListResponse<CommanderBrowseItem>> {
   const sort = (params.sort ?? "rank") as RankedCommanderSort;
   const order = params.order ?? "asc";
@@ -469,8 +410,8 @@ async function queryRankedCommandersBrowse(
   const baseWhere = buildRankedWhere(filters);
 
   const decoded = decodeBrowseCursor<CommanderBrowseCursor>(params.cursor);
-  if (decoded && (decoded.tab !== "ranked" || decoded.sort !== sort || decoded.order !== order)) {
-    throw new Error("Cursor does not match tab/sort/order parameters");
+  if (decoded && (decoded.sort !== sort || decoded.order !== order)) {
+    throw new Error("Cursor does not match sort/order parameters");
   }
 
   const total = await prisma.edhrecCommanderProfile.count({ where: baseWhere });
@@ -488,51 +429,39 @@ async function queryRankedCommandersBrowse(
 
   const items = rows.map(mapRankedRow);
 
-  return buildBrowseListResponse(items, limit, total, (item) =>
-    rankedCursorPayload(item, sort, order),
-  );
+  return {
+    ...buildBrowseListResponse(items, limit, total, (item) =>
+      rankedCursorPayload(item, sort, order, window),
+    ),
+    meta: {
+      popularityDataAvailable: options?.allTimeSource === true,
+      window,
+    },
+  };
 }
 
-async function queryAllCommandersBrowse(
+async function queryRankedCommandersBrowse(
   prisma: PrismaClient,
   params: CommanderBrowseParams,
 ): Promise<BrowseListResponse<CommanderBrowseItem>> {
-  const sort = (params.sort ?? "numDecks") as AllCommanderSort;
-  const order = params.order ?? "desc";
-  const limit = params.limit ?? parseBrowseLimit(null);
-  const filters = params.filters ?? {};
-  const baseWhere = buildAllWhere(filters);
+  const window = params.window ?? DEFAULT_EDHREC_TOP_WINDOW;
 
-  const decoded = decodeBrowseCursor<CommanderBrowseCursor>(params.cursor);
-  if (decoded && (decoded.tab !== "all" || decoded.sort !== sort || decoded.order !== order)) {
-    throw new Error("Cursor does not match tab/sort/order parameters");
+  if (window === "all") {
+    return queryRankedCommandersBrowseLegacy(prisma, params, window, { allTimeSource: true });
   }
 
-  const total = await prisma.card.count({ where: baseWhere });
-  const cursorWhere = decoded ? buildAllCursorWhere(decoded) : undefined;
-  const where: Prisma.CardWhereInput = cursorWhere ? { AND: [baseWhere, cursorWhere] } : baseWhere;
+  const fromTopIndex = await queryRankedFromTopIndex(prisma, params, window);
 
-  const rows = await prisma.card.findMany({
-    where,
-    orderBy: getAllOrderBy(sort, order),
-    take: limit + 1,
-    select: allCardSelect,
-  });
+  if (fromTopIndex) {
+    return fromTopIndex;
+  }
 
-  const items = rows.map(mapAllRow).filter((item): item is CommanderBrowseItem => item != null);
-
-  return buildBrowseListResponse(items, limit, total, (item) => allCursorPayload(item, sort, order));
+  return queryRankedCommandersBrowseLegacy(prisma, params, window);
 }
 
 export async function queryCommandersBrowse(
   prisma: PrismaClient,
   params: CommanderBrowseParams,
 ): Promise<BrowseListResponse<CommanderBrowseItem>> {
-  const tab = params.tab ?? "ranked";
-
-  if (tab === "all") {
-    return queryAllCommandersBrowse(prisma, params);
-  }
-
   return queryRankedCommandersBrowse(prisma, params);
 }

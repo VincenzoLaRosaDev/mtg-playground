@@ -26,7 +26,7 @@ export function EntityDetailTabs({ slug, activeRoute, setCode }: EntityDetailTab
   return (
     <nav
       aria-label="Entity detail views"
-      className="mb-6 flex flex-wrap gap-2 border-b border-zinc-200 pb-3 dark:border-zinc-800"
+      className="mb-6 flex flex-wrap gap-2 border-b border-border pb-3"
     >
       {tabs.map((tab) => {
         const isActive = tab.id === activeRoute;
@@ -37,8 +37,8 @@ export function EntityDetailTabs({ slug, activeRoute, setCode }: EntityDetailTab
             href={tab.href}
             className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
               isActive
-                ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
-                : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground"
             }`}
           >
             {tab.label}

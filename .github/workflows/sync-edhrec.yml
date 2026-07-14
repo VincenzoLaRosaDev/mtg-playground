@@ -1,15 +1,21 @@
 name: Weekly EDHREC sync
 
+# TEMP: scheduled + manual runs disabled until GitHub secrets are configured.
+# Re-enable: set SYNC_JOBS_ENABLED to "true" and uncomment `schedule` below.
+env:
+  SYNC_JOBS_ENABLED: "false"
+
 on:
-  schedule:
-    # Sundays 04:00 UTC
-    - cron: "0 4 * * 0"
+  # schedule:
+  #   # Sundays 04:00 UTC
+  #   - cron: "0 4 * * 0"
   workflow_dispatch:
 
 jobs:
   sync-edhrec:
+    if: env.SYNC_JOBS_ENABLED == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 360
 
     steps:
       - name: Checkout
@@ -34,5 +40,10 @@ jobs:
 
       - name: Sync EDHREC cards (HOT tier)
         run: npm run sync:edhrec-cards
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+      - name: Sync EDHREC top lists (browse index)
+        run: npm run sync:edhrec-top-lists
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}

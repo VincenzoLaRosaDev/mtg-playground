@@ -25,6 +25,23 @@ enum EdhrecSyncTier {
   COLD
 }
 
+enum EdhrecTopEntityType {
+  CARD
+  COMMANDER
+}
+
+enum EdhrecTopWindow {
+  WEEK
+  MONTH
+  YEAR
+  ALL
+}
+
+enum EdhrecPageEntityType {
+  CARD
+  COMMANDER
+}
+
 enum OracleTagWeight {
   very_strong
   strong
@@ -101,6 +118,7 @@ model EdhrecCardData {
   salt         Float?
   numDecks     Int?           @map("num_decks")
   inclusion    Int?
+  potentialDecks Int?         @map("potential_decks")
   cardlists    Json           @default("{}")
   similarCards Json           @default("[]") @map("similar_cards")
   syncTier     EdhrecSyncTier @default(HOT) @map("sync_tier")
@@ -112,6 +130,40 @@ model EdhrecCardData {
   @@index([name])
   @@index([syncTier])
   @@map("edhrec_card_data")
+}
+
+model EdhrecTopEntry {
+  id             String              @id @default(cuid())
+  entityType     EdhrecTopEntityType @map("entity_type")
+  window         EdhrecTopWindow
+  rank           Int
+  slug           String
+  name           String
+  numDecks       Int?                @map("num_decks")
+  inclusion      Int?
+  potentialDecks Int?                @map("potential_decks")
+  syncedAt       DateTime            @default(now()) @map("synced_at")
+
+  @@unique([entityType, window, slug])
+  @@index([entityType, window, rank])
+  @@index([slug])
+  @@map("edhrec_top_entries")
+}
+
+model EdhrecPageVariant {
+  id         String               @id @default(cuid())
+  entityType EdhrecPageEntityType @map("entity_type")
+  slug       String
+  theme      String               @default("")
+  budget     String               @default("")
+  bracket    String               @default("")
+  payload    Json
+  syncedAt   DateTime             @default(now()) @map("synced_at")
+  expiresAt  DateTime?            @map("expires_at")
+
+  @@unique([entityType, slug, theme, budget, bracket])
+  @@index([entityType, slug])
+  @@map("edhrec_page_variants")
 }
 
 model MtgSet {

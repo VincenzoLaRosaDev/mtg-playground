@@ -3,9 +3,9 @@ import type { Metadata } from "next";
 import { createPageMetadata } from "@/lib/seo/site";
 
 export const metadata: Metadata = createPageMetadata({
-  title: "Browse cards",
+  title: "Top cards",
   description:
-    "Browse popular staples and the full Commander-legal card catalog with filters and sort.",
+    "Most played Commander staples ranked by EDHREC inclusion, deck count, and salt.",
   path: "/cards",
 });
 

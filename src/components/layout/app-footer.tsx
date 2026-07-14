@@ -1,19 +1,21 @@
+import { siteContainerClassName } from "@/lib/ui/layout";
+
 export function AppFooter() {
   return (
-    <footer className="mt-auto border-t border-zinc-200 dark:border-zinc-800">
-      <div className="mx-auto max-w-5xl px-4 py-6 text-xs text-zinc-500">
+    <footer className="mt-auto border-t border-border bg-muted/30">
+      <div className={`${siteContainerClassName} py-6 text-xs text-muted-foreground`}>
         <p>
           Card data from{" "}
           <a
             href="https://scryfall.com"
-            className="underline hover:text-zinc-700 dark:hover:text-zinc-300"
+            className="font-medium text-foreground/80 underline-offset-4 hover:text-primary hover:underline"
           >
             Scryfall
           </a>
           . Meta data from{" "}
           <a
             href="https://edhrec.com"
-            className="underline hover:text-zinc-700 dark:hover:text-zinc-300"
+            className="font-medium text-foreground/80 underline-offset-4 hover:text-primary hover:underline"
           >
             EDHREC
           </a>

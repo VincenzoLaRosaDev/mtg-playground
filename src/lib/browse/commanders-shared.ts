@@ -1,9 +1,6 @@
-export type CommanderBrowseTab = "ranked" | "all";
-
 export type RankedCommanderSort = "rank" | "numDecks" | "salt" | "name";
-export type AllCommanderSort = "numDecks" | "name" | "rank" | "salt";
 
-export type CommanderBrowseSort = RankedCommanderSort | AllCommanderSort;
+export type CommanderBrowseSort = RankedCommanderSort;
 
 export type CommanderBrowseItem = {
   cardId: string | null;
@@ -12,24 +9,14 @@ export type CommanderBrowseItem = {
   rank: number | null;
   salt: number | null;
   numDecks: number | null;
+  cmc: number | null;
   colorIdentity: string[];
   imageUri: string | null;
   typeLine: string | null;
   hasEdhrecMeta: boolean;
 };
 
-export function getCommanderBrowseSortOptions(
-  tab: CommanderBrowseTab,
-): { value: CommanderBrowseSort; label: string }[] {
-  if (tab === "all") {
-    return [
-      { value: "numDecks", label: "Decks" },
-      { value: "name", label: "Name" },
-      { value: "rank", label: "Rank" },
-      { value: "salt", label: "Salt" },
-    ];
-  }
-
+export function getCommanderBrowseSortOptions(): { value: CommanderBrowseSort; label: string }[] {
   return [
     { value: "rank", label: "Rank" },
     { value: "numDecks", label: "Decks" },
@@ -38,15 +25,14 @@ export function getCommanderBrowseSortOptions(
   ];
 }
 
-export function defaultSortForCommanderTab(tab: CommanderBrowseTab): CommanderBrowseSort {
-  return tab === "ranked" ? "rank" : "numDecks";
+export function defaultSortForCommanderTab(): CommanderBrowseSort {
+  return "rank";
 }
 
 export function defaultOrderForCommanderTab(
-  tab: CommanderBrowseTab,
   sort: CommanderBrowseSort,
 ): "asc" | "desc" {
   if (sort === "name") return "asc";
-  if (tab === "ranked" && sort === "rank") return "asc";
+  if (sort === "rank") return "asc";
   return "desc";
 }

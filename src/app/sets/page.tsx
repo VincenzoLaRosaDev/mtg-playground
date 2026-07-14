@@ -10,9 +10,12 @@ import {
   type SetBrowseToolbarState,
 } from "@/components/discovery/set-browse-toolbar";
 import { SetBrowseRow } from "@/components/discovery/set-browse-row";
+import { EmptyState } from "@/components/discovery/empty-state";
+import { PageListMeta } from "@/components/layout/page-list-meta";
 import { PageShell } from "@/components/layout/page-shell";
 import type { SetBrowseItem } from "@/lib/browse/sets-shared";
 import { defaultSetBrowseOrder, getSetBrowseSortOptions } from "@/lib/browse/sets-shared";
+import { SET_BROWSE_GRID_CLASS } from "@/lib/ui/card-face";
 
 export default function SetsPage() {
   const [toolbar, setToolbar] = useState<SetBrowseToolbarState>(defaultSetBrowseToolbarState());
@@ -119,29 +122,34 @@ export default function SetsPage() {
     <PageShell
       title="Sets"
       description="Browse Magic sets by release date, type, and indexed card coverage."
+      toolbar={<SetBrowseToolbar state={toolbar} onChange={handleToolbarChange} />}
     >
-      <SetBrowseToolbar state={toolbar} onChange={handleToolbarChange} />
-
-      <p className="mt-4 text-sm text-zinc-500">
+      <PageListMeta>
         Recent sets by default; filter by type, digital/paper, or indexed card lists.
         {total > 0 ? ` Showing ${items.length.toLocaleString()} of ${total.toLocaleString()}.` : ""}
-      </p>
+      </PageListMeta>
 
-      {loading && <p className="mt-4 text-sm text-zinc-500">Loading...</p>}
-      {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
+      {loading && <p className="mt-4 text-sm text-muted-foreground">Loading...</p>}
+      {error && <p className="mt-4 text-sm text-destructive">{error}</p>}
 
-      <ul className="mt-6 space-y-3">
+      <ul className={`mt-6 ${SET_BROWSE_GRID_CLASS}`}>
         {items.map((set) => (
           <SetBrowseRow key={set.code} set={set} />
         ))}
       </ul>
 
       {!loading && items.length === 0 && !error && (
-        <p className="mt-6 text-sm text-zinc-500">
-          {toolbar.query.trim().length >= 2
-            ? "No sets match these filters."
-            : "No set data available yet. Run sync:scryfall-sets."}
-        </p>
+        <EmptyState
+          className="mt-6"
+          title={
+            toolbar.query.trim().length >= 2 ? "No sets match these filters" : "No set data yet"
+          }
+          description={
+            toolbar.query.trim().length >= 2
+              ? "Try a different name, code, or filter."
+              : "Run sync:scryfall-sets to load set metadata."
+          }
+        />
       )}
 
       <LoadMoreButton

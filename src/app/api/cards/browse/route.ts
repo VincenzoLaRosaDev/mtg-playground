@@ -5,15 +5,18 @@ import { prisma } from "@/lib/db";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const params = parseCardBrowseParams(searchParams);
 
   try {
+    const params = parseCardBrowseParams(searchParams);
     const result = await queryCardsBrowse(prisma, params);
     return NextResponse.json(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Browse query failed";
 
-    if (message.includes("Cursor does not match")) {
+    if (
+      message.includes("Cursor does not match") ||
+      message.includes("window=all is not supported")
+    ) {
       return NextResponse.json({ error: message }, { status: 400 });
     }
 

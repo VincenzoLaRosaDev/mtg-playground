@@ -1,141 +1,149 @@
-import Link from "next/link";
+"use client";
 
-import { SET_RARITIES, type SetCardFilters } from "@/lib/scryfall/sets";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useMemo, useTransition } from "react";
+
+import {
+  BrowseCatalogFilterFields,
+  BrowseColorPillGroup,
+  BrowseFilterPill,
+  BrowseFilterPillRow,
+  BrowseFilterSection,
+  BrowseRarityPillGroup,
+  BrowseSearchField,
+  BrowseSelectField,
+  BrowseToolbarPillGroups,
+} from "@/components/discovery/browse-filter-controls";
+import { BrowseFilterPanel, BrowseFilterPanelRow } from "@/components/discovery/browse-filter-panel";
+import { browseToolbarSetDetailGridClassName } from "@/components/discovery/browse-toolbar-shared";
+import {
+  buildSetCardSearchParams,
+  hasActiveSetCardFilters,
+  parseSetCardFiltersFromSearchParams,
+} from "@/lib/scryfall/set-card-search-params";
+import {
+  defaultSetCardOrder,
+  defaultSetCardSort,
+  getSetCardSortOptions,
+  type SetCardSort,
+} from "@/lib/scryfall/set-card-sort";
+import type { SetCardFilters } from "@/lib/scryfall/sets";
 
 type SetCardFiltersProps = {
   setCode: string;
-  filters: SetCardFilters;
 };
 
-const COLOR_OPTIONS = ["W", "U", "B", "R", "G", "C"] as const;
+function toToolbarState(filters: SetCardFilters) {
+  const sort = filters.sort ?? defaultSetCardSort();
 
-function buildHref(setCode: string, next: Record<string, string | undefined>) {
-  const params = new URLSearchParams();
-
-  for (const [key, value] of Object.entries(next)) {
-    if (value) {
-      params.set(key, value);
-    }
-  }
-
-  const query = params.toString();
-  return query ? `/sets/${setCode}?${query}` : `/sets/${setCode}`;
+  return {
+    query: filters.query ?? "",
+    sort,
+    order: filters.order ?? defaultSetCardOrder(sort),
+    rarities: filters.rarities ?? [],
+    colors: filters.colors ?? [],
+    typeContains: filters.typeContains ?? "",
+    cmcMin: filters.cmcMin != null ? String(filters.cmcMin) : "",
+    cmcMax: filters.cmcMax != null ? String(filters.cmcMax) : "",
+    commanderLegal: filters.commanderLegal === true,
+  };
 }
 
-export function SetCardFilters({ setCode, filters }: SetCardFiltersProps) {
-  const current = {
-    q: filters.query,
-    rarity: filters.rarities?.join(","),
-    color: filters.colors?.join(","),
-    commander: filters.commanderLegal ? "legal" : undefined,
-  };
+export function SetCardFilters({ setCode }: SetCardFiltersProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [, startTransition] = useTransition();
+
+  const filters = useMemo(
+    () => parseSetCardFiltersFromSearchParams(new URLSearchParams(searchParams.toString())),
+    [searchParams],
+  );
+  const state = toToolbarState(filters);
+  const sortOptions = getSetCardSortOptions();
+
+  function applyFilters(next: SetCardFilters) {
+    const params = buildSetCardSearchParams(next);
+    const query = params.toString();
+
+    startTransition(() => {
+      router.push(query ? `/sets/${setCode}?${query}` : `/sets/${setCode}`);
+    });
+  }
+
+  function update(patch: Partial<typeof state>) {
+    const merged = { ...state, ...patch };
+    const sort = merged.sort as SetCardSort;
+
+    applyFilters({
+      query: merged.query.trim() || undefined,
+      rarities: merged.rarities,
+      colors: merged.colors,
+      typeContains: merged.typeContains.trim() || undefined,
+      cmcMin: merged.cmcMin ? Number(merged.cmcMin) : undefined,
+      cmcMax: merged.cmcMax ? Number(merged.cmcMax) : undefined,
+      commanderLegal: merged.commanderLegal ? true : undefined,
+      sort,
+      order: merged.order,
+    });
+  }
 
   return (
-    <section className="mb-6 space-y-4 rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
-      <form method="get" className="flex flex-col gap-3 sm:flex-row">
-        <input
-          type="search"
-          name="q"
-          defaultValue={filters.query ?? ""}
+    <BrowseFilterPanel>
+      <div className={browseToolbarSetDetailGridClassName}>
+        <BrowseSearchField
+          label="Search in set"
+          value={state.query}
+          onChange={(query) => update({ query })}
           placeholder="Filter by card name..."
-          className="flex-1 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-950"
         />
-        {current.rarity && <input type="hidden" name="rarity" value={current.rarity} />}
-        {current.color && <input type="hidden" name="color" value={current.color} />}
-        {current.commander && <input type="hidden" name="commander" value={current.commander} />}
-        <button
-          type="submit"
-          className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white dark:bg-zinc-100 dark:text-zinc-900"
-        >
-          Search
-        </button>
-      </form>
 
-      <div className="space-y-2">
-        <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Rarity</p>
-        <div className="flex flex-wrap gap-2">
-          {SET_RARITIES.map((rarity) => {
-            const selected = filters.rarities?.includes(rarity) ?? false;
-            const nextRarities = selected
-              ? (filters.rarities ?? []).filter((value) => value !== rarity)
-              : [...(filters.rarities ?? []), rarity];
+        <BrowseSelectField
+          label="Sort by"
+          value={state.sort}
+          onChange={(sort) =>
+            update({
+              sort: sort as SetCardSort,
+              order: defaultSetCardOrder(sort as SetCardSort),
+            })
+          }
+          options={sortOptions}
+        />
 
-            return (
-              <Link
-                key={rarity}
-                href={buildHref(setCode, {
-                  ...current,
-                  rarity: nextRarities.length ? nextRarities.join(",") : undefined,
-                })}
-                className={`rounded-full px-3 py-1 text-xs capitalize ${
-                  selected
-                    ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
-                    : "border border-zinc-300 text-zinc-600 dark:border-zinc-700 dark:text-zinc-300"
-                }`}
-              >
-                {rarity}
-              </Link>
-            );
-          })}
-        </div>
+        <BrowseCatalogFilterFields values={state} onChange={(patch) => update(patch)} inline />
       </div>
 
-      <div className="space-y-2">
-        <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Color</p>
-        <div className="flex flex-wrap gap-2">
-          {COLOR_OPTIONS.map((color) => {
-            const selected = filters.colors?.includes(color) ?? false;
-            const nextColors = selected
-              ? (filters.colors ?? []).filter((value) => value !== color)
-              : [...(filters.colors ?? []), color];
-
-            return (
-              <Link
-                key={color}
-                href={buildHref(setCode, {
-                  ...current,
-                  color: nextColors.length ? nextColors.join(",") : undefined,
-                })}
-                className={`rounded-full px-3 py-1 text-xs ${
-                  selected
-                    ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
-                    : "border border-zinc-300 text-zinc-600 dark:border-zinc-700 dark:text-zinc-300"
-                }`}
-              >
-                {color}
-              </Link>
-            );
-          })}
-        </div>
-      </div>
-
-      <div className="flex flex-wrap gap-2">
-        <Link
-          href={buildHref(setCode, {
-            ...current,
-            commander: filters.commanderLegal ? undefined : "legal",
-          })}
-          className={`rounded-full px-3 py-1 text-xs ${
-            filters.commanderLegal
-              ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
-              : "border border-zinc-300 text-zinc-600 dark:border-zinc-700 dark:text-zinc-300"
-          }`}
-        >
-          Commander legal
-        </Link>
-
-        {(filters.query ||
-          filters.rarities?.length ||
-          filters.colors?.length ||
-          filters.commanderLegal) && (
-          <Link
-            href={`/sets/${setCode}`}
-            className="rounded-full border border-zinc-300 px-3 py-1 text-xs text-zinc-600 dark:border-zinc-700 dark:text-zinc-300"
-          >
-            Clear filters
-          </Link>
-        )}
-      </div>
-    </section>
+      <BrowseFilterPanelRow
+        sortOrder={{ order: state.order, onChange: (order) => update({ order }) }}
+      >
+        <BrowseToolbarPillGroups>
+          <BrowseColorPillGroup colors={state.colors} onChange={(colors) => update({ colors })} />
+          <BrowseRarityPillGroup
+            rarities={state.rarities}
+            onChange={(rarities) => update({ rarities })}
+          />
+          <BrowseFilterSection title="Options">
+            <BrowseFilterPillRow>
+              <BrowseFilterPill
+                label="Commander legal"
+                selected={state.commanderLegal}
+                onClick={() => update({ commanderLegal: !state.commanderLegal })}
+              />
+              {hasActiveSetCardFilters(filters) ? (
+                <BrowseFilterPill
+                  label="Clear filters"
+                  selected={false}
+                  onClick={() =>
+                    applyFilters({
+                      sort: filters.sort,
+                      order: filters.order,
+                    })
+                  }
+                />
+              ) : null}
+            </BrowseFilterPillRow>
+          </BrowseFilterSection>
+        </BrowseToolbarPillGroups>
+      </BrowseFilterPanelRow>
+    </BrowseFilterPanel>
   );
 }

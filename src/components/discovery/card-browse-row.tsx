@@ -1,41 +1,60 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 
-import { CardImage } from "@/components/discovery/card-image";
+import { Card, CardContent } from "@/components/ui/card";
+
+import { CardFacePlaceholder, CardImage } from "@/components/discovery/card-image";
 import { DevEdhrecCoverageBadge } from "@/components/dev/dev-edhrec-coverage-badge";
+import { RankBadge } from "@/components/discovery/rank-badge";
+import { SaltBadge } from "@/components/discovery/salt-badge";
+import { DecksMetricLabel, InclusionMetricLabel } from "@/components/discovery/metric-icon-label";
+import { ColorIdentity } from "@/components/mtg/color-identity";
 import type { CardBrowseItem } from "@/lib/browse/cards-shared";
-import { formatColorIdentity } from "@/lib/display/formatters";
+import { formatInclusionPercent } from "@/lib/display/formatters";
 
 type CardBrowseRowProps = {
   card: CardBrowseItem;
   showCoverageBadge?: boolean;
+  showRank?: boolean;
 };
 
-function formatPopularMeta(card: CardBrowseItem): string {
-  const parts: string[] = [];
+function formatPopularMeta(card: CardBrowseItem): ReactNode {
+  const inclusionLabel = formatInclusionPercent(
+    card.inclusion,
+    card.potentialDecks,
+    card.numDecks,
+  );
 
-  if (card.inclusion != null) {
-    parts.push(`${card.inclusion.toLocaleString()} decks`);
+  if (inclusionLabel !== "—") {
+    return <InclusionMetricLabel value={inclusionLabel} />;
   }
 
-  if (card.salt != null) {
-    parts.push(`Salt ${card.salt.toFixed(2)}`);
+  if (card.numDecks != null) {
+    return <DecksMetricLabel value={card.numDecks.toLocaleString()} />;
   }
 
-  return parts.join(" · ");
+  return null;
 }
 
-export function CardBrowseRow({ card, showCoverageBadge = false }: CardBrowseRowProps) {
+export function CardBrowseRow({
+  card,
+  showCoverageBadge = false,
+  showRank = false,
+}: CardBrowseRowProps) {
   const href = card.edhrecSlug ? `/cards/${card.edhrecSlug}` : null;
   const popularMeta = formatPopularMeta(card);
 
   return (
-    <li className="flex items-center gap-4 rounded-lg border border-zinc-200 bg-white p-3 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+    <li>
+      <Card size="sm" className="shadow-sm">
+        <CardContent className="flex items-center gap-4 py-3">
+      {showRank && card.rank != null ? (
+        <RankBadge rank={card.rank} className="shrink-0" />
+      ) : null}
       {card.imageUri ? (
         <CardImage src={card.imageUri} alt={card.name} variant="thumbnail" />
       ) : (
-        <div className="flex h-[62px] w-[44px] shrink-0 items-center justify-center rounded border border-zinc-200 bg-zinc-100 text-xs text-zinc-400 dark:border-zinc-800 dark:bg-zinc-900">
-          ?
-        </div>
+        <CardFacePlaceholder />
       )}
 
       <div className="min-w-0 flex-1">
@@ -51,16 +70,26 @@ export function CardBrowseRow({ card, showCoverageBadge = false }: CardBrowseRow
           {showCoverageBadge && !card.hasEdhrecData && (
             <DevEdhrecCoverageBadge label="No EDHREC data" />
           )}
+
+          {card.salt != null && <SaltBadge salt={card.salt} />}
         </div>
 
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">{card.typeLine}</p>
-        <p className="text-xs text-zinc-500">
-          CMC {card.cmc}
-          {card.isCommander ? " · Commander" : ""}
-          {card.colorIdentity.length > 0 ? ` · ${formatColorIdentity(card.colorIdentity)}` : ""}
-          {popularMeta ? ` · ${popularMeta}` : ""}
+        <p className="text-sm text-muted-foreground">{card.typeLine}</p>
+        <p className="flex flex-nowrap items-center justify-between gap-2 text-xs text-muted-foreground">
+          <span className="shrink-0 whitespace-nowrap">
+            CMC {card.cmc}
+            {card.isCommander ? " · Commander" : ""}
+          </span>
+          <span className="flex shrink-0 items-center gap-1.5 whitespace-nowrap">
+            {card.colorIdentity.length > 0 ? (
+              <ColorIdentity colors={card.colorIdentity} size="xs" />
+            ) : null}
+            {popularMeta}
+          </span>
         </p>
       </div>
+        </CardContent>
+      </Card>
     </li>
   );
 }

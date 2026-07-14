@@ -1,5 +1,13 @@
 import type { Prisma } from "@/generated/prisma/client";
 
+import type { SetCardSort, SetCardSortOrder } from "@/lib/scryfall/set-card-sort";
+import {
+  defaultSetCardOrder,
+  defaultSetCardSort,
+  parseSetCardSort,
+  parseSetCardSortOrder,
+} from "@/lib/scryfall/set-card-sort";
+
 export const SET_RARITIES = ["common", "uncommon", "rare", "mythic", "special", "bonus"] as const;
 
 export type SetCardFilters = {
@@ -7,6 +15,11 @@ export type SetCardFilters = {
   rarities?: string[];
   colors?: string[];
   commanderLegal?: boolean;
+  typeContains?: string;
+  cmcMin?: number;
+  cmcMax?: number;
+  sort?: SetCardSort;
+  order?: SetCardSortOrder;
 };
 
 export function parseSetCardFilters(searchParams: {
@@ -14,7 +27,14 @@ export function parseSetCardFilters(searchParams: {
   rarity?: string;
   color?: string;
   commander?: string;
+  type?: string;
+  cmc_min?: string;
+  cmc_max?: string;
+  sort?: string;
+  order?: string;
 }): SetCardFilters {
+  const sort = parseSetCardSort(searchParams.sort);
+
   return {
     query: searchParams.q?.trim() || undefined,
     rarities: searchParams.rarity
@@ -24,7 +44,21 @@ export function parseSetCardFilters(searchParams: {
       ? searchParams.color.split(",").map((value) => value.trim().toUpperCase()).filter(Boolean)
       : undefined,
     commanderLegal: searchParams.commander === "legal" ? true : undefined,
+    typeContains: searchParams.type?.trim() || undefined,
+    cmcMin: searchParams.cmc_min ? Number(searchParams.cmc_min) : undefined,
+    cmcMax: searchParams.cmc_max ? Number(searchParams.cmc_max) : undefined,
+    sort,
+    order: parseSetCardSortOrder(searchParams.order),
   };
+}
+
+export function resolvedSetCardSort(filters: SetCardFilters): SetCardSort {
+  return filters.sort ?? defaultSetCardSort();
+}
+
+export function resolvedSetCardOrder(filters: SetCardFilters): SetCardSortOrder {
+  if (filters.order) return filters.order;
+  return defaultSetCardOrder(resolvedSetCardSort(filters));
 }
 
 export function buildSetCardWhere(

@@ -22,12 +22,13 @@
 - Runtime: must pass `{ adapter: new PrismaPg({ connectionString }) }` — empty constructor throws
 - CLI/migrations: `prisma.config.ts` uses `DIRECT_URL` for `datasource.url`
 - App runtime: `DATABASE_URL` (pooled Neon connection)
+- Use `sslmode=verify-full` in connection URLs (app normalizes legacy `sslmode=require` at runtime to silence pg v8 warnings)
 
 ## Environment variables
 
 ```bash
-DATABASE_URL=   # Neon pooled (-pooler host)
-DIRECT_URL=     # Neon direct (migrations only)
+DATABASE_URL=   # Neon pooled (-pooler host); ?sslmode=verify-full
+DIRECT_URL=     # Neon direct (migrations only); ?sslmode=verify-full
 NEXT_PUBLIC_SITE_URL=  # Production URL for SEO (optional locally)
 AUTH_SECRET=    # Phase 2
 AUTH_GOOGLE_ID / AUTH_GOOGLE_SECRET=
@@ -70,6 +71,7 @@ Tier 4  Platform data     → ratings, rankings (Phase 4+)
   - `/average-decks/{slug}.json` — full average decklist
   - `/cards/{slug}.json` — inclusion, top commanders
 - `inclusion` field = **absolute deck count**, not % → normalize: `inclusion / commander.num_decks`
+- **Global card popularity** (card page, top lists): EDHREC often omits `inclusion`; use **`num_decks / potential_decks`** for inclusion %
 - Slug: precompute `card.edhrecSlug` — NFKD accent strip, apostrophes removed, DFC front face (`toEdhrecSlug`)
 
 **Sync tiers:**
@@ -98,13 +100,13 @@ Also weekly: top ~2000 card pages.
 | Scryfall set card index | Weekly Sunday (or `--codes=` on demand) | `scripts/sync/scryfall-set-cards.ts` |
 | Scryfall oracle_tags | Weekly Sunday | `scripts/sync/scryfall-tags.ts` (`--if-changed`) |
 | Card classifications | Weekly Sunday (after tags) | `scripts/sync/compute-card-classifications.ts` |
-| EDHREC hot tier | Weekly Sunday | `scripts/sync/edhrec-commanders.ts` |
-| EDHREC commander catalog sweep | Before Phase 1.5; then monthly or manual | `scripts/sync/edhrec-commanders-catalog.ts` |
-| EDHREC card pages (hot) | Weekly Sunday | `scripts/sync/edhrec-cards.ts` (Phase 1) |
+| EDHREC hot tier | Weekly Sunday | `scripts/sync/edhrec-commanders.ts`, `scripts/sync/edhrec-cards.ts` — **full profile/card page JSON** |
+| EDHREC top lists | Weekly Sunday | `scripts/sync/edhrec-top-lists.ts` (Phase 1.6) — **browse index only** |
+| EDHREC commander catalog sweep | Before 1.5; then monthly or manual | `scripts/sync/edhrec-commanders-catalog.ts` |
 | Rankings recompute | Weekly | `scripts/sync/recompute-rankings.ts` (Phase 4) |
 | MTGJSON precons | Monthly | `scripts/sync/mtgjson-precons.ts` (Phase 5) |
 
-GitHub Actions: `.github/workflows/sync-scryfall.yml` (daily oracle_cards with `--if-changed` at 03:00 UTC; weekly sets + set index + oracle_tags + classifications Sundays 04:30 UTC; requires `DATABASE_URL` secret). `.github/workflows/sync-edhrec.yml` (weekly EDHREC HOT sync). `.github/workflows/sync-edhrec-catalog.yml` (commander catalog COLD fill; `workflow_dispatch` + optional monthly cron).
+GitHub Actions (`.github/workflows/sync-*.yml`): **temporarily disabled** (`SYNC_JOBS_ENABLED: "false"`, cron commented out) until `DATABASE_URL` is set on GitHub — see `README.md` § GitHub Actions. When enabled: Scryfall daily/weekly sync; EDHREC weekly HOT + top lists; commander catalog COLD fill (manual / optional monthly cron).
 
 Daily Scryfall runs fetch bulk metadata only when `updated_at` matches the last successful sync (`sync_logs.errors.bulkUpdatedAt`); full download runs when Scryfall publishes a new bulk file.
 
@@ -128,13 +130,40 @@ Next.js App Router
   └─ Services: src/lib/, src/services/ (Phase 2+)
 PostgreSQL
   ├─ cards (+ roles/themes computed offline)
-  ├─ edhrec_commander_profiles (cache)
-  ├─ edhrec_card_data (cache)
+  ├─ edhrec_top_entries (browse ranked index — Phase 1.6)
+  ├─ edhrec_commander_profiles (default commander meta + cardlists)
+  ├─ edhrec_card_data (default card meta + cardlists)
+  ├─ edhrec_page_variants (filtered detail payloads — Phase 1.6)
   ├─ decks, deck_publications, publication_ratings
   └─ sync_logs
 ```
 
-**Rule:** user-facing routes read Postgres only. On cache miss/expiry, `src/lib/edhrec/cache.ts` may fetch EDHREC once, upsert (WARM/COLD tier), then serve from DB. Never call EDHREC directly from page components.
+**Rule:** user-facing **browse/search** routes read Postgres only. On cache miss/expiry, `src/lib/edhrec/cache.ts` may fetch EDHREC once, upsert (WARM/COLD tier or variant row), then serve from DB. **Detail filter changes** (theme/budget/bracket) upsert **`edhrec_page_variants`**; never live EDHREC in browse.
+
+## EDHREC cache layers (Phase 1.6)
+
+Four complementary layers — **none deprecated**:
+
+| Layer | Table(s) | Sync / fill | Primary consumers |
+|---|---|---|---|
+| **Top index** | `edhrec_top_entries` | `sync:edhrec-top-lists` weekly | `/cards` Most played, `/commanders` Top commanders, `window=` filter |
+| **Default profiles** | `edhrec_commander_profiles`, `edhrec_card_data` | HOT weekly, catalog sweep, on-demand | Detail default view, All tab joins, global search, sitemap, salt/rank columns |
+| **Filter variants** | `edhrec_page_variants` | On-demand on detail filter change | Commander + card detail with Theme/Budget/Bracket |
+| **Scryfall catalog** | `cards`, `set_cards`, … | Scryfall sync | Oracle, images, prices, All tabs, legality |
+
+**`sync_tier` (HOT/WARM/COLD)** on profile tables still drives TTL and weekly HOT refresh; browse primary tabs **no longer filter by tier** after 1.6.12.
+
+**Top JSON URLs:** `https://json.edhrec.com/pages/top/{window}.json` and `pages/commanders/{window}.json` for `week|month|year`. Follow each list’s **`more`** pointer (e.g. `top/year-past2years-1.json`) until `more` is null — **not** `--N.json` (403). **`window=all`:** no top JSON. **Commanders** browse uses profile `rank`; **cards** browse has **no all-time window** (week/month/year only). Full sync can take hours (tens of thousands of card rows).
+
+**Commander filter URLs (confirmed 2026-07-13, corrected 2026-07-13):** `pages/commanders/{slug}.json`; `…/{theme}.json`; `…/{budget|expensive}.json`; `…/{theme}/{budget|expensive}.json`; bracket slugs `exhibition|core|upgraded|optimized|cedh` (bracket **first** when combined). **`middle` / Mid budget is not available** — path `…/middle.json` returns 403 and `?cost=middle` returns unfiltered data; UI exposes Budget + Expensive only on commander detail. Stored in `edhrec_page_variants` on detail filter change (WARM TTL).
+
+**Card filter URLs (confirmed 2026-07-13, removed from UI 2026-07-13):** `pages/cards/{slug}.json?cost=` and `?theme=` exist but **`?cost=` does not change** card JSON on tested staples; no card detail filter bar. Variant cache path retained for a future EDHREC theme list on card pages.
+
+### Planned schema (1.6.10)
+
+**`edhrec_top_entries`** — `entity_type`, `window`, `rank`, `slug`, `name`, `num_decks`, `inclusion`, `potential_decks`, `synced_at`; unique `(entity_type, window, slug)`.
+
+**`edhrec_page_variants`** — `entity_type`, `slug`, nullable `theme`, `budget`, `bracket`, JSON payload (`cardlists`, stats), `synced_at`, `expires_at`; unique composite key.
 
 ## Discovery browse APIs (Phase 1.5)
 
@@ -148,8 +177,8 @@ Response: { items: T[], total: number, nextCursor: string | null }
 | Endpoint | Purpose |
 |---|---|
 | `GET /api/search?q=` | Unified navbar search (cards, commanders, sets) |
-| `GET /api/cards/browse` | Tab `popular` \| `all`; sort/filter/paginate |
-| `GET /api/commanders/browse` | Tab `ranked` \| `all`; catalog union on `all` |
+| `GET /api/cards/browse` | Tab `popular` \| `all` (`/catalog` UI); **`window=week\|month\|year` only** on top cards; sort/filter/paginate; `commanders_only` on `all` |
+| `GET /api/commanders/browse` | Top commanders (`edhrec_top_entries` + profile join); `window=` filter; catalog commanders → `/catalog` |
 | `GET /api/sets/search` | Cursor browse for sets (`items`, `total`, `nextCursor`; sort, filters) — reference implementation |
 | `GET /api/cards/search` | Keep for typeahead; global search preferred for UX |
 
@@ -200,8 +229,10 @@ edhforge/
 
 ### Phase 1
 
-- `edhrec_commander_profiles` — indexed rank/salt/decks + JSON cardlists/tag_counts
-- `edhrec_card_data` — indexed salt/inclusion + JSON cardlists (top commanders)
+- `edhrec_commander_profiles` — default commander meta: rank/salt/decks + JSON cardlists/tag_counts
+- `edhrec_card_data` — default card meta: salt/inclusion/**potential_decks** + JSON cardlists
+- `edhrec_top_entries` — ranked browse index per time window (Phase 1.6)
+- `edhrec_page_variants` — filtered detail payloads commander/card (Phase 1.6)
 
 ### Phase 2
 

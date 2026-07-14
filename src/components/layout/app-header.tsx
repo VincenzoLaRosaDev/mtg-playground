@@ -1,83 +1,48 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { Suspense } from "react";
 
 import { GlobalSearch } from "@/components/discovery/global-search";
-import { mainNav } from "@/lib/navigation";
+import { NavLinks } from "@/components/layout/nav-links";
+import { Input } from "@/components/ui/input";
+import { siteContainerClassName } from "@/lib/ui/layout";
+import { cn } from "@/lib/utils";
 
 function SearchPageFallback() {
   return (
-    <input
+    <Input
       type="search"
       disabled
       placeholder="Search cards, commanders, sets..."
-      className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm opacity-60 dark:border-zinc-700 dark:bg-zinc-950"
+      className="opacity-60"
     />
   );
 }
 
 export function AppHeader() {
-  const pathname = usePathname();
-
   return (
-    <header className="border-b border-zinc-200 bg-white/80 backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/80">
-      <div className="mx-auto max-w-5xl px-4 py-4">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-6">
+    <header className="sticky top-0 z-40 border-b border-border/80 bg-background/90 backdrop-blur-md">
+      <div className={cn(siteContainerClassName, "py-3 lg:py-4")}>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between lg:gap-6">
           <div className="flex items-center justify-between gap-4">
-            <Link href="/" className="text-lg font-semibold tracking-tight">
+            <Link
+              href="/"
+              className="font-heading text-lg font-semibold tracking-tight text-foreground"
+            >
               EDHForge
             </Link>
 
-            <nav className="flex flex-wrap items-center gap-1 lg:hidden">
-              {mainNav.map((item) => {
-                const isActive =
-                  pathname === item.href || pathname.startsWith(`${item.href}/`);
-
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-                      isActive
-                        ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
-                        : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-900 dark:hover:text-zinc-100"
-                    }`}
-                  >
-                    {item.label}
-                  </Link>
-                );
-              })}
-            </nav>
+            <NavLinks className="flex flex-wrap items-center gap-1 lg:hidden" />
           </div>
 
-          <div className="w-full lg:max-w-md lg:flex-1">
+          <div className="w-full lg:max-w-md lg:flex-1 xl:max-w-xl">
             <Suspense fallback={<SearchPageFallback />}>
               <GlobalSearch />
             </Suspense>
           </div>
 
-          <nav className="hidden flex-wrap items-center gap-1 lg:flex">
-            {mainNav.map((item) => {
-              const isActive =
-                pathname === item.href || pathname.startsWith(`${item.href}/`);
-
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-                    isActive
-                      ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
-                      : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-900 dark:hover:text-zinc-100"
-                  }`}
-                >
-                  {item.label}
-                </Link>
-              );
-            })}
-          </nav>
+          <NavLinks className="hidden flex-wrap items-center gap-1 lg:flex" />
         </div>
       </div>
     </header>
