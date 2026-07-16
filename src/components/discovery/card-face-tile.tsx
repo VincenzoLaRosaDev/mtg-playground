@@ -2,7 +2,6 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { CardFacePlaceholder, CardImage } from "@/components/discovery/card-image";
-import { CARD_FACE_TILE_FOOTER_CLASS } from "@/lib/ui/card-face";
 
 type CardFaceTileProps = {
   href?: string | null;
@@ -20,7 +19,7 @@ export function CardFaceTile({ href, imageUri, name, footer }: CardFaceTileProps
         <CardFacePlaceholder variant="grid" label={name} />
       )}
 
-      {footer ? <div className={CARD_FACE_TILE_FOOTER_CLASS}>{footer}</div> : null}
+      {footer ? <div className="mt-2 w-full min-w-0">{footer}</div> : null}
     </>
   );
 

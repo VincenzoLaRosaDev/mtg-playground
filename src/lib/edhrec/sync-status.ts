@@ -2,7 +2,9 @@ import { SyncSource, SyncStatus } from "@/generated/prisma/client";
 
 import { prisma } from "@/lib/db";
 
-const EDHREC_JOBS = ["commanders_hot", "cards_hot"] as const;
+/** Weekly EDHREC jobs that must stay fresh for browse + detail. */
+const EDHREC_JOBS = ["commanders_hot", "cards_hot", "top_lists"] as const;
+
 const STALE_AFTER_DAYS = 8;
 
 export type EdhrecSyncHealth = {
@@ -23,14 +25,22 @@ export async function getEdhrecSyncHealth(): Promise<EdhrecSyncHealth> {
       jobType: { in: [...EDHREC_JOBS] },
     },
     orderBy: { startedAt: "desc" },
-    take: 20,
+    take: 40,
   });
 
   const latestByJob = new Map<string, (typeof logs)[number]>();
+  const latestSuccessByJob = new Map<string, Date>();
 
   for (const log of logs) {
     if (!latestByJob.has(log.jobType)) {
       latestByJob.set(log.jobType, log);
+    }
+    if (
+      log.status === SyncStatus.SUCCESS &&
+      log.completedAt &&
+      !latestSuccessByJob.has(log.jobType)
+    ) {
+      latestSuccessByJob.set(log.jobType, log.completedAt);
     }
   }
 
@@ -38,17 +48,18 @@ export async function getEdhrecSyncHealth(): Promise<EdhrecSyncHealth> {
     (log) => log.status === SyncStatus.FAILED,
   );
 
-  const successLogs = logs.filter((log) => log.status === SyncStatus.SUCCESS && log.completedAt);
+  // Stale if any watched job has never succeeded or is older than the threshold.
+  const isStale = EDHREC_JOBS.some((jobType) => {
+    const successAt = latestSuccessByJob.get(jobType);
+    return !successAt || daysSince(successAt) > STALE_AFTER_DAYS;
+  });
+
+  const successDates = [...latestSuccessByJob.values()];
   const lastSuccessAt =
-    successLogs.length > 0
-      ? successLogs.reduce(
-          (latest, log) =>
-            log.completedAt && (!latest || log.completedAt > latest) ? log.completedAt : latest,
-          null as Date | null,
-        )
+    successDates.length > 0
+      ? successDates.reduce((latest, date) => (date > latest ? date : latest))
       : null;
 
-  const isStale = lastSuccessAt ? daysSince(lastSuccessAt) > STALE_AFTER_DAYS : true;
   const showNotice = hasRecentFailure || isStale;
 
   return {

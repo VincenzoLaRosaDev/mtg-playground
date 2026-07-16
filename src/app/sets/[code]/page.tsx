@@ -19,8 +19,6 @@ import {
 import { hasActiveSetCardFilters } from "@/lib/scryfall/set-card-search-params";
 import { sortSetCards } from "@/lib/scryfall/set-card-sort";
 import { buildSetCatalogCardWhere } from "@/lib/scryfall/set-catalog-filters";
-import { ColorIdentity } from "@/components/mtg/color-identity";
-import { RarityIcon } from "@/components/mtg/rarity-icon";
 import { createPageMetadata } from "@/lib/seo/site";
 import { CARD_FACE_GRID_CLASS } from "@/lib/ui/card-face";
 
@@ -178,12 +176,6 @@ export default async function SetDetailPage({ params, searchParams }: SetDetailP
                   ? `/commanders/${catalog.edhrecSlug}?set=${mtgSet.code}`
                   : `/cards/${catalog.edhrecSlug}?set=${mtgSet.code}`
                 : null;
-              const footerParts = [
-                `#${setCard.collectorNumber}`,
-                catalog?.cmc != null ? `CMC ${catalog.cmc}` : null,
-                catalog?.isCommander ? "Commander" : null,
-              ].filter(Boolean);
-
               return (
                 <li key={setCard.id}>
                   <CardFaceTile
@@ -191,17 +183,9 @@ export default async function SetDetailPage({ params, searchParams }: SetDetailP
                     imageUri={imageUri}
                     name={setCard.name}
                     footer={
-                      <>
-                        <span className="min-w-0 truncate text-xs text-muted-foreground">
-                          {footerParts.join(" · ")}
-                        </span>
-                        <span className="flex shrink-0 items-center gap-1.5">
-                          {setCard.rarity ? <RarityIcon rarity={setCard.rarity} size="xs" /> : null}
-                          {catalog?.colorIdentity.length ? (
-                            <ColorIdentity colors={catalog.colorIdentity} size="xs" />
-                          ) : null}
-                        </span>
-                      </>
+                      <p className="w-full text-center text-xs tabular-nums text-muted-foreground">
+                        #{setCard.collectorNumber}
+                      </p>
                     }
                   />
                 </li>

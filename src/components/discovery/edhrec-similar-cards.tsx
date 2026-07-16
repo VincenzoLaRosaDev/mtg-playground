@@ -1,9 +1,15 @@
 import { CardFaceTile } from "@/components/discovery/card-face-tile";
+import { EntityPreviewFooter } from "@/components/discovery/entity-preview-footer";
 import { loadSimilarCards } from "@/lib/edhrec/similar-cards";
+import { formatInclusionPercent } from "@/lib/display/formatters";
 import { prisma } from "@/lib/db";
-import { CARD_FACE_GRID_CLASS } from "@/lib/ui/card-face";
-import { DETAIL_SECTION_HEADING_CLASS, DETAIL_SECTION_IDS, DETAIL_SECTION_SCROLL_MARGIN } from "@/lib/ui/detail-section-nav";
-import { detailSectionPanelClass } from "@/lib/ui/detail-section-nav";
+import { CARD_FACE_DETAIL_GRID_CLASS } from "@/lib/ui/card-face";
+import {
+  DETAIL_SECTION_HEADING_CLASS,
+  DETAIL_SECTION_IDS,
+  DETAIL_SECTION_SCROLL_MARGIN,
+  detailSectionPanelClass,
+} from "@/lib/ui/detail-section-nav";
 
 type EdhrecSimilarCardsProps = {
   similarCards: string[];
@@ -27,7 +33,7 @@ export async function EdhrecSimilarCards({
     >
       <h2 className={DETAIL_SECTION_HEADING_CLASS}>Similar cards</h2>
 
-      <ul className={`mt-4 ${CARD_FACE_GRID_CLASS}`}>
+      <ul className={`mt-4 ${CARD_FACE_DETAIL_GRID_CLASS}`}>
         {cards.map((card) => (
           <li key={card.slug}>
             <CardFaceTile
@@ -35,9 +41,19 @@ export async function EdhrecSimilarCards({
               imageUri={card.imageUri}
               name={card.name}
               footer={
-                card.typeLine ? (
-                  <span className="min-w-0 truncate text-xs text-muted-foreground">{card.typeLine}</span>
-                ) : null
+                <EntityPreviewFooter
+                  prices={card.prices}
+                  primary={{
+                    kind: "inclusion",
+                    value: formatInclusionPercent(
+                      card.inclusion,
+                      card.potentialDecks,
+                      card.numDecks,
+                    ),
+                  }}
+                  decks={card.numDecks}
+                  salt={card.salt}
+                />
               }
             />
           </li>

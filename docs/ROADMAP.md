@@ -1,6 +1,6 @@
 # EDHForge — Development Roadmap
 
-> Last updated: 2026-07-12 · Update checkboxes and dates as work completes.
+> Last updated: 2026-07-16 · Update checkboxes and dates as work completes.
 
 **Legend:** ✅ done · 🔄 in progress · ⬜ todo
 
@@ -15,7 +15,7 @@
 | 0.1 | Next.js 16 + TS + Tailwind scaffold | ✅ | 2026-07-09 |
 | 0.2 | Prisma 7 + Neon + Card/SyncLog schema | ✅ | 2026-07-09 |
 | 0.3 | Scryfall bulk sync script | ✅ | 2026-07-09 |
-| 0.4 | `GET /api/cards/search` | ✅ | 2026-07-09 |
+| 0.4 | `GET /api/cards/search` (later removed → `/api/search`) | ✅ | 2026-07-09 |
 | 0.5 | `/cards` search page | ✅ | 2026-07-09 |
 | 0.6 | Landing page `/` | ✅ | 2026-07-09 |
 | 0.7 | Project docs + Cursor rules | ✅ | 2026-07-09 |
@@ -156,7 +156,7 @@ Wave 7 → polish
 | **1.6.18** | **`/sets` + `/sets/[code]`** — horizontal set cards in wide grid; set detail filters in toolbar | 6 | ✅ | 2026-07-14 |
 | **1.6.19** | **Home `/`** — discovery shortcuts (Most played, Top commanders) | 6 | ✅ | 2026-07-13 |
 | **1.6.20** | **Final polish** — responsive, empty states, **icon system** (mana/rarity/lucide), docs checklist; mark Phase 1.6 complete | 7 | ✅ | 2026-07-14 |
-| **1.7.1** | **UI kit** — shadcn/ui + violet theme + discovery shell refactor | — | ✅ | 2026-07-14 |
+| **1.7.1** | **UI kit** — shadcn/ui + theme tokens + discovery shell refactor (later: dark-only orange) | — | ✅ | 2026-07-14 |
 
 **Backlog (post-1.6):** Card Printings tab · `/themes` hub · dedicated Saltiest routes · full card-catalog EDHREC sweep.
 
@@ -165,6 +165,31 @@ Wave 7 → polish
 **Prerequisite for:** Phase 2 deck builder.
 
 **Phase 1.6 complete** (2026-07-14) — discovery parity gate cleared; start Phase 2.
+
+### Ops hardening (pre–Phase 2 / audit)
+
+| # | Task | Status | Done |
+|---|---|---|---|
+| Ops.1 | Browse sync health includes `top_lists` + `EdhrecSyncNotice` on `/cards` `/commanders` | ✅ | 2026-07-16 |
+| Ops.2 | Weekly EDHREC workflow purges expired `edhrec_page_variants` (still gated off) | ✅ | 2026-07-16 |
+| Ops.3 | Docs/.env: drop phantom `SYNC_CRON_SECRET` / `/api/sync` | ✅ | 2026-07-16 |
+| Ops.4 | Enable GH Actions sync (`DATABASE_URL` secret + `SYNC_JOBS_ENABLED` + cron) | ⬜ | When ready |
+| Ops.5 | Delete leftover browse/search code + refresh ARCHITECTURE tree | ✅ | 2026-07-16 |
+| Ops.6 | `useBrowseList` hook + split `lib/browse/cards*` modules | ✅ | 2026-07-16 |
+| Ops.7 | Vitest unit tests: browse cursor, slug, cardlists parsers | ✅ | 2026-07-16 |
+| Ops.8 | DB indexes: sync_logs + browse sort/TTL columns | ✅ | 2026-07-16 |
+| Ops.9 | Atomic `edhrec_top_entries` window rewrite | ✅ | 2026-07-16 |
+| Ops.10 | SSR first page for browse lists (`/cards` `/commanders` `/catalog` `/sets`) | ✅ | 2026-07-16 |
+
+**Audit follow-ups (deferred — pick up if/when needed):**
+
+| # | Item | When |
+|---|---|---|
+| Ops.4 | Enable GH Actions sync (secret + flag + cron) | Before public deploy / stale data matters |
+| Ops.11 | GIN on `color_identity` / trigram on `type_line` if filtered catalog queries slow | Measured need (see ARCHITECTURE hot indexes) |
+| Ops.12 | Safer `card_classifications` rebuild (txn/swap) + review soft FKs (`set_cards` / taggings) | Before Phase 3 analysis depends on classifications |
+| — | Sentry + E2E | Already Phase 5.4 / 5.5 |
+| — | Deck builder / auth / analysis | Phase 2+ (below) |
 
 ---
 

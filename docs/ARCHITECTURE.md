@@ -1,6 +1,6 @@
 # EDHForge — Architecture
 
-> Last updated: 2026-07-10
+> Last updated: 2026-07-16
 
 ## Stack
 
@@ -27,16 +27,15 @@
 ## Environment variables
 
 ```bash
-DATABASE_URL=   # Neon pooled (-pooler host); ?sslmode=verify-full
+DATABASE_URL=   # Neon pooled (-pooler host); ?sslmode=verify-full — also GitHub Actions secret for sync jobs
 DIRECT_URL=     # Neon direct (migrations only); ?sslmode=verify-full
 NEXT_PUBLIC_SITE_URL=  # Production URL for SEO (optional locally)
 AUTH_SECRET=    # Phase 2
 AUTH_GOOGLE_ID / AUTH_GOOGLE_SECRET=
 AUTH_DISCORD_ID / AUTH_DISCORD_SECRET=
-SYNC_CRON_SECRET=   # GitHub Actions → /api/sync/*
 ```
 
-See `.env.example`.
+See `.env.example`. Sync workflows run `npm run sync:*` scripts with `DATABASE_URL` — there is no app `/api/sync` endpoint.
 
 ## Data sources (external-first)
 
@@ -101,16 +100,20 @@ Also weekly: top ~2000 card pages.
 | Scryfall oracle_tags | Weekly Sunday | `scripts/sync/scryfall-tags.ts` (`--if-changed`) |
 | Card classifications | Weekly Sunday (after tags) | `scripts/sync/compute-card-classifications.ts` |
 | EDHREC hot tier | Weekly Sunday | `scripts/sync/edhrec-commanders.ts`, `scripts/sync/edhrec-cards.ts` — **full profile/card page JSON** |
-| EDHREC top lists | Weekly Sunday | `scripts/sync/edhrec-top-lists.ts` (Phase 1.6) — **browse index only** |
+| EDHREC top lists | Weekly Sunday | `scripts/sync/edhrec-top-lists.ts` — browse index; **atomic** per `(entity, window)` replace (txn) |
+| Purge expired page variants | Weekly Sunday (after top lists) | `scripts/sync/purge-edhrec-page-variants.ts` |
 | EDHREC commander catalog sweep | Before 1.5; then monthly or manual | `scripts/sync/edhrec-commanders-catalog.ts` |
 | Rankings recompute | Weekly | `scripts/sync/recompute-rankings.ts` (Phase 4) |
 | MTGJSON precons | Monthly | `scripts/sync/mtgjson-precons.ts` (Phase 5) |
 
-GitHub Actions (`.github/workflows/sync-*.yml`): **temporarily disabled** (`SYNC_JOBS_ENABLED: "false"`, cron commented out) until `DATABASE_URL` is set on GitHub — see `README.md` § GitHub Actions. When enabled: Scryfall daily/weekly sync; EDHREC weekly HOT + top lists; commander catalog COLD fill (manual / optional monthly cron).
+GitHub Actions (`.github/workflows/sync-*.yml`): **temporarily disabled** (`SYNC_JOBS_ENABLED: "false"`, cron commented out) until `DATABASE_URL` is set on GitHub and syncs are intentionally enabled — see `README.md` § GitHub Actions. When enabled: Scryfall daily/weekly sync; EDHREC weekly HOT + top lists + variant purge; commander catalog COLD fill (manual / optional monthly cron).
 
 Daily Scryfall runs fetch bulk metadata only when `updated_at` matches the last successful sync (`sync_logs.errors.bulkUpdatedAt`); full download runs when Scryfall publishes a new bulk file.
 
-Runtime fallback: if EDHREC down → serve stale cache + show page-level stale banner; browse routes show sync notice when weekly sync failed or data is older than 8 days.
+**Runtime stale UX:**
+- Detail: `StaleCacheBanner` when on-demand EDHREC refresh fails (dev-only hints after catalog UX decision).
+- Browse (`/cards`, `/commanders`): `EdhrecSyncNotice` when `getEdhrecSyncHealth()` reports failure or staleness.
+- Health watches SyncLog job types `commanders_hot`, `cards_hot`, and **`top_lists`**. Notice if any latest run failed, or any of those jobs has no success within **8 days**.
 
 ## SEO
 
@@ -125,16 +128,17 @@ Runtime fallback: if EDHREC down → serve stale cache + show page-level stale b
 Browser
   └─ Analysis engine (client-side TS, Phase 2+) — lookup pre-computed card roles
 Next.js App Router
-  ├─ SSR pages: /cards, /commanders, /sets, /publications
-  ├─ API routes: /api/cards/search, /api/decks/*, ...
-  └─ Services: src/lib/, src/services/ (Phase 2+)
+  ├─ SSR pages: /cards/[slug], /commanders/[slug], /sets/[code], …
+  ├─ Browse lists: RSC page loads first page via lib/browse → client island for filters / load-more
+  ├─ API routes: /api/search, /api/cards/browse, /api/commanders/browse, /api/sets/search (pagination + filter changes)
+  └─ Domain logic: src/lib/ (browse, edhrec, scryfall, …); src/services/ Phase 2+
 PostgreSQL
   ├─ cards (+ roles/themes computed offline)
   ├─ edhrec_top_entries (browse ranked index — Phase 1.6)
   ├─ edhrec_commander_profiles (default commander meta + cardlists)
   ├─ edhrec_card_data (default card meta + cardlists)
   ├─ edhrec_page_variants (filtered detail payloads — Phase 1.6)
-  ├─ decks, deck_publications, publication_ratings
+  ├─ decks, deck_publications, publication_ratings (Phase 2 / 4)
   └─ sync_logs
 ```
 
@@ -176,11 +180,12 @@ Response: { items: T[], total: number, nextCursor: string | null }
 
 | Endpoint | Purpose |
 |---|---|
-| `GET /api/search?q=` | Unified navbar search (cards, commanders, sets) |
+| `GET /api/search?q=` | Unified navbar + `/search` (cards, commanders, sets; dedupe by slug) |
 | `GET /api/cards/browse` | Tab `popular` \| `all` (`/catalog` UI); **`window=week\|month\|year` only** on top cards; sort/filter/paginate; `commanders_only` on `all` |
-| `GET /api/commanders/browse` | Top commanders (`edhrec_top_entries` + profile join); `window=` filter; catalog commanders → `/catalog` |
-| `GET /api/sets/search` | Cursor browse for sets (`items`, `total`, `nextCursor`; sort, filters) — reference implementation |
-| `GET /api/cards/search` | Keep for typeahead; global search preferred for UX |
+| `GET /api/commanders/browse` | Top commanders (`edhrec_top_entries` + profile join); `window=` filter |
+| `GET /api/sets/search` | Cursor browse for sets (`items`, `total`, `nextCursor`; sort, filters) |
+
+Legacy `GET /api/cards/search` and `GET /api/commanders/search` were removed (2026-07-16) — superseded by `/api/search`.
 
 **Card detail printing context:** `/cards/{slug}?set={code}` — server reads `set_cards` for `(oracle_id, setCode)` to override hero `imageUri` before falling back to `cards.imageUri`.
 
@@ -197,23 +202,37 @@ edhforge/
 │   └── migrations/
 ├── scripts/
 │   ├── sync/                 ← batch jobs (Scryfall, EDHREC, …)
-│   └── data/
-│       └── card-overrides.json
+│   ├── data/                 ← card-overrides.json
+│   └── dev/                  ← db-health-snapshot, etc.
 ├── packages/
-│   └── analysis/             ← pure TS engine (Phase 2+)
+│   └── analysis/             ← pure TS engine (Phase 2+; not created yet)
 ├── src/
-│   ├── app/                  ← Next.js routes
+│   ├── app/                  ← Next.js routes + api/
 │   ├── components/
-│   │   ├── layout/           ← app shell, page shell
-│   │   └── discovery/      ← card image, EDHREC sections, empty states
-│   ├── lib/
-│   │   ├── db.ts             ← Prisma client singleton
-│   │   ├── scryfall/         ← types + card utils + bulk client
-│   │   ├── classification/   ← roles/themes types, tag mapping, overrides loader
-│   │   └── edhrec/           ← EDHREC types, client, parsers
+│   │   ├── layout/           ← app shell, page shell, theme
+│   │   ├── discovery/        ← browse/detail EDHREC UI
+│   │   ├── mtg/              ← mana / rarity / salt icons
+│   │   ├── ui/               ← shadcn primitives
+│   │   └── dev/              ← catalog debug (gated)
+│   ├── hooks/                ← client hooks (e.g. useBrowseList)
+│   ├── lib/                  ← domain logic (+ colocated `*.test.ts`, Vitest)
+│   │   ├── db.ts / db/       ← Prisma client + connection helpers
+│   │   ├── browse/           ← browse query + param parsing
+│   │   │   ├── cards.ts      ← facade: parse + queryCardsBrowse
+│   │   │   ├── cards-filters.ts / cards-params.ts
+│   │   │   ├── cards-popular.ts / cards-catalog.ts
+│   │   │   └── commanders.ts · sets.ts · top-entries.ts · …
+│   │   ├── edhrec/           ← client, cache, variants, parsers
+│   │   ├── scryfall/         ← catalog filters, bulk client, prices
+│   │   ├── classification/   ← roles/themes (batch / sync)
+│   │   ├── search/           ← global search
+│   │   ├── seo/ · ui/ · mtg/ · display/ · catalog/ · dev/
+│   │   └── utils.ts          ← cn()
 │   └── generated/prisma/     ← gitignored
 └── .cursor/rules/            ← Cursor agent rules
 ```
+
+Tests: `npm test` (Vitest). No DB required for current unit suite.
 
 ## Database schema (current + planned)
 
@@ -225,14 +244,16 @@ edhforge/
 - `card_classifications` — derived `roles[]` + `themes[]` per oracle (override or oracle tag)
 - `mtg_sets` — set metadata (code, name, release, type)
 - `set_cards` — unique oracle cards per set (indexed offline via Scryfall search)
-- `sync_logs` — job audit trail
+- `sync_logs` — job audit trail (indexes on `(source, job_type, started_at)` and `(source, job_type, status, completed_at)`)
 
 ### Phase 1
 
-- `edhrec_commander_profiles` — default commander meta: rank/salt/decks + JSON cardlists/tag_counts
-- `edhrec_card_data` — default card meta: salt/inclusion/**potential_decks** + JSON cardlists
+- `edhrec_commander_profiles` — default commander meta: rank/salt/decks + JSON cardlists/tag_counts (indexes: rank, num_decks, salt, expires_at, …)
+- `edhrec_card_data` — default card meta: salt/inclusion/**potential_decks** + JSON cardlists (indexes: inclusion, num_decks, salt, expires_at, …)
 - `edhrec_top_entries` — ranked browse index per time window (Phase 1.6)
-- `edhrec_page_variants` — filtered detail payloads commander/card (Phase 1.6)
+- `edhrec_page_variants` — filtered detail payloads commander/card (Phase 1.6; index on `expires_at` for purge)
+
+**Hot indexes (2026-07-16):** also `cards.cmc`, `cards.layout`. See migration `20260716010000_browse_sync_indexes`. GIN/trigram for color/type filters deferred.
 
 ### Phase 2
 
@@ -268,5 +289,5 @@ Classification sources: `scripts/data/card-overrides.json` (232 staples, `oracle
 ## Security notes
 
 - Never commit `.env.local`
-- `SYNC_CRON_SECRET` protects sync trigger endpoints
+- Sync jobs authenticate via GitHub Actions repository secret `DATABASE_URL` (scripts run in CI, not via public HTTP)
 - Rate-limit public API routes in production (Phase 5)

@@ -26,6 +26,13 @@ config({ path: ".env.local" });
 config({ path: ".env" });
 
 const REQUEST_DELAY_MS = 500;
+/** Chunk size for createMany inside the replace transaction. */
+const WRITE_CHUNK_SIZE = 1000;
+/**
+ * Interactive transaction timeout for one (entityType, window) rewrite.
+ * Year card windows can be ~30k rows; keep the lock window below GH Action limits.
+ */
+const REPLACE_TX_TIMEOUT_MS = 10 * 60 * 1000;
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -60,6 +67,11 @@ function parseMaxEntries(): number | undefined {
   return Number.isFinite(value) && value > 0 ? Math.floor(value) : undefined;
 }
 
+/**
+ * Atomically replace one (entityType, window) slice.
+ * Under Postgres READ COMMITTED, browse readers keep seeing the previous
+ * committed rows until this transaction commits — no empty mid-sync window.
+ */
 async function replaceTopEntries(
   prisma: PrismaClient,
   entityType: EdhrecTopEntityType,
@@ -70,38 +82,41 @@ async function replaceTopEntries(
   const syncedAt = new Date();
   const entityLabel = entityType === EdhrecTopEntityType.CARD ? "cards" : "commanders";
 
-  await prisma.edhrecTopEntry.deleteMany({
-    where: { entityType, window: windowEnum },
-  });
+  await prisma.$transaction(
+    async (tx) => {
+      await tx.edhrecTopEntry.deleteMany({
+        where: { entityType, window: windowEnum },
+      });
 
-  if (entries.length === 0) {
-    return 0;
-  }
+      if (entries.length === 0) {
+        return;
+      }
 
-  const chunkSize = 1000;
+      for (let offset = 0; offset < entries.length; offset += WRITE_CHUNK_SIZE) {
+        const chunk = entries.slice(offset, offset + WRITE_CHUNK_SIZE);
 
-  for (let offset = 0; offset < entries.length; offset += chunkSize) {
-    const chunk = entries.slice(offset, offset + chunkSize);
+        await tx.edhrecTopEntry.createMany({
+          data: chunk.map((entry) => ({
+            entityType,
+            window: windowEnum,
+            rank: entry.rank,
+            slug: entry.slug,
+            name: entry.name,
+            numDecks: entry.numDecks,
+            inclusion: entry.inclusion,
+            potentialDecks: entry.potentialDecks,
+            syncedAt,
+          })),
+        });
 
-    await prisma.edhrecTopEntry.createMany({
-      data: chunk.map((entry) => ({
-        entityType,
-        window: windowEnum,
-        rank: entry.rank,
-        slug: entry.slug,
-        name: entry.name,
-        numDecks: entry.numDecks,
-        inclusion: entry.inclusion,
-        potentialDecks: entry.potentialDecks,
-        syncedAt,
-      })),
-    });
-
-    const written = Math.min(offset + chunkSize, entries.length);
-    if (written % 5000 === 0 || written === entries.length) {
-      console.log(`    … wrote ${written}/${entries.length} ${entityLabel} rows`);
-    }
-  }
+        const written = Math.min(offset + WRITE_CHUNK_SIZE, entries.length);
+        if (written % 5000 === 0 || written === entries.length) {
+          console.log(`    … wrote ${written}/${entries.length} ${entityLabel} rows`);
+        }
+      }
+    },
+    { timeout: REPLACE_TX_TIMEOUT_MS },
+  );
 
   return entries.length;
 }

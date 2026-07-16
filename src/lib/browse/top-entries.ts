@@ -109,20 +109,24 @@ export function sortTopEntries<T extends TopEntryRow>(
 
     switch (sort) {
       case "name":
-        cmp = left.name.localeCompare(right.name);
+        cmp = left.name.localeCompare(right.name) * direction;
         break;
       case "numDecks":
-        cmp = compareNullable(left.numDecks, right.numDecks);
+        cmp = compareNullableNullsLast(left.numDecks, right.numDecks, direction);
         break;
       case "inclusion":
-        cmp = compareNullable(left.inclusion, right.inclusion);
+        cmp = compareNullableNullsLast(left.inclusion, right.inclusion, direction);
         break;
       case "salt":
-        cmp = compareNullable(getSalt?.(left) ?? null, getSalt?.(right) ?? null);
+        cmp = compareNullableNullsLast(
+          getSalt?.(left) ?? null,
+          getSalt?.(right) ?? null,
+          direction,
+        );
         break;
       case "rank":
       default:
-        cmp = left.rank - right.rank;
+        cmp = (left.rank - right.rank) * direction;
         break;
     }
 
@@ -134,15 +138,20 @@ export function sortTopEntries<T extends TopEntryRow>(
       cmp = left.slug.localeCompare(right.slug);
     }
 
-    return cmp * direction;
+    return cmp;
   });
 }
 
-function compareNullable(left: number | null, right: number | null): number {
+/** Null/missing metrics always sort after real values (asc and desc). */
+function compareNullableNullsLast(
+  left: number | null,
+  right: number | null,
+  direction: 1 | -1,
+): number {
   if (left == null && right == null) return 0;
   if (left == null) return 1;
   if (right == null) return -1;
-  return left - right;
+  return (left - right) * direction;
 }
 
 export function sliceAfterTopCursor<T extends TopEntryRow>(

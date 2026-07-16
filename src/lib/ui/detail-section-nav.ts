@@ -5,8 +5,9 @@ import {
   parseAverageDeckSections,
 } from "@/lib/edhrec/cardlists";
 
-/** Scroll margin so anchored sections clear the sticky section nav. */
-export const DETAIL_SECTION_SCROLL_MARGIN = "scroll-mt-28";
+/** Scroll margin so anchored sections clear sticky header + section jump/nav. */
+export const DETAIL_SECTION_SCROLL_MARGIN =
+  "scroll-mt-[calc(var(--site-header-height)+3.5rem)]";
 
 export const DETAIL_SECTION_HEADING_CLASS =
   "text-sm font-semibold uppercase tracking-wide text-muted-foreground";

@@ -38,6 +38,7 @@ export function EdhrecAverageDeck({
           title="Average deck"
           cards={section.cards}
           commanderNumDecks={numDecks}
+          showSynergy
         />
       ))}
     </div>

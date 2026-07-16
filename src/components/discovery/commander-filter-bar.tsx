@@ -4,7 +4,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { BrowseFilterPanel } from "@/components/discovery/browse-filter-panel";
 import { BrowseSelectField } from "@/components/discovery/browse-filter-controls";
-import { browseToolbarDenseGridClassName } from "@/components/discovery/browse-toolbar-shared";
+import { browseToolbarCommanderDetailGridClassName } from "@/components/discovery/browse-toolbar-shared";
 import {
   COMMANDER_BRACKET_OPTIONS,
   COMMANDER_BUDGET_OPTIONS,
@@ -57,7 +57,7 @@ export function CommanderFilterBar({
 
   return (
     <BrowseFilterPanel>
-      <div className={`${browseToolbarDenseGridClassName} lg:grid-cols-3 xl:grid-cols-3`}>
+      <div className={browseToolbarCommanderDetailGridClassName}>
         <BrowseSelectField
           label="Theme"
           value={activeTheme}

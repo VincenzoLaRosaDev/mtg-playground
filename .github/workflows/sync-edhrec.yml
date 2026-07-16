@@ -47,3 +47,8 @@ jobs:
         run: npm run sync:edhrec-top-lists
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+      - name: Purge expired EDHREC page variants
+        run: npm run sync:purge-edhrec-page-variants
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}

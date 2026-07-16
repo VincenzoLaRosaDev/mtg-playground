@@ -27,6 +27,10 @@
   --color-input: var(--input);
   --color-border: var(--border);
   --color-destructive: var(--destructive);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
@@ -48,73 +52,99 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-:root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.511 0.231 277);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0.01 277);
-  --secondary-foreground: oklch(0.35 0.1 277);
-  --muted: oklch(0.965 0.005 277);
-  --muted-foreground: oklch(0.5 0.02 277);
-  --accent: oklch(0.955 0.03 277);
-  --accent-foreground: oklch(0.35 0.12 277);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.91 0.01 277);
-  --input: oklch(0.91 0.01 277);
-  --ring: oklch(0.511 0.231 277 / 40%);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.511 0.231 277);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
-}
+/*
+  Dark-only theme: cool neutrals + orange brand accent.
+  :root and .dark stay identical so forcedTheme + static html.dark match.
 
+  Two layers:
+  1. --palette-*  unique swatches (edit colors here)
+  2. Semantic / shadcn tokens — aliases via var() (roles, not raw swatches)
+
+  Hue map: surfaces ~255° (cool gray) · brand ~75° (amber) · info ~200° (teal) ·
+  warning ~70° · destructive ~25°.
+*/
+:root,
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.65 0.19 277);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.28 0.04 277);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.26 0.03 277);
-  --muted-foreground: oklch(0.68 0.03 277);
-  --accent: oklch(0.3 0.06 277);
-  --accent-foreground: oklch(0.92 0.04 277);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 12%);
-  --ring: oklch(0.65 0.19 277 / 45%);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.65 0.19 277);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  /* ── Palette primitives (unique OKLCH swatches) ── */
+  /* Cool surfaces (hue ~255°) — chroma high enough to read as blue-gray, not brown */
+  --palette-bg: oklch(0.16 0.02 255);
+  --palette-sidebar: oklch(0.18 0.022 255);
+  --palette-card: oklch(0.2 0.024 255);
+  --palette-popover: oklch(0.22 0.026 255);
+  --palette-muted: oklch(0.25 0.028 255);
+  --palette-secondary: oklch(0.28 0.03 255);
+  --palette-sidebar-accent: oklch(0.3 0.032 255);
+  /* Soft brand-tint hover (same hue as primary, low chroma) */
+  --palette-accent: oklch(0.3 0.05 75);
+  --palette-chart-5: oklch(0.32 0.02 255);
+  --palette-chart-4: oklch(0.42 0.025 255);
+  --palette-chart-3: oklch(0.55 0.03 255);
+  --palette-brand-ink: oklch(0.22 0.04 75);
+  --palette-chart-2: oklch(0.7 0.12 200);
+  --palette-destructive: oklch(0.68 0.19 25);
+  --palette-muted-fg: oklch(0.72 0.02 255);
+  --palette-brand: oklch(0.78 0.15 75);
+  --palette-info: oklch(0.75 0.12 200);
+  --palette-warning: oklch(0.78 0.14 70);
+  --palette-warning-fg: oklch(0.92 0.04 75);
+  --palette-secondary-fg: oklch(0.94 0.012 255);
+  --palette-sidebar-accent-fg: oklch(0.94 0.012 255);
+  --palette-soft-fg: oklch(0.95 0.03 200);
+  --palette-fg: oklch(0.97 0.01 255);
+  --palette-hairline: oklch(0.96 0.015 255);
+
+  /* ── Layout chrome ── */
+  --site-header-height: 4.5rem;
+  --radius: 0.625rem;
+
+  /* ── Semantic tokens (shadcn + app) — change roles here, swatches above ── */
+  --background: var(--palette-bg);
+  --foreground: var(--palette-fg);
+
+  --card: var(--palette-card);
+  --card-foreground: var(--palette-fg);
+
+  --popover: var(--palette-popover);
+  --popover-foreground: var(--palette-fg);
+
+  --primary: var(--palette-brand);
+  --primary-foreground: var(--palette-brand-ink);
+
+  --secondary: var(--palette-secondary);
+  --secondary-foreground: var(--palette-secondary-fg);
+
+  --muted: var(--palette-muted);
+  --muted-foreground: var(--palette-muted-fg);
+
+  --accent: var(--palette-accent);
+  --accent-foreground: var(--palette-soft-fg);
+
+  --destructive: var(--palette-destructive);
+
+  --warning: var(--palette-warning);
+  --warning-foreground: var(--palette-warning-fg);
+
+  --info: var(--palette-info);
+  --info-foreground: var(--palette-soft-fg);
+
+  --border: color-mix(in oklch, var(--palette-hairline) 12%, transparent);
+  --input: color-mix(in oklch, var(--palette-hairline) 14%, transparent);
+  --ring: color-mix(in oklch, var(--palette-brand) 45%, transparent);
+
+  --chart-1: var(--palette-brand);
+  --chart-2: var(--palette-chart-2);
+  --chart-3: var(--palette-chart-3);
+  --chart-4: var(--palette-chart-4);
+  --chart-5: var(--palette-chart-5);
+
+  --sidebar: var(--palette-sidebar);
+  --sidebar-foreground: var(--palette-fg);
+  --sidebar-primary: var(--palette-brand);
+  --sidebar-primary-foreground: var(--palette-brand-ink);
+  --sidebar-accent: var(--palette-sidebar-accent);
+  --sidebar-accent-foreground: var(--palette-sidebar-accent-fg);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
 }
 
 @layer base {

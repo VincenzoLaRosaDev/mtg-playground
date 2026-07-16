@@ -48,7 +48,7 @@ export function CommanderCardlistSections({
           title={section.header}
           cards={section.cards}
           commanderNumDecks={numDecks}
-          showSynergy={section.showSynergy}
+          showSynergy
           limit={DEFAULT_SECTION_LIMIT}
           uniqueToView={unique.includes(section)}
         />

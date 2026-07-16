@@ -81,9 +81,11 @@ export function CatalogDebugPanel() {
       className="fixed left-4 top-4 z-50 max-w-sm"
     >
       {expanded ? (
-        <div className="rounded-lg border border-violet-300 bg-violet-50/95 p-3 text-xs text-violet-950 shadow-lg backdrop-blur dark:border-violet-800 dark:bg-violet-950/90 dark:text-violet-100">
+        <div className="rounded-lg border border-info/40 bg-card/95 p-3 text-xs text-card-foreground shadow-lg backdrop-blur">
           <div className="flex items-start justify-between gap-3">
-            <p className="font-semibold uppercase tracking-wide">EDHForge catalog · dev</p>
+            <p className="font-semibold uppercase tracking-wide text-info-foreground">
+              EDHForge catalog · dev
+            </p>
             <button
               type="button"
               onClick={() => {
@@ -93,17 +95,17 @@ export function CatalogDebugPanel() {
                 setLoading(false);
               }}
               aria-label="Collapse catalog debug panel"
-              className="rounded-md border border-violet-300 px-2 py-1 text-violet-800 hover:bg-violet-100 dark:border-violet-700 dark:text-violet-100 dark:hover:bg-violet-900"
+              className="rounded-md border border-border px-2 py-1 text-muted-foreground hover:bg-muted hover:text-foreground"
             >
               −
             </button>
           </div>
-          <p className="mt-2 text-violet-900/90 dark:text-violet-100/90">
+          <p className="mt-2 text-muted-foreground">
             User-facing UI reads one Postgres catalog. Scryfall supplies card/set identity;
             popularity overlays sync on a schedule.
           </p>
-          {loading && <p className="mt-3 text-violet-800 dark:text-violet-200">Loading sync status…</p>}
-          {error && <p className="mt-3 text-red-700 dark:text-red-300">{error}</p>}
+          {loading && <p className="mt-3 text-muted-foreground">Loading sync status…</p>}
+          {error && <p className="mt-3 text-destructive">{error}</p>}
           {health && !loading && (
             <dl className="mt-3 space-y-1">
               <div className="flex justify-between gap-3">
@@ -123,7 +125,7 @@ export function CatalogDebugPanel() {
           onClick={() => setExpanded(true)}
           aria-label="Expand catalog debug panel"
           aria-expanded={false}
-          className="flex h-9 w-9 items-center justify-center rounded-lg border border-violet-300 bg-violet-50/95 text-sm font-semibold text-violet-900 shadow-lg backdrop-blur hover:bg-violet-100 dark:border-violet-800 dark:bg-violet-950/90 dark:text-violet-100 dark:hover:bg-violet-900"
+          className="flex h-9 w-9 items-center justify-center rounded-lg border border-info/40 bg-card/95 text-sm font-semibold text-info-foreground shadow-lg backdrop-blur hover:bg-muted"
         >
           ⛭
         </button>

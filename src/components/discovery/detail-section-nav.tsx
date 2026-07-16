@@ -7,7 +7,6 @@ import { DETAIL_SECTION_UNIQUE_NAV_CLASS } from "@/lib/ui/detail-section-nav";
 
 type DetailSectionNavProps = {
   items: DetailSectionNavItem[];
-  scrollable?: boolean;
 };
 
 const linkBaseClassName =
@@ -18,7 +17,7 @@ const linkInactiveClassName =
 
 const linkActiveClassName = "border-primary font-medium text-foreground";
 
-export function DetailSectionNav({ items, scrollable = false }: DetailSectionNavProps) {
+export function DetailSectionNav({ items }: DetailSectionNavProps) {
   const [activeId, setActiveId] = useState<string | null>(items[0]?.id ?? null);
 
   useEffect(() => {
@@ -56,22 +55,8 @@ export function DetailSectionNav({ items, scrollable = false }: DetailSectionNav
   }
 
   return (
-    <nav
-      aria-label="Page sections"
-      className={`flex min-h-0 flex-col border-t border-border pt-4 ${
-        scrollable ? "flex-1 overflow-hidden" : ""
-      }`}
-    >
-      <p className="mb-2 shrink-0 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        On this page
-      </p>
-      <ul
-        className={`flex flex-col gap-0.5 ${
-          scrollable
-            ? "min-h-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-width:thin] pr-1"
-            : ""
-        }`}
-      >
+    <nav aria-label="Page sections" className="flex h-full min-h-0 flex-col">
+      <ul className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto overscroll-contain pr-1">
         {items.map((item) => {
           const isActive = activeId === item.id;
 

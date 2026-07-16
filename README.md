@@ -62,6 +62,8 @@ Open [http://localhost:3000](http://localhost:3000) — try **Search cards** at 
 | Command | Description |
 |---|---|
 | `npm run dev` | Start development server |
+| `npm test` | Run unit tests (Vitest) |
+| `npm run test:watch` | Vitest watch mode |
 | `npm run sync:scryfall` | Full Scryfall oracle_cards sync |
 | | Add `--if-changed` to skip download when bulk `updated_at` is unchanged (used by GitHub Actions daily) |
 | `npm run sync:scryfall-sets` | Sync Magic set metadata from Scryfall |
@@ -98,7 +100,7 @@ Open [http://localhost:3000](http://localhost:3000) — try **Search cards** at 
 |---|---|---|
 | `.github/workflows/sync-scryfall.yml` | Daily 03:00 UTC | `sync:scryfall --if-changed` (skips download when bulk unchanged) |
 | | Sundays 04:30 UTC | `sync:scryfall-sets` + `sync:scryfall-set-cards` + `sync:scryfall-tags --if-changed` + `sync:compute-classifications` |
-| `.github/workflows/sync-edhrec.yml` | Sundays 04:00 UTC | HOT commanders + cards + **full top lists** (6h timeout) |
+| `.github/workflows/sync-edhrec.yml` | Sundays 04:00 UTC | HOT commanders + cards + **full top lists** + purge expired page variants (6h timeout) |
 | `.github/workflows/sync-edhrec-catalog.yml` | Manual / optional monthly cron | Commander catalog COLD fill |
 
 All workflows support **workflow_dispatch** for manual runs (also gated by `SYNC_JOBS_ENABLED`). Scryfall dispatch options: `if-changed`, `full`, `sets-only`.

@@ -7,7 +7,9 @@ export type SimilarCommanderItem = {
   name: string;
   rank: number | null;
   numDecks: number | null;
+  salt: number | null;
   imageUri: string | null;
+  prices: unknown;
 };
 
 export async function loadSimilarCommanders(
@@ -28,7 +30,13 @@ export async function loadSimilarCommanders(
       name: true,
       rank: true,
       numDecks: true,
-      card: { select: { imageUri: true } },
+      salt: true,
+      card: {
+        select: {
+          imageUri: true,
+          prices: true,
+        },
+      },
     },
   });
 
@@ -40,6 +48,7 @@ export async function loadSimilarCommanders(
       edhrecSlug: true,
       name: true,
       imageUri: true,
+      prices: true,
     },
   });
 
@@ -58,7 +67,9 @@ export async function loadSimilarCommanders(
       name: profile?.name ?? card?.name ?? slug,
       rank: commanderAllTimeRank(profile),
       numDecks: profile?.numDecks ?? null,
+      salt: profile?.salt ?? null,
       imageUri: profile?.card?.imageUri ?? card?.imageUri ?? null,
+      prices: profile?.card?.prices ?? card?.prices ?? null,
     };
   });
 }

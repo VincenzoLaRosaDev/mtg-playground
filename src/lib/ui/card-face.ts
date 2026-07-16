@@ -16,8 +16,13 @@ export function cardFacePlaceholderClassName(variant: "thumbnail" | "detail" | "
   return `flex shrink-0 items-center justify-center bg-muted text-muted-foreground ${CARD_FACE_RADIUS_CLASS} ${size}`;
 }
 
+/** Browse listing grids (cards, commanders, catalog, set detail). */
 export const CARD_FACE_GRID_CLASS =
-  "grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6";
+  "grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-5";
+
+/** Card/commander detail section grids (slightly roomier than browse). */
+export const CARD_FACE_DETAIL_GRID_CLASS =
+  "grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4";
 
 /** Sets browse — horizontal card rows in a wide multi-column grid. */
 export const SET_BROWSE_GRID_CLASS =

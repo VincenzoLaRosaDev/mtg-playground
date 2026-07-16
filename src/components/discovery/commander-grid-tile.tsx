@@ -1,7 +1,7 @@
 import { CardFaceTile } from "@/components/discovery/card-face-tile";
-import { RankBadge } from "@/components/discovery/rank-badge";
-import { SaltBadge } from "@/components/discovery/salt-badge";
+import { EntityPreviewFooter } from "@/components/discovery/entity-preview-footer";
 import type { CommanderBrowseItem } from "@/lib/browse/commanders-shared";
+import { formatRank } from "@/lib/display/formatters";
 
 type CommanderGridTileProps = {
   commander: CommanderBrowseItem;
@@ -10,30 +10,22 @@ type CommanderGridTileProps = {
 
 export function CommanderGridTile({ commander, showRank = true }: CommanderGridTileProps) {
   const href = `/commanders/${commander.slug}`;
-  const popularityLabel =
-    commander.numDecks != null ? `${commander.numDecks.toLocaleString()} decks` : null;
-
-  const footer =
-    (showRank && commander.rank != null) || popularityLabel || commander.salt != null ? (
-      <>
-        {showRank && commander.rank != null ? (
-          <RankBadge rank={commander.rank} className="shrink-0" />
-        ) : null}
-        {popularityLabel ? (
-          <span className="shrink-0 whitespace-nowrap text-xs tabular-nums text-muted-foreground">
-            {popularityLabel}
-          </span>
-        ) : null}
-        {commander.salt != null ? <SaltBadge salt={commander.salt} className="shrink-0" /> : null}
-      </>
-    ) : null;
+  const rankLabel =
+    showRank && commander.rank != null ? formatRank(commander.rank) : null;
 
   return (
     <CardFaceTile
       href={href}
       imageUri={commander.imageUri}
       name={commander.name}
-      footer={footer}
+      footer={
+        <EntityPreviewFooter
+          prices={commander.prices}
+          primary={{ kind: "rank", value: rankLabel }}
+          decks={commander.numDecks}
+          salt={commander.salt}
+        />
+      }
     />
   );
 }

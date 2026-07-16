@@ -489,7 +489,55 @@ Format for new entries:
 
 **Decision:** (1) Adopt **shadcn/ui v4** (`base-nova`, Tailwind v4, `@base-ui/react`) — `components.json`, `src/lib/utils.ts` (`cn`), primitives in `src/components/ui/`. (2) **Primary brand:** violet OKLCH (`--primary` ~277° hue) — distinct from EDHREC green / Scryfall blue. (3) **`next-themes`** — system light/dark, class strategy. (4) **Wave 1 refactor:** header (`NavLinks` + sticky blur), `PageShell` toolbar slot + separator, `BrowseFilterPanel` (Card), filter pills → primary tokens, `LoadMoreButton` → Button, home shortcuts → Card grid, `RankBadge` → Badge. (5) **Keep** MTG-specific components (`ManaSymbol`, `RarityIcon`, `CardFaceTile`) unchanged.
 
-**Consequences:** Remaining pages (detail, sets, search) still mix legacy zinc classes — migrate in follow-up waves. No light/dark toggle yet.
+**Consequences:** Remaining pages (detail, sets, search) still mix legacy zinc classes — migrate in follow-up waves. No light/dark toggle yet. **Superseded** for brand + theme mode by “Dark-only orange palette” (2026-07-16).
+
+## 2026-07-16 — Dark-only orange palette
+
+**Context:** Dual light/dark + violet primary felt generic; product direction is a single dark standard with a warmer brand that contrasts MTG card art without fighting it.
+
+**Decision:**
+- Force dark via `next-themes` `forcedTheme="dark"` + static `html.dark` (keep library for a future light mode)
+- Single warm-dark OKLCH palette (hue ~50°) on both `:root` and `.dark` in `globals.css`
+- Primary orange; layered surfaces (background → card → muted/accent) still relatively flat
+- Semantic tokens `--warning` / `--info` for salt mid, alerts, and former violet notices
+- Map salt badge, alert variants, stale banner, and dev chrome to tokens; bake former `dark:` shadcn overrides into the only theme
+
+**Consequences:** No system theme switching. Nav/rank/CTA read orange. Reintroducing light mode later means restoring a light `:root` block and dropping `forcedTheme`.
+
+## 2026-07-16 — Two-layer CSS palette (primitives → semantic)
+
+**Context:** Semantic shadcn tokens repeated the same OKLCH values (brand, foreground, borders) in many places, so a brand tweak required multi-edit and no single “base swatch” list existed.
+
+**Decision:**
+- In `globals.css`, define unique `--palette-*` swatches once, then map `--primary`, `--background`, sidebar, chart, ring, etc. with `var()` / `color-mix`
+- Keep layout / grid / sticky strings in existing `src/lib/ui/*` modules (already centralized); do not invent a parallel TS color file
+- Document the two-layer model in `docs/UI.md` § Tokens
+
+**Consequences:** Changing brand/orange or near-black is one `--palette-*` edit. Components stay on semantic Tailwind classes.
+
+## 2026-07-16 — Cool neutrals + orange brand (break monochrome)
+
+**Context:** After the dark-only orange pass, surfaces and brand shared hue ~50°, so the UI read as monochrome orange rather than “orange accent on a dark app”.
+
+**Decision:** Keep `--palette-brand` orange (~50°). Shift backgrounds/cards/muted/foreground/hairline to cool low-chroma neutrals (~255°). Soft `--palette-accent` stays a low-chroma brand tint for hover. Move `--info` and chart-2 to teal (~200°). Warning/destructive unchanged.
+
+**Consequences:** Primary/CTA/rank stay orange and pop against cool chrome. Sync/dev notices read teal, not brand. Supersedes the “everything hue 50°” surface choice from the dark-only orange entry.
+
+## 2026-07-16 — Trial: lime brand primary
+
+**Context:** Exploring brand accents on cool neutrals; user requested a lime/chartreuse primary trial.
+
+**Decision:** Set `--palette-brand` / accent / brand-ink to hue ~130° (lime). Keep cool surfaces and teal info.
+
+**Consequences:** CTA/nav/rank read lime. May feel closer to EDHREC green — revisit if too similar; orange/amber remain easy fallbacks.
+
+## 2026-07-16 — Trial: amber brand primary
+
+**Context:** Lime trial did not fully convince; next brand trial on cool neutrals.
+
+**Decision:** Set `--palette-brand` / accent / brand-ink to hue ~75° (amber/gold). Keep cool surfaces and teal info. Supersedes the lime trial for the active primary.
+
+**Consequences:** CTA/nav/rank read warmer gold than the earlier orange; sits close to `--warning` hue — watch salt/alert contrast; nudge brand or warning apart if they collide.
 
 ## 2026-07-14 — Browse layout closure (grid-only, search rows, sets grid)
 
@@ -498,3 +546,170 @@ Format for new entries:
 **Decision:** (1) **`/cards` and `/commanders`** — **grid-only**; no `BrowseViewToggle` wired (defer list mode to backlog). (2) **`/search`** — keep **compact horizontal rows** (`Card` + thumbnail), not `CardFaceTile` grid. (3) **`/sets` browse** — keep horizontal row card layout inside each item, but lay out items in **`SET_BROWSE_GRID_CLASS`** (1 → 2 → 3 columns). Set detail: filters in `PageShell` toolbar + `PageListMeta`.
 
 **Consequences:** `BrowseViewToggle` component exists but unused. Sets filter toolbar keeps dense grid (`browseToolbarDenseGridClassName`). Phase 1.6 marked complete in roadmap; Phase 2 unblocked.
+
+## 2026-07-16 — Browse sync health includes top_lists + EdhrecSyncNotice
+
+**Context:** Post–Phase 1.6 audit: browse primary tabs read `edhrec_top_entries` (`top_lists` SyncLog job), but `getEdhrecSyncHealth()` only watched `commanders_hot` + `cards_hot`. Docs described `EdhrecSyncNotice` and `SYNC_CRON_SECRET` / `/api/sync/*`, neither of which existed; Actions run scripts with `DATABASE_URL` directly. Sync workflows stay disabled until intentionally enabled.
+
+**Decision:**
+
+1. Health watches **`commanders_hot`**, **`cards_hot`**, and **`top_lists`**. Stale if **any** watched job has no success within 8 days (or never); notice also on latest-run failure.
+2. Ship **`EdhrecSyncNotice`** on `/cards` and `/commanders` layouts (neutral “Popularity data” copy; production-visible).
+3. Weekly EDHREC workflow (when enabled) also runs **`sync:purge-edhrec-page-variants`**.
+4. Remove aspirational `SYNC_CRON_SECRET` / `/api/sync` from `.env.example` and architecture docs.
+
+**Consequences:** Browse notice can fire when HOT profiles look fine but the top index is stale. Enabling Actions later is still a manual ops step (`SYNC_JOBS_ENABLED` + secret + cron).
+
+## 2026-07-16 — Remove Phase 1.5 leftover browse/search code
+
+**Context:** Audit found unused discovery components after grid-only / `/catalog` split, plus orphan typeahead APIs superseded by `GET /api/search`.
+
+**Decision:** Delete `BrowseTabs`, `BrowseViewToggle`, `CardBrowseRow`, `CommanderBrowseRow`, `EdhrecTopCards`, and routes `GET /api/cards/search` + `GET /api/commanders/search`. Keep list-mode toggle as a **backlog idea only** (recreate when needed). Refresh `docs/ARCHITECTURE.md` folder tree + API table to match `src/`.
+
+**Consequences:** Global search is the only search API. Browse list rows are gone; grid tiles remain. Historical ROADMAP Phase 0.4 (`/api/cards/search`) stays as completed history.
+
+## 2026-07-16 — Shared useBrowseList + split cards browse modules
+
+**Context:** Audit P1: four client browse pages duplicated fetch/cursor/debounce state machines; `lib/browse/cards.ts` was ~719 LOC mixing filters, params, popular top-index, and catalog queries.
+
+**Decision:** (1) Add `src/hooks/use-browse-list.ts` — `requestKey` + `buildSearchParams` + search debounce; wire `/cards`, `/commanders`, `/catalog`, `/sets`. (2) Split card browse into `cards-filters`, `cards-params`, `cards-popular`, `cards-catalog` with thin `cards.ts` facade (stable imports for API route + set filters).
+
+**Consequences:** Browse pages only own toolbar/window UI state. Further query refactors (e.g. commanders) can follow the same split pattern.
+
+## 2026-07-16 — Vitest for high-risk pure browse/EDHREC logic
+
+**Context:** Audit P2: zero automated tests; browse cursor, slug resolution, and cardlists parsers are regression-prone and mostly pure.
+
+**Decision:** Add **Vitest** (`npm test` / `npm run test:watch`), colocated `*.test.ts` under `src/`. Initial coverage: cursor encode/decode + list response paging, `parseCardBrowseParams`, `toEdhrecSlug` / layout exclusion, mocked `findPlayableCardByEdhrecSlug`, commander/card cardlists parsers. No E2E yet (Phase 5).
+
+**Consequences:** CI can run `npm test` without DB. Expand coverage as Phase 2 grows; keep Prisma-heavy query tests for later or integration.
+
+## 2026-07-16 — Indexes for sync health + browse sort columns
+
+**Context:** Audit: `sync_logs` had no indexes despite frequent “latest success / health” queries; legacy popular sorts and catalog CMC filter lacked supporting indexes. Top-list browse still loads windows in memory — indexes help DB paths and purge/TTL, not that in-memory path.
+
+**Decision:** Migration `20260716010000_browse_sync_indexes`:
+- `sync_logs`: `(source, job_type, started_at)` and `(source, job_type, status, completed_at)`
+- `cards`: `cmc`, `layout`
+- `edhrec_card_data` / `edhrec_commander_profiles`: `inclusion`/`num_decks`/`salt` as applicable + `expires_at`
+- `edhrec_page_variants`: `expires_at`
+
+Defer GIN on `color_identity` / trigram on `type_line` until measured need. Next ops item: atomic top_entries rewrite.
+
+**Consequences:** Apply with `npx prisma migrate deploy` (or `db:migrate` locally). Small write overhead on sync upserts; reads for health/legacy browse/purge improve.
+
+## 2026-07-16 — Atomic edhrec_top_entries window replace
+
+**Context:** `sync:edhrec-top-lists` used `deleteMany` then chunked `createMany` outside a transaction — browse could see an empty or partial window mid-sync (or after a crash mid-rewrite).
+
+**Decision:** Wrap each `(entityType, window)` replace in `prisma.$transaction` (delete + chunked createMany, 10 min timeout). Postgres MVCC keeps prior committed rows visible to readers until commit. No staging table yet — revisit if transaction duration/locks become a problem on Neon.
+
+**Consequences:** Failed sync leaves the previous window intact. Concurrent sync of the same window still serializes on row locks; weekly cron is single-job.
+
+## 2026-07-16 — SSR hydrate for discovery browse lists
+
+**Context:** Browse pages were fully client-fetched (`useBrowseList` → `/api/*`), causing loading flash and weak list HTML for crawlers. Query logic already lived in `lib/browse`.
+
+**Decision:** Server `page.tsx` calls `query*Browse(prisma, defaults)` and passes `initialData` + `initialRequestKey` into a client browse component. `useBrowseList` skips the first fetch while `requestKey` matches the SSR key; filter/window changes and load-more still hit the API. Defaults live in `lib/browse/*-defaults.ts` (shared hydrate key).
+
+**Consequences:** Default view (year / rank / etc.) is in the first HTML. TTFB includes the browse query (already heavy for top cards). Search-param-driven SSR of filtered views is backlog.
+
+## 2026-07-16 — Audit closed; deferred follow-ups listed in ROADMAP
+
+**Context:** Post–Phase 1.6 structural audit items Ops.1–10 done except enabling GH sync. Remaining risks were intentionally not fixed now.
+
+**Decision:** Track deferred follow-ups in `docs/ROADMAP.md` § Ops hardening:
+- **Ops.4** enable Actions when ready
+- **Ops.11** GIN/trigram indexes only if measured need
+- **Ops.12** safer classification rebuild + soft-FK review before Phase 3 depends on them
+- E2E/Sentry stay Phase 5; product work is Phase 2+
+
+**Consequences:** Future agents should not re-litigate “did we forget GIN/classifications?” — check that table. Do not implement Ops.11/12 preemptively.
+
+## 2026-07-16 — Detail pages: no printed-card duplicate panels
+
+**Context:** Card/commander detail main columns repeated CMC, colors, oracle text, and keywords already visible on the card image, while prices and popularity (not on the face) sat in those same panels.
+
+**Decision:** Remove Stats / Popularity / Oracle / Keywords `DetailSectionPanel`s from detail main columns. Keep under the sticky image: set printing note, salt, all-time rank (commanders), **PriceChip** (Scryfall USD), and popularity (inclusion % / decks). Delete unused `CardStatsLine`.
+
+**Consequences:** Shorter detail pages; hero aside is the sole place for non-face metadata. Browse list rows still show CMC/colors.
+
+## 2026-07-16 — Browse filters use shadcn Input / Select / Label
+
+**Context:** Filter toolbars used native `<input>` / `<select>` with hand-rolled chrome (`browseToolbarInputClassName`) while header search used shadcn `Input`. Installed `Select` was unused. UI felt inconsistent with the rest of the app.
+
+**Decision:** Route all browse/detail filter fields through `BrowseSearchField` / `BrowseSelectField` / catalog CMC fields using shadcn `Input`, `Select`, and dense `Label`. Map empty-string “any/all” options to an internal sentinel (SelectItem cannot use `""`). Sort-order control uses `Button` (`outline` + `icon`). Mana/rarity pills stay domain-custom.
+
+**Consequences:** One form language across header and filters. Follow-ups (Alert, ToggleGroup) remain optional.
+
+## 2026-07-16 — EntityDetailTabs uses shadcn Tabs
+
+**Context:** Card | Commander switch was custom `rounded-full` pills, inconsistent with the shadcn kit and with header nav.
+
+**Decision:** Add `components/ui/tabs.tsx` (base-nova). `EntityDetailTabs` uses controlled `Tabs` + `TabsList variant="line"`; each trigger renders a Next `Link` (`nativeButton={false}`) so middle-click / open-in-new-tab still work, with `onValueChange` → `router.push` for keyboard activation.
+
+**Consequences:** Detail route switch matches design-system tabs. No `TabsContent` — panels are separate routes. Superseded for EntityDetailTabs by the ToggleGroup entry below (`tabs.tsx` remains available).
+
+## 2026-07-16 — EntityDetailTabs matches outline ToggleGroup
+
+**Context:** Line `Tabs` on Card/Commander felt unlike other in-app view switches (Themes/Kindred, filter toggles).
+
+**Decision:** Restyle `EntityDetailTabs` as outline `ToggleGroup` (`size="sm"`, `spacing={0}`, pressed → primary), same visual language as `EdhrecThemes`. Keep Next `Link` + `router.push` for navigation.
+
+**Consequences:** Card ↔ Commander chrome matches the rest of discovery UI.
+
+## 2026-07-16 — Alerts + ToggleGroup for remaining UI chrome
+
+**Context:** After filter Input/Select and EntityDetailTabs, remaining mismatches were hand-rolled notice boxes and filter/theme pill buttons.
+
+**Decision:**
+- Add shadcn `Alert` (+ `warning` variant), `Toggle`, `ToggleGroup`
+- Migrate `StaleCacheBanner`, `EdhrecSyncNotice`, `FilterUnavailableNotice` → `Alert`
+- Mana/rarity filters → `ToggleGroup` (`multiple`); option pills → `Toggle`; themes/kindred switch → `ToggleGroup` (single); “Clear filters” → `Button`
+- Fix toggle pressed styles to Base UI `data-pressed` / `aria-pressed` (not Radix `data-state=on`)
+
+**Consequences:** Sort-order `Button` was already done with the filter pass. Domain icons (mana/rarity) stay custom inside ToggleGroup items.
+
+## 2026-07-16 — Mobile-first header, filters, and detail chrome
+
+**Context:** Mobile lacked a header menu and detail section jump; browse/detail filter panels were always fully expanded; detail TOC sat as a long list under a non-full-width image before content.
+
+**Decision:**
+- Add shadcn `Sheet`, `DropdownMenu`, `Collapsible`
+- Header: `MobileNavSheet` hamburger (`lg:hidden`); desktop `NavLinks` unchanged
+- Detail: image centered max 300px on mobile; vertical `DetailSectionNav` only at `lg+`; sticky `DetailSectionJump` (`DropdownMenu`) at top of main column on mobile
+
+**Consequences:** Mobile navigation chrome in place. Later refined (filters always visible; sticky TOC-only; larger card grids) — see following entry.
+
+## 2026-07-16 — Detail sticky TOC-only, always-visible filters, larger card grids
+
+**Context:** Collapsed mobile filters hid useful controls; sticky whole-aside + hide-on-scroll meta was noisy; sticky nav sat under the sticky header; card grids were too dense (up to 6 columns).
+
+**Decision:**
+- Remove `BrowseFiltersShell` collapse — listing and detail filters always visible
+- Detail hero image/meta are not sticky; only `DetailSectionNav` (desktop) and `DetailSectionJump` (mobile) stick
+- `AppHeader` publishes `--site-header-height` via ResizeObserver; sticky offsets and `scroll-mt` use that variable
+- `CARD_FACE_GRID_CLASS` → `2 / md:3 / xl:4` columns for browse + detail section grids
+
+**Consequences:** Clearer scroll behavior under the header; larger card faces; filters always at hand on mobile.
+
+## 2026-07-16 — Fix detail section TOC sticky containing block
+
+**Context:** Desktop `DetailSectionNav` did not stick while scrolling. The aside wrapper used `self-start`, so the sticky containing block was only as tall as the card image column — sticky had nowhere to travel. The TOC also always used a forced scroll viewport.
+
+**Decision:** Stretch the hero aside to the detail grid row height (`lg:h-full`, no `self-start`). Keep `max-h` under the header; list overflow is `overflow-y-auto` (scrollbar only when the TOC exceeds the viewport).
+
+**Consequences:** TOC pins below the header after the image scrolls away; short TOCs do not show an inner scrollbar.
+
+## 2026-07-16 — Unified card / commander preview footers
+
+**Context:** Browse tiles, detail heroes, and EDHREC cardlist tiles each had ad hoc under-image meta (badges, popularity strings, partial footers). Prices only appeared on detail heroes. Supersedes the under-image meta shape from the 2026-07-15 “slim detail pages” decision.
+
+**Decision:**
+- One `EntityPreviewFooter` for browse tiles, EDHREC lists (`CardFaceMetricFooter`), and detail heroes (`DetailHeroAside.previewFooter`)
+- Layout: prices ↔ salt (flex between); primary metric ↔ compact decks (`formatCompactCount`, e.g. 2.4k / 7.4M); synergy on its own row when provided
+- Primary labels (`inclusion` / `rank`) match value size and color; rank caption precedes the value (`rank #42`), inclusion follows (`12.3% inclusion`)
+- Plumb Scryfall `prices` into browse items and `loadCatalogCardFacesBySlugs`
+- Commander-context list tiles pass synergy when present
+
+**Consequences:** Same image+footer pattern on list, hero, and detail lists. `DetailHeroBadges` unused on hero (superseded). Similar commanders keep commander-style footer (prices · Rank · decks · salt). Similar cards enrich from `EdhrecCardData` + Scryfall prices for the same card-style footer (inclusion · decks · salt). Relatives / set tiles still use lighter meta.

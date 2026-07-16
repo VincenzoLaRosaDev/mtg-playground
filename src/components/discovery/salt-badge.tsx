@@ -14,9 +14,9 @@ export function SaltBadge({ salt, className }: SaltBadgeProps) {
 
   const tone =
     salt >= 2
-      ? "border-red-300 bg-red-50 text-red-800 dark:border-red-800 dark:bg-red-950/40 dark:text-red-200"
+      ? "border-destructive/50 bg-destructive/15 text-destructive"
       : salt >= 1
-        ? "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200"
+        ? "border-warning/50 bg-warning/15 text-warning-foreground"
         : undefined;
 
   return (

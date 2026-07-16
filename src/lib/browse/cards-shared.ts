@@ -15,6 +15,8 @@ export type CardBrowseItem = {
   colorIdentity: string[];
   imageUri: string | null;
   isCommander: boolean;
+  /** Scryfall USD prices JSON (for preview footer). */
+  prices: unknown;
   hasEdhrecData: boolean;
   rank: number | null;
   salt: number | null;

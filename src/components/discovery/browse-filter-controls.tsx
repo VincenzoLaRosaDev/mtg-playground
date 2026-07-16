@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 import { Search } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -8,46 +8,34 @@ import { cn } from "@/lib/utils";
 import {
   browseFilterLabelClassName,
   browseToolbarCmcFieldClassName,
-  browseToolbarCmcInputClassName,
-  browseToolbarInputClassName,
+  browseToolbarCmcPairClassName,
   browseToolbarPillGroupsClassName,
 } from "@/components/discovery/browse-toolbar-shared";
-import {
-  MANA_COLOR_OPTIONS,
-  toggleManaColorSelection,
-} from "@/lib/browse/color-identity-filter";
-import {
-  SET_RARITIES,
-  toggleRaritySelection,
-} from "@/lib/browse/rarity-filter";
+import { MANA_COLOR_OPTIONS } from "@/lib/browse/color-identity-filter";
+import { SET_RARITIES } from "@/lib/browse/rarity-filter";
 import { ManaSymbol } from "@/components/mtg/mana-symbol";
 import { RarityIcon } from "@/components/mtg/rarity-icon";
 import type { ManaColor } from "@/lib/mtg/mana-types";
 import { manaColorLabel } from "@/lib/mtg/mana-labels";
 import type { SetRarity } from "@/lib/mtg/rarity-types";
 import { rarityLabel } from "@/lib/mtg/rarity-labels";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Toggle } from "@/components/ui/toggle";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
-export const browseFilterPillBaseClassName =
-  "rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors";
+/** Sentinel for optional “any / all” options — SelectItem cannot use "". */
+const BROWSE_SELECT_EMPTY = "__browse_select_empty__";
 
-export function browseFilterPillClassName(selected: boolean): string {
-  return selected
-    ? cn(browseFilterPillBaseClassName, "bg-primary text-primary-foreground shadow-sm")
-    : cn(
-        browseFilterPillBaseClassName,
-        "border border-border bg-background text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-      );
-}
-
-export function browseManaPillClassName(selected: boolean): string {
-  return selected
-    ? "rounded-full p-1 ring-2 ring-primary ring-offset-1 ring-offset-background"
-    : "rounded-full p-1 opacity-85 hover:opacity-100";
-}
-
-export function browseRarityPillClassName(selected: boolean): string {
-  return browseManaPillClassName(selected);
-}
+const browseSymbolToggleClassName =
+  "size-auto min-w-0 rounded-full border-0 bg-transparent p-1 opacity-85 shadow-none hover:bg-transparent hover:opacity-100 aria-pressed:bg-transparent aria-pressed:opacity-100 aria-pressed:ring-2 aria-pressed:ring-primary aria-pressed:ring-offset-1 aria-pressed:ring-offset-background data-pressed:bg-transparent data-pressed:opacity-100 data-pressed:ring-2 data-pressed:ring-primary data-pressed:ring-offset-1 data-pressed:ring-offset-background data-pressed:shadow-none";
 
 type BrowseFilterSectionProps = {
   title: string;
@@ -65,17 +53,25 @@ export function BrowseFilterSection({ title, children }: BrowseFilterSectionProp
 
 type BrowseToolbarFieldProps = {
   label: string;
+  htmlFor?: string;
   className?: string;
   children: ReactNode;
 };
 
 /** Label + control wrapper — same layout for search, select, and text fields. */
-export function BrowseToolbarField({ label, className, children }: BrowseToolbarFieldProps) {
+export function BrowseToolbarField({
+  label,
+  htmlFor,
+  className,
+  children,
+}: BrowseToolbarFieldProps) {
   return (
-    <label className={cn("block min-w-0", className)}>
-      <span className={browseFilterLabelClassName}>{label}</span>
+    <div className={cn("min-w-0", className)}>
+      <Label htmlFor={htmlFor} className={browseFilterLabelClassName}>
+        {label}
+      </Label>
       {children}
-    </label>
+    </div>
   );
 }
 
@@ -92,26 +88,30 @@ export function BrowseColorPillGroup({
 }: BrowseColorPillGroupProps) {
   return (
     <BrowseFilterSection title={title}>
-      <div className="flex flex-wrap gap-2">
+      <ToggleGroup
+        multiple
+        value={colors}
+        onValueChange={onChange}
+        spacing={2}
+        className="flex-wrap"
+        aria-label={title}
+      >
         {MANA_COLOR_OPTIONS.map((color) => {
-          const selected = colors.includes(color);
           const manaColor = color as ManaColor;
 
           return (
-            <button
+            <ToggleGroupItem
               key={color}
-              type="button"
+              value={color}
               aria-label={manaColorLabel(manaColor)}
-              aria-pressed={selected}
               title={manaColorLabel(manaColor)}
-              onClick={() => onChange(toggleManaColorSelection(colors, color))}
-              className={browseManaPillClassName(selected)}
+              className={browseSymbolToggleClassName}
             >
               <ManaSymbol color={manaColor} size="md" />
-            </button>
+            </ToggleGroupItem>
           );
         })}
-      </div>
+      </ToggleGroup>
     </BrowseFilterSection>
   );
 }
@@ -124,26 +124,30 @@ type BrowseRarityPillGroupProps = {
 export function BrowseRarityPillGroup({ rarities, onChange }: BrowseRarityPillGroupProps) {
   return (
     <BrowseFilterSection title="Rarity">
-      <div className="flex flex-wrap gap-2">
+      <ToggleGroup
+        multiple
+        value={rarities}
+        onValueChange={onChange}
+        spacing={2}
+        className="flex-wrap"
+        aria-label="Rarity"
+      >
         {SET_RARITIES.map((rarity) => {
-          const selected = rarities.includes(rarity);
           const setRarity = rarity as SetRarity;
 
           return (
-            <button
+            <ToggleGroupItem
               key={rarity}
-              type="button"
+              value={rarity}
               aria-label={rarityLabel(setRarity)}
-              aria-pressed={selected}
               title={rarityLabel(setRarity)}
-              onClick={() => onChange(toggleRaritySelection(rarities, rarity))}
-              className={browseRarityPillClassName(selected)}
+              className={browseSymbolToggleClassName}
             >
               <RarityIcon rarity={setRarity} size="md" />
-            </button>
+            </ToggleGroupItem>
           );
         })}
-      </div>
+      </ToggleGroup>
     </BrowseFilterSection>
   );
 }
@@ -156,9 +160,15 @@ type BrowseFilterPillProps = {
 
 export function BrowseFilterPill({ label, selected, onClick }: BrowseFilterPillProps) {
   return (
-    <button type="button" onClick={onClick} className={browseFilterPillClassName(selected)}>
+    <Toggle
+      pressed={selected}
+      onPressedChange={() => onClick()}
+      variant="outline"
+      size="sm"
+      className="rounded-full px-2.5 text-xs data-pressed:bg-primary data-pressed:text-primary-foreground data-pressed:hover:bg-primary/80 aria-pressed:bg-primary aria-pressed:text-primary-foreground"
+    >
       {label}
-    </button>
+    </Toggle>
   );
 }
 
@@ -167,7 +177,7 @@ type BrowseFilterPillRowProps = {
 };
 
 export function BrowseFilterPillRow({ children }: BrowseFilterPillRowProps) {
-  return <div className="flex flex-wrap gap-2">{children}</div>;
+  return <div className="flex flex-wrap items-center gap-2">{children}</div>;
 }
 
 export function BrowseToolbarPillGroups({ children }: { children: ReactNode }) {
@@ -189,19 +199,34 @@ export function BrowseSelectField({
   options,
   className,
 }: BrowseSelectFieldProps) {
+  const id = useId();
+  const items = options.map((option) => ({
+    value: option.value === "" ? BROWSE_SELECT_EMPTY : option.value,
+    label: option.label,
+  }));
+  const selectValue = value === "" ? BROWSE_SELECT_EMPTY : value;
+
   return (
-    <BrowseToolbarField label={label} className={className}>
-      <select
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className={browseToolbarInputClassName}
+    <BrowseToolbarField label={label} htmlFor={id} className={className}>
+      <Select
+        value={selectValue}
+        onValueChange={(next) => {
+          if (next == null) return;
+          onChange(next === BROWSE_SELECT_EMPTY ? "" : next);
+        }}
+        items={items}
       >
-        {options.map((option) => (
-          <option key={option.value || "empty"} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
+        <SelectTrigger id={id} className="w-full min-w-0">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent align="start">
+          {items.map((item) => (
+            <SelectItem key={item.value} value={item.value}>
+              {item.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </BrowseToolbarField>
   );
 }
@@ -226,48 +251,64 @@ export function BrowseCatalogFilterFields({
   typePlaceholder = "e.g. Instant, Artifact",
   inline = false,
 }: BrowseCatalogFilterFieldsProps) {
-  const fields = (
-    <>
-      <BrowseToolbarField label="Type contains">
-        <input
-          type="text"
-          value={values.typeContains}
-          onChange={(event) => onChange({ typeContains: event.target.value })}
-          placeholder={typePlaceholder}
-          className={browseToolbarInputClassName}
-        />
-      </BrowseToolbarField>
+  const typeId = useId();
+  const cmcMinId = useId();
+  const cmcMaxId = useId();
 
-      <BrowseToolbarField label="CMC min" className={browseToolbarCmcFieldClassName}>
-        <input
+  const typeField = (
+    <BrowseToolbarField label="Type contains" htmlFor={typeId}>
+      <Input
+        id={typeId}
+        type="text"
+        value={values.typeContains}
+        onChange={(event) => onChange({ typeContains: event.target.value })}
+        placeholder={typePlaceholder}
+      />
+    </BrowseToolbarField>
+  );
+
+  const cmcPair = (
+    <div className={browseToolbarCmcPairClassName}>
+      <BrowseToolbarField label="CMC min" htmlFor={cmcMinId} className={browseToolbarCmcFieldClassName}>
+        <Input
+          id={cmcMinId}
           type="number"
           min={0}
           step={1}
           value={values.cmcMin}
           onChange={(event) => onChange({ cmcMin: event.target.value })}
-          className={browseToolbarCmcInputClassName}
+          className="px-1.5 text-center tabular-nums"
         />
       </BrowseToolbarField>
 
-      <BrowseToolbarField label="CMC max" className={browseToolbarCmcFieldClassName}>
-        <input
+      <BrowseToolbarField label="CMC max" htmlFor={cmcMaxId} className={browseToolbarCmcFieldClassName}>
+        <Input
+          id={cmcMaxId}
           type="number"
           min={0}
           step={1}
           value={values.cmcMax}
           onChange={(event) => onChange({ cmcMax: event.target.value })}
-          className={browseToolbarCmcInputClassName}
+          className="px-1.5 text-center tabular-nums"
         />
       </BrowseToolbarField>
-    </>
+    </div>
   );
 
   if (inline) {
-    return fields;
+    return (
+      <>
+        {typeField}
+        {cmcPair}
+      </>
+    );
   }
 
   return (
-    <div className="grid grid-cols-1 gap-x-3 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">{fields}</div>
+    <div className="grid grid-cols-1 gap-x-3 gap-y-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+      {typeField}
+      {cmcPair}
+    </div>
   );
 }
 
@@ -286,19 +327,22 @@ export function BrowseSearchField({
   placeholder = "Min. 2 characters...",
   className,
 }: BrowseSearchFieldProps) {
+  const id = useId();
+
   return (
-    <BrowseToolbarField label={label} className={className}>
+    <BrowseToolbarField label={label} htmlFor={id} className={className}>
       <div className="relative">
         <Search
           className="pointer-events-none absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground"
           aria-hidden
         />
-        <input
+        <Input
+          id={id}
           type="search"
           value={value}
           onChange={(event) => onChange(event.target.value)}
           placeholder={placeholder}
-          className={cn(browseToolbarInputClassName, "pl-8")}
+          className="pl-8"
         />
       </div>
     </BrowseToolbarField>

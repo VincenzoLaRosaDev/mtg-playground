@@ -13,6 +13,8 @@ export type CommanderBrowseItem = {
   colorIdentity: string[];
   imageUri: string | null;
   typeLine: string | null;
+  /** Scryfall USD prices JSON (for preview footer). */
+  prices: unknown;
   hasEdhrecMeta: boolean;
 };
 

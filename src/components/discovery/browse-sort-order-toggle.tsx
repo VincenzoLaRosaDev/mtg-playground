@@ -1,5 +1,6 @@
 import { ArrowDown, ArrowUp } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
 import type { BrowseOrder } from "@/lib/browse/types";
 import { cn } from "@/lib/utils";
 
@@ -20,18 +21,17 @@ export function BrowseSortOrderToggle({
   const Icon = isAsc ? ArrowUp : ArrowDown;
 
   return (
-    <button
+    <Button
       type="button"
+      variant="outline"
+      size="icon"
       onClick={() => onChange(nextOrder)}
       aria-label={`${label} — switch to ${isAsc ? "descending" : "ascending"}`}
       title={label}
-      className={cn(
-        "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-input bg-background text-muted-foreground shadow-xs transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30",
-        className,
-      )}
+      className={cn("shrink-0 text-muted-foreground", className)}
     >
       <Icon className="h-3.5 w-3.5" aria-hidden />
       <span className="sr-only">{label}</span>
-    </button>
+    </Button>
   );
 }

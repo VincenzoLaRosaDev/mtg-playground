@@ -3,12 +3,13 @@ import { notFound } from "next/navigation";
 
 import { CardDetailCardlistSections } from "@/components/discovery/card-detail-cardlist-sections";
 import { DetailHeroAside } from "@/components/discovery/detail-hero-aside";
+import { DetailSectionJump } from "@/components/discovery/detail-section-jump";
 import { DetailSectionPanel } from "@/components/discovery/detail-section-panel";
 import { CardRelativesBySubtype } from "@/components/discovery/card-relatives-by-subtype";
 import { EdhrecSimilarCards } from "@/components/discovery/edhrec-similar-cards";
 import { EdhrecTopCommanders } from "@/components/discovery/edhrec-top-commanders";
 import { EntityDetailTabs } from "@/components/discovery/entity-detail-tabs";
-import { PriceChip } from "@/components/discovery/price-chip";
+import { EntityPreviewFooter } from "@/components/discovery/entity-preview-footer";
 import { StaleCacheBanner } from "@/components/discovery/stale-cache-banner";
 import { PageShell } from "@/components/layout/page-shell";
 import {
@@ -20,8 +21,6 @@ import { prisma } from "@/lib/db";
 import { findPlayableCardByEdhrecSlug } from "@/lib/scryfall/catalog-filters";
 import { getCardRelativesBySubtype } from "@/lib/scryfall/card-relatives";
 import { resolveCardHeroImage } from "@/lib/scryfall/card-printing";
-import { CardStatsLine } from "@/components/discovery/card-stats-line";
-import { ColorIdentity } from "@/components/mtg/color-identity";
 import { buildCardDetailNavItems } from "@/lib/ui/detail-section-nav";
 import { formatInclusionPercent } from "@/lib/display/formatters";
 import { DETAIL_HERO_GRID_CLASS, DETAIL_MAIN_COLUMN_CLASS } from "@/lib/ui/layout";
@@ -38,10 +37,6 @@ const cardSelect = {
   name: true,
   edhrecSlug: true,
   typeLine: true,
-  cmc: true,
-  colorIdentity: true,
-  oracleText: true,
-  keywords: true,
   imageUri: true,
   isCommander: true,
   prices: true,
@@ -102,20 +97,13 @@ export default async function CardDetailPage({ params, searchParams }: CardDetai
   const cardlists = edhrecCard.data?.cardlists;
   const { subtypes, relatives } = await getCardRelativesBySubtype(card);
 
-  const popularityInclusion = edhrecCard.data
+  const inclusionLabel = edhrecCard.data
     ? formatInclusionPercent(
         edhrecCard.data.inclusion,
         edhrecCard.data.potentialDecks,
         edhrecCard.data.numDecks,
       )
-    : "—";
-
-  const popularityParts = [
-    popularityInclusion !== "—" ? `${popularityInclusion} inclusion` : null,
-    edhrecCard.data?.numDecks != null
-      ? `${edhrecCard.data.numDecks.toLocaleString()} decks`
-      : null,
-  ].filter(Boolean);
+    : null;
 
   const cardlistSections = cardlists ? parseCardDetailCardlists(cardlists) : [];
   const hasTopCommanders =
@@ -154,44 +142,19 @@ export default async function CardDetailPage({ params, searchParams }: CardDetai
           imageAlt={card.name}
           setName={hero.setName}
           setCode={hero.setCode}
-          salt={edhrecCard.data?.salt ?? null}
+          previewFooter={
+            <EntityPreviewFooter
+              prices={card.prices}
+              primary={{ kind: "inclusion", value: inclusionLabel }}
+              decks={edhrecCard.data?.numDecks ?? null}
+              salt={edhrecCard.data?.salt ?? null}
+            />
+          }
           sectionNavItems={sectionNavItems}
         />
 
         <div className={DETAIL_MAIN_COLUMN_CLASS}>
-          <DetailSectionPanel title="Stats">
-            <CardStatsLine
-              cmc={card.cmc}
-              colorIdentity={card.colorIdentity}
-              isCommander={card.isCommander}
-              className="mt-2"
-            />
-            <div className="mt-2">
-              <PriceChip prices={card.prices} />
-            </div>
-          </DetailSectionPanel>
-
-          {edhrecCard.data && (
-            <DetailSectionPanel title="Popularity">
-              <p className="mt-2 text-sm text-foreground">
-                {popularityParts.length > 0
-                  ? popularityParts.join(" · ")
-                  : "Popularity stats unavailable"}
-              </p>
-            </DetailSectionPanel>
-          )}
-
-          <DetailSectionPanel title="Oracle text">
-            <p className="mt-2 whitespace-pre-line text-sm leading-6 text-foreground">
-              {card.oracleText ?? "No oracle text available."}
-            </p>
-          </DetailSectionPanel>
-
-          <DetailSectionPanel title="Keywords">
-            <p className="mt-2 text-sm text-muted-foreground">
-              {card.keywords.length > 0 ? card.keywords.join(", ") : "None"}
-            </p>
-          </DetailSectionPanel>
+          <DetailSectionJump items={sectionNavItems} />
 
           {edhrecCard.data && cardlists ? (
             <EdhrecTopCommanders cardlists={cardlists} />

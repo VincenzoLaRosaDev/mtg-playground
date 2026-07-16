@@ -74,6 +74,7 @@ const rankedProfileSelect = {
       imageUri: true,
       typeLine: true,
       cmc: true,
+      prices: true,
     },
   },
 } as const;
@@ -149,6 +150,7 @@ function mapRankedRow(
     colorIdentity: row.colorIdentity,
     imageUri: row.card?.imageUri ?? null,
     typeLine: row.card?.typeLine ?? null,
+    prices: row.card?.prices ?? null,
     hasEdhrecMeta: true,
   };
 }

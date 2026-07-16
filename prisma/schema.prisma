@@ -81,6 +81,8 @@ model Card {
   @@index([name])
   @@index([isCommander])
   @@index([edhrecSlug])
+  @@index([cmc])
+  @@index([layout])
   @@map("cards")
 }
 
@@ -107,6 +109,9 @@ model EdhrecCommanderProfile {
   @@index([rank])
   @@index([name])
   @@index([syncTier])
+  @@index([numDecks])
+  @@index([salt])
+  @@index([expiresAt])
   @@map("edhrec_commander_profiles")
 }
 
@@ -129,6 +134,10 @@ model EdhrecCardData {
 
   @@index([name])
   @@index([syncTier])
+  @@index([inclusion])
+  @@index([numDecks])
+  @@index([salt])
+  @@index([expiresAt])
   @@map("edhrec_card_data")
 }
 
@@ -163,6 +172,7 @@ model EdhrecPageVariant {
 
   @@unique([entityType, slug, theme, budget, bracket])
   @@index([entityType, slug])
+  @@index([expiresAt])
   @@map("edhrec_page_variants")
 }
 
@@ -213,6 +223,10 @@ model SyncLog {
   recordsProcessed Int?       @map("records_processed")
   errors           Json?
 
+  /// Health / recent-run lookups: filter source + jobType, order by startedAt
+  @@index([source, jobType, startedAt])
+  /// --if-changed / last-success lookups: filter source + jobType + status, order by completedAt
+  @@index([source, jobType, status, completedAt])
   @@map("sync_logs")
 }
 

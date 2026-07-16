@@ -1,4 +1,9 @@
+"use client";
+
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 export type EntityDetailRoute = "card" | "commander";
 
@@ -18,33 +23,48 @@ function buildCardHref(slug: string, setCode?: string): string {
 }
 
 export function EntityDetailTabs({ slug, activeRoute, setCode }: EntityDetailTabsProps) {
+  const router = useRouter();
+
   const tabs: { id: EntityDetailRoute; label: string; href: string }[] = [
     { id: "card", label: "Card", href: buildCardHref(slug, setCode) },
     { id: "commander", label: "Commander", href: `/commanders/${slug}` },
   ];
 
   return (
-    <nav
-      aria-label="Entity detail views"
-      className="mb-6 flex flex-wrap gap-2 border-b border-border pb-3"
-    >
-      {tabs.map((tab) => {
-        const isActive = tab.id === activeRoute;
-
-        return (
-          <Link
+    <div className="mb-6">
+      <ToggleGroup
+        value={[activeRoute]}
+        onValueChange={(next) => {
+          const selected = next[0];
+          if (selected !== "card" && selected !== "commander") {
+            return;
+          }
+          if (selected === activeRoute) {
+            return;
+          }
+          const tab = tabs.find((entry) => entry.id === selected);
+          if (tab) {
+            router.push(tab.href);
+          }
+        }}
+        variant="outline"
+        size="default"
+        spacing={0}
+        aria-label="Entity detail views"
+      >
+        {tabs.map((tab) => (
+          <ToggleGroupItem
             key={tab.id}
-            href={tab.href}
-            className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
-              isActive
-                ? "bg-primary text-primary-foreground"
-                : "bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-            }`}
+            value={tab.id}
+            nativeButton={false}
+            render={<Link href={tab.href} />}
+            aria-current={tab.id === activeRoute ? "page" : undefined}
+            className="px-4 data-pressed:bg-primary data-pressed:text-primary-foreground"
           >
             {tab.label}
-          </Link>
-        );
-      })}
-    </nav>
+          </ToggleGroupItem>
+        ))}
+      </ToggleGroup>
+    </div>
   );
 }

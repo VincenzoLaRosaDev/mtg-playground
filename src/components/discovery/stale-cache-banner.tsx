@@ -1,3 +1,4 @@
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { isCatalogDebugEnabled } from "@/lib/dev/catalog-debug";
 
 type StaleCacheBannerProps = {
@@ -22,8 +23,8 @@ export function StaleCacheBanner({ syncedAt, context = "page" }: StaleCacheBanne
       : `Dev: popularity overlay may be outdated. Last updated: ${formatted}.`;
 
   return (
-    <div className="rounded-lg border border-violet-300 bg-violet-50 px-4 py-3 text-sm text-violet-950 dark:border-violet-800 dark:bg-violet-950/40 dark:text-violet-100">
-      {message}
-    </div>
+    <Alert variant="info">
+      <AlertDescription>{message}</AlertDescription>
+    </Alert>
   );
 }

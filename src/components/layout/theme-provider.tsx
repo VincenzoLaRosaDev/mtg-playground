@@ -7,9 +7,16 @@ type ThemeProviderProps = {
   children: ReactNode;
 };
 
+/** Dark-only for now; forcedTheme keeps next-themes available for a future light mode. */
 export function ThemeProvider({ children }: ThemeProviderProps) {
   return (
-    <NextThemesProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+    <NextThemesProvider
+      attribute="class"
+      defaultTheme="dark"
+      forcedTheme="dark"
+      enableSystem={false}
+      disableTransitionOnChange
+    >
       {children}
     </NextThemesProvider>
   );

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { splitTagCounts } from "@/lib/edhrec/cardlists";
 import {
   DETAIL_SECTION_IDS,
@@ -37,26 +38,32 @@ export function EdhrecThemes({ tagCounts, uniqueToView = true }: EdhrecThemesPro
         <h2 className={DETAIL_SECTION_HEADING_CLASS}>Deck themes</h2>
 
         {hasKindred ? (
-          <div className="inline-flex rounded-lg border border-border p-0.5">
-            {(["themes", "kindred"] as const).map((option) => {
-              const isActive = view === option;
-
-              return (
-                <button
-                  key={option}
-                  type="button"
-                  onClick={() => setView(option)}
-                  className={`rounded-md px-3 py-1 text-xs font-medium capitalize transition-colors ${
-                    isActive
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  {option}
-                </button>
-              );
-            })}
-          </div>
+          <ToggleGroup
+            value={[view]}
+            onValueChange={(next) => {
+              const selected = next[0];
+              if (selected === "themes" || selected === "kindred") {
+                setView(selected);
+              }
+            }}
+            variant="outline"
+            size="sm"
+            spacing={0}
+            aria-label="Theme category"
+          >
+            <ToggleGroupItem
+              value="themes"
+              className="px-3 text-xs capitalize data-pressed:bg-primary data-pressed:text-primary-foreground"
+            >
+              Themes
+            </ToggleGroupItem>
+            <ToggleGroupItem
+              value="kindred"
+              className="px-3 text-xs capitalize data-pressed:bg-primary data-pressed:text-primary-foreground"
+            >
+              Kindred
+            </ToggleGroupItem>
+          </ToggleGroup>
         ) : null}
       </div>
 

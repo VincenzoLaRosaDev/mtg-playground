@@ -222,7 +222,8 @@ Set detail (`/sets/{code}`) unchanged in spirit; improve pagination on card list
 |---|---|
 | Card in catalog, no EDHREC | Card page works; EDHREC sections show “not cached yet” |
 | Commander in catalog, no EDHREC profile | Commander route works; EDHREC sections show “not cached yet”; omitted from top browse lists |
-| EDHREC stale | Existing `StaleCacheBanner` (dev hints optional) |
+| EDHREC stale (detail) | `StaleCacheBanner` when on-demand refresh fails (dev hints optional) |
+| EDHREC sync stale/failed (browse) | `EdhrecSyncNotice` on `/cards` and `/commanders` when HOT or top-list sync failed or >8 days old |
 | Set not indexed | Set metadata + sync hint (unchanged) |
 
 ## Discovery parity (Phase 1.6)

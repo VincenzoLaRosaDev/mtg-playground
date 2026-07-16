@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { EdhrecSyncNotice } from "@/components/discovery/edhrec-sync-notice";
 import { createPageMetadata } from "@/lib/seo/site";
 
 export const metadata: Metadata = createPageMetadata({
@@ -10,5 +11,10 @@ export const metadata: Metadata = createPageMetadata({
 });
 
 export default function CardsLayout({ children }: { children: React.ReactNode }) {
-  return children;
+  return (
+    <>
+      <EdhrecSyncNotice />
+      {children}
+    </>
+  );
 }

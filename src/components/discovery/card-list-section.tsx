@@ -3,7 +3,7 @@ import { CardFaceTile } from "@/components/discovery/card-face-tile";
 import { loadCatalogCardFacesBySlugs } from "@/lib/catalog/card-faces";
 import { prisma } from "@/lib/db";
 import type { EdhrecCardView } from "@/lib/edhrec/types";
-import { CARD_FACE_GRID_CLASS } from "@/lib/ui/card-face";
+import { CARD_FACE_DETAIL_GRID_CLASS } from "@/lib/ui/card-face";
 import {
   DETAIL_SECTION_SCROLL_MARGIN,
   DETAIL_SECTION_HEADING_CLASS,
@@ -47,7 +47,7 @@ export async function CardListSection({
       className={`${sectionId ? DETAIL_SECTION_SCROLL_MARGIN : ""} ${detailSectionPanelClass(uniqueToView)}`}
     >
       <h2 className={DETAIL_SECTION_HEADING_CLASS}>{title}</h2>
-      <ul className={`mt-4 ${CARD_FACE_GRID_CLASS}`}>
+      <ul className={`mt-4 ${CARD_FACE_DETAIL_GRID_CLASS}`}>
         {visibleCards.map((card) => {
           const slug = card.sanitized;
           const face = slug ? faces.get(slug) : undefined;
@@ -68,6 +68,8 @@ export async function CardListSection({
                     card={card}
                     commanderNumDecks={commanderNumDecks}
                     showSynergy={showSynergy}
+                    prices={face?.prices}
+                    salt={face?.salt ?? card.salt ?? null}
                   />
                 }
               />

@@ -16,6 +16,7 @@ import {
 } from "@/components/discovery/browse-filter-controls";
 import { BrowseFilterPanel, BrowseFilterPanelRow } from "@/components/discovery/browse-filter-panel";
 import { browseToolbarSetDetailGridClassName } from "@/components/discovery/browse-toolbar-shared";
+import { Button } from "@/components/ui/button";
 import {
   buildSetCardSearchParams,
   hasActiveSetCardFilters,
@@ -129,16 +130,20 @@ export function SetCardFilters({ setCode }: SetCardFiltersProps) {
                 onClick={() => update({ commanderLegal: !state.commanderLegal })}
               />
               {hasActiveSetCardFilters(filters) ? (
-                <BrowseFilterPill
-                  label="Clear filters"
-                  selected={false}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="rounded-full px-2.5 text-xs"
                   onClick={() =>
                     applyFilters({
                       sort: filters.sort,
                       order: filters.order,
                     })
                   }
-                />
+                >
+                  Clear filters
+                </Button>
               ) : null}
             </BrowseFilterPillRow>
           </BrowseFilterSection>
