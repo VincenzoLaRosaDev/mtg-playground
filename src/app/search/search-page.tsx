@@ -100,15 +100,12 @@ export default function SearchPage() {
   }, [query]);
 
   const hasQuery = query.length >= GLOBAL_SEARCH_MIN_QUERY_LENGTH;
-  const totalResults =
-    (results?.cards.length ?? 0) +
-    (results?.commanders.length ?? 0) +
-    (results?.sets.length ?? 0);
+  const totalResults = (results?.cards.length ?? 0) + (results?.sets.length ?? 0);
 
   return (
     <PageShell
       title="Search"
-      description="Find cards, commanders, and sets across the EDHForge catalog."
+      description="Find cards and sets across the MTGPlayground catalog."
     >
       {!hasQuery && (
         <PageListMeta>
@@ -132,34 +129,6 @@ export default function SearchPage() {
 
       {results && (
         <>
-          <ResultSection title="Commanders" count={results.commanders.length}>
-            {results.commanders.map((commander) => (
-              <li key={commander.slug}>
-                <SearchResultCard>
-                  {commander.imageUri ? (
-                    <CardImage src={commander.imageUri} alt="" variant="thumbnail" />
-                  ) : (
-                    <CardFacePlaceholder />
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <Link
-                      href={`/commanders/${commander.slug}`}
-                      className="font-medium hover:underline"
-                    >
-                      {commander.name}
-                    </Link>
-                    <p className="text-sm text-muted-foreground">
-                      {commander.typeLine ?? "Commander"}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {commander.rank != null ? `Rank #${commander.rank}` : "Commander"}
-                    </p>
-                  </div>
-                </SearchResultCard>
-              </li>
-            ))}
-          </ResultSection>
-
           <ResultSection title="Cards" count={results.cards.length}>
             {results.cards.map((card) => (
               <li key={card.slug ?? card.name}>
@@ -180,7 +149,7 @@ export default function SearchPage() {
                     <p className="text-sm text-muted-foreground">{card.typeLine}</p>
                     <p className="text-xs text-muted-foreground">
                       CMC {card.cmc}
-                      {card.isCommander ? " · Commander" : ""}
+                      {card.isCommander ? " · Legal commander" : ""}
                     </p>
                   </div>
                 </SearchResultCard>

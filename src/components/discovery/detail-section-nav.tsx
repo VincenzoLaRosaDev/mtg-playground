@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 
 import type { DetailSectionNavItem } from "@/lib/ui/detail-section-nav";
-import { DETAIL_SECTION_UNIQUE_NAV_CLASS } from "@/lib/ui/detail-section-nav";
 
 type DetailSectionNavProps = {
   items: DetailSectionNavItem[];
@@ -67,7 +66,7 @@ export function DetailSectionNav({ items }: DetailSectionNavProps) {
                 onClick={() => setActiveId(item.id)}
                 className={`${linkBaseClassName} ${
                   isActive ? linkActiveClassName : linkInactiveClassName
-                } ${item.uniqueToView ? DETAIL_SECTION_UNIQUE_NAV_CLASS : ""}`}
+                }`}
               >
                 {item.label}
               </a>

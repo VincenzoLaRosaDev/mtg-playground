@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 
-export const SITE_NAME = "EDHForge";
+export const SITE_NAME = "MTGPlayground";
 
 const DEFAULT_DESCRIPTION =
-  "Commander deck discovery and tools — browse cards, commanders, and sets with EDHREC meta from your local cache.";
+  "Magic: The Gathering catalog, collection, and multi-format decks — browse cards and sets from Scryfall.";
 
 export function getSiteUrl(): string {
   const configured = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "");
@@ -61,7 +61,7 @@ export function createPageMetadata({
 export const rootMetadata: Metadata = {
   metadataBase: new URL(getSiteUrl()),
   title: {
-    default: `${SITE_NAME} — Commander deck tools`,
+    default: `${SITE_NAME} — MTG catalog & decks`,
     template: `%s | ${SITE_NAME}`,
   },
   description: DEFAULT_DESCRIPTION,

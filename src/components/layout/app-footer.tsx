@@ -12,13 +12,6 @@ export function AppFooter() {
           >
             Scryfall
           </a>
-          . Meta data from{" "}
-          <a
-            href="https://edhrec.com"
-            className="font-medium text-foreground/80 underline-offset-4 hover:text-primary hover:underline"
-          >
-            EDHREC
-          </a>
           . Not affiliated with Wizards of the Coast.
         </p>
       </div>

@@ -3,7 +3,11 @@ import { createInterface } from "node:readline";
 import { Readable } from "node:stream";
 import { config } from "dotenv";
 
-import { SyncSource, SyncStatus } from "../../src/generated/prisma/client";
+import {
+  Prisma,
+  SyncSource,
+  SyncStatus,
+} from "../../src/generated/prisma/client";
 import type { PrismaClient } from "../../src/generated/prisma/client";
 import {
   fetchBulkMetadata,
@@ -17,9 +21,11 @@ import {
   getImageUri,
   isCommanderLegal,
   normalizeSearchName,
-  toEdhrecSlug,
+  toCardSlug,
 } from "../../src/lib/scryfall/card-utils";
+import { mapScryfallFaces } from "../../src/lib/scryfall/faces";
 import { shouldIndexScryfallCard } from "../../src/lib/scryfall/catalog-filters";
+import { computeFrictionScore } from "../../src/lib/classification/friction";
 
 // Must run before importing db.ts (that module reads DATABASE_URL at load time)
 config({ path: ".env.local" });
@@ -55,15 +61,30 @@ async function getLastSuccessfulBulkUpdatedAt(
   return typeof bulkUpdatedAt === "string" ? bulkUpdatedAt : null;
 }
 
+function faceStat(
+  card: ScryfallCard,
+  key: "power" | "toughness" | "loyalty" | "mana_cost",
+): string | null {
+  const top = card[key];
+  if (typeof top === "string" && top.length > 0) {
+    return top;
+  }
+  const face = card.card_faces?.[0];
+  const faceValue = face?.[key];
+  return typeof faceValue === "string" && faceValue.length > 0 ? faceValue : null;
+}
+
 function mapCard(card: ScryfallCard) {
+  const isGameChanger = Boolean(card.game_changer);
   return {
     id: card.id,
     oracleId: card.oracle_id,
     name: card.name,
     searchName: normalizeSearchName(card.name),
-    edhrecSlug: toEdhrecSlug(card.name),
+    slug: toCardSlug(card.name),
     typeLine: card.type_line,
     cmc: getCmc(card),
+    manaCost: faceStat(card, "mana_cost"),
     colors: card.colors ?? [],
     colorIdentity: card.color_identity ?? [],
     oracleText: card.oracle_text ?? null,
@@ -71,8 +92,17 @@ function mapCard(card: ScryfallCard) {
     producedMana: card.produced_mana ?? [],
     layout: card.layout,
     imageUri: getImageUri(card),
+    faces: mapScryfallFaces(card) ?? Prisma.JsonNull,
     legalities: card.legalities,
     prices: card.prices ?? undefined,
+    power: faceStat(card, "power"),
+    toughness: faceStat(card, "toughness"),
+    loyalty: faceStat(card, "loyalty"),
+    popularityRank: card.edhrec_rank ?? null,
+    isGameChanger,
+    isReserved: Boolean(card.reserved),
+    // Tag-based +1 applied later by classifications job; GC contributes here.
+    frictionScore: computeFrictionScore({ isGameChanger, tagSlugs: [] }),
     isCommander: isCommanderLegal(card),
     syncedAt: new Date(),
   };
@@ -82,15 +112,25 @@ async function upsertBatch(
   prisma: PrismaClient,
   cards: ReturnType<typeof mapCard>[],
 ) {
+  // Dedupe by oracleId within the batch (last wins) — oracle_cards is 1:1 but
+  // Scryfall may rotate the representative scryfall id for an oracle.
+  const byOracle = new Map(cards.map((card) => [card.oracleId, card]));
+  const uniqueCards = [...byOracle.values()];
+
   await prisma.$transaction(
-    cards.map((card) =>
-      prisma.card.upsert({
-        where: { id: card.id },
-        create: card,
-        update: card,
-      }),
-    ),
-    { timeout: 60_000 },
+    async (tx) => {
+      for (const card of uniqueCards) {
+        const { id, oracleId, ...updateFields } = card;
+        await tx.card.upsert({
+          where: { oracleId },
+          create: card,
+          // Keep existing PK when Scryfall changes the representative printing id.
+          update: updateFields,
+          select: { id: true },
+        });
+      }
+    },
+    { timeout: 120_000 },
   );
 }
 
@@ -200,7 +240,10 @@ async function main() {
       throw new Error(`Download failed: ${response.status}`);
     }
 
-    const { processed, skipped, excluded } = await processBulkStream(prisma, response.body);
+    const { processed, skipped, excluded } = await processBulkStream(
+      prisma,
+      response.body,
+    );
     const purged = await prisma.card.deleteMany({
       where: { layout: "art_series" },
     });

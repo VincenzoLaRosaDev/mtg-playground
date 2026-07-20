@@ -20,7 +20,7 @@ const DEBOUNCE_MS = 250;
 const DROPDOWN_LIMIT = 5;
 
 function hasResults(data: GlobalSearchResponse): boolean {
-  return data.cards.length > 0 || data.commanders.length > 0 || data.sets.length > 0;
+  return data.cards.length > 0 || data.sets.length > 0;
 }
 
 function SearchSection({
@@ -156,7 +156,7 @@ export function GlobalSearch() {
     <div ref={containerRef} className="relative w-full">
       <form onSubmit={handleSubmit} role="search">
         <label htmlFor="global-search" className="sr-only">
-          Search cards, commanders, and sets
+          Search cards and sets
         </label>
         <div className="relative">
           <Search
@@ -173,7 +173,7 @@ export function GlobalSearch() {
                 setOpen(true);
               }
             }}
-            placeholder="Search cards, commanders, sets..."
+            placeholder="Search cards and sets..."
             autoComplete="off"
             role="combobox"
             aria-expanded={showDropdown}
@@ -202,35 +202,6 @@ export function GlobalSearch() {
 
           {!loading && results && hasResults(results) && (
             <>
-              {results.commanders.length > 0 && (
-                <SearchSection title="Commanders">
-                  {results.commanders.map((commander) => (
-                    <SearchResultLink
-                      key={commander.slug}
-                      href={`/commanders/${commander.slug}`}
-                      onSelect={handleSelect}
-                    >
-                      {commander.imageUri ? (
-                        <CardImage
-                          src={commander.imageUri}
-                          alt=""
-                          variant="thumbnail"
-                        />
-                      ) : (
-                        <CardFacePlaceholder />
-                      )}
-                      <span className="min-w-0">
-                        <span className="block truncate font-medium">{commander.name}</span>
-                        <span className="block truncate text-xs text-muted-foreground">
-                          {commander.rank != null ? `Rank #${commander.rank}` : "Commander"}
-                          {commander.typeLine ? ` · ${commander.typeLine}` : ""}
-                        </span>
-                      </span>
-                    </SearchResultLink>
-                  ))}
-                </SearchSection>
-              )}
-
               {results.cards.length > 0 && (
                 <SearchSection title="Cards">
                   {results.cards.map((card) => {
@@ -262,7 +233,7 @@ export function GlobalSearch() {
                           <span className="block truncate font-medium">{card.name}</span>
                           <span className="block truncate text-xs text-muted-foreground">
                             {card.typeLine}
-                            {card.isCommander ? " · Commander" : ""}
+                            {card.isCommander ? " · Legal commander" : ""}
                           </span>
                         </span>
                       </SearchResultLink>

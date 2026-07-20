@@ -7,7 +7,7 @@ import type { ScryfallSet, ScryfallSetList } from "../../src/lib/scryfall/types"
 config({ path: ".env.local" });
 config({ path: ".env" });
 
-const USER_AGENT = "EDHForge/1.0";
+const USER_AGENT = "MTGPlayground/1.0";
 const SKIP_SET_TYPES = new Set(["token", "memorabilia"]);
 
 function mapSet(set: ScryfallSet) {
@@ -69,6 +69,7 @@ async function main() {
         where: { code: set.code },
         create: mapSet(set),
         update: mapSet(set),
+        select: { code: true },
       });
       processed += 1;
       process.stdout.write(`\rSynced ${processed}/${eligible.length} sets...`);

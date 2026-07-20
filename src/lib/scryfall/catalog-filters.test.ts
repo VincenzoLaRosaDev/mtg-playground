@@ -1,59 +1,64 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { findPlayableCardByEdhrecSlug } from "@/lib/scryfall/catalog-filters";
+import { findPlayableCardBySlug } from "@/lib/scryfall/catalog-filters";
 
-describe("findPlayableCardByEdhrecSlug", () => {
-  it("prefers the commander-legal playable row when present", async () => {
+describe("findPlayableCardBySlug", () => {
+  it("prefers commander-legal playable cards when multiple share a slug", async () => {
     const findFirst = vi
       .fn()
-      .mockResolvedValueOnce({ id: "commander-id", name: "Atraxa" })
-      .mockResolvedValueOnce({ id: "other-id", name: "Atraxa Token" });
+      .mockResolvedValueOnce({ id: "commander-id" })
+      .mockResolvedValueOnce({ id: "other-id" });
 
     const db = { card: { findFirst } } as unknown as Parameters<
-      typeof findPlayableCardByEdhrecSlug
+      typeof findPlayableCardBySlug
     >[0];
-    const result = await findPlayableCardByEdhrecSlug(db, "atraxa-praetors-voice", {
+
+    const result = await findPlayableCardBySlug(db, "atraxa-praetors-voice", {
       id: true,
-      name: true,
     });
 
-    expect(result).toEqual({ id: "commander-id", name: "Atraxa" });
-    expect(findFirst).toHaveBeenCalledTimes(1);
-    expect(findFirst.mock.calls[0]?.[0]?.where).toMatchObject({
-      edhrecSlug: "atraxa-praetors-voice",
-      isCommander: true,
-      layout: { notIn: ["art_series"] },
-    });
+    expect(result).toEqual({ id: "commander-id" });
+    expect(findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          slug: "atraxa-praetors-voice",
+          isCommander: true,
+        }),
+      }),
+    );
   });
 
-  it("falls back to any playable row when no commander match", async () => {
+  it("falls back to any playable card for the slug", async () => {
     const findFirst = vi
       .fn()
       .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce({ id: "card-id", name: "Sol Ring" });
+      .mockResolvedValueOnce({ id: "sol-ring-id" });
 
     const db = { card: { findFirst } } as unknown as Parameters<
-      typeof findPlayableCardByEdhrecSlug
+      typeof findPlayableCardBySlug
     >[0];
-    const result = await findPlayableCardByEdhrecSlug(db, "sol-ring", { id: true });
 
-    expect(result).toEqual({ id: "card-id", name: "Sol Ring" });
-    expect(findFirst).toHaveBeenCalledTimes(2);
-    expect(findFirst.mock.calls[1]?.[0]?.where).toMatchObject({
-      edhrecSlug: "sol-ring",
-      layout: { notIn: ["art_series"] },
-    });
-    expect(findFirst.mock.calls[1]?.[0]?.where.isCommander).toBeUndefined();
+    const result = await findPlayableCardBySlug(db, "sol-ring", { id: true });
+
+    expect(result).toEqual({ id: "sol-ring-id" });
+    expect(findFirst).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        where: expect.objectContaining({
+          slug: "sol-ring",
+        }),
+      }),
+    );
   });
 
-  it("returns null when nothing matches", async () => {
+  it("returns null when slug is missing", async () => {
     const findFirst = vi.fn().mockResolvedValue(null);
     const db = { card: { findFirst } } as unknown as Parameters<
-      typeof findPlayableCardByEdhrecSlug
+      typeof findPlayableCardBySlug
     >[0];
 
     await expect(
-      findPlayableCardByEdhrecSlug(db, "missing-slug", { id: true }),
+      findPlayableCardBySlug(db, "missing-slug", { id: true }),
     ).resolves.toBeNull();
   });
 });

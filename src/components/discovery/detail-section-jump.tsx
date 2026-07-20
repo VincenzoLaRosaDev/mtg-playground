@@ -12,7 +12,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import type { DetailSectionNavItem } from "@/lib/ui/detail-section-nav";
-import { DETAIL_SECTION_UNIQUE_NAV_CLASS } from "@/lib/ui/detail-section-nav";
 import { DETAIL_SECTION_JUMP_STICKY_CLASS } from "@/lib/ui/layout";
 import { cn } from "@/lib/utils";
 
@@ -91,7 +90,6 @@ export function DetailSectionJump({ items }: DetailSectionJumpProps) {
                   className={cn(
                     "cursor-pointer",
                     isActive && "bg-accent font-medium text-foreground",
-                    item.uniqueToView && DETAIL_SECTION_UNIQUE_NAV_CLASS,
                   )}
                 >
                   {item.label}

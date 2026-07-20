@@ -9,10 +9,10 @@ export function normalizeSearchName(name: string): string {
 }
 
 /**
- * EDHREC slug heuristic — validated against API during EDHREC sync.
+ * URL slug for card/commander routes.
  * NFKD accent strip; apostrophes removed (Gorion's → gorions, O'Maul → omaul).
  */
-export function toEdhrecSlug(name: string): string {
+export function toCardSlug(name: string): string {
   const primary = name.split("//")[0]?.trim() ?? name;
 
   return primary

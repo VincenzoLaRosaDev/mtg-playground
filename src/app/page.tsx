@@ -6,35 +6,29 @@ import { siteContainerClassName } from "@/lib/ui/layout";
 import { cn } from "@/lib/utils";
 
 export const metadata = createPageMetadata({
-  title: "Commander deck tools",
+  title: "MTG catalog & decks",
   description:
-    "Discover Commander staples and top commanders, analyze decks, and compare against EDHREC meta.",
+    "Browse Magic cards and sets from Scryfall, track your collection, and build multi-format decks.",
   path: "/",
 });
 
 const DISCOVERY_SHORTCUTS = [
   {
-    href: "/cards",
-    title: "Top cards",
-    description: "Commander staples ranked by EDHREC inclusion and popularity.",
+    href: "/browse?entity=cards",
+    title: "Browse cards",
+    description: "Faceted Scryfall catalog with Inclusion rank, roles, and price bands.",
     emphasis: "primary" as const,
-  },
-  {
-    href: "/commanders",
-    title: "Top commanders",
-    description: "Browse commanders by rank, deck count, and color identity.",
-    emphasis: "primary" as const,
-  },
-  {
-    href: "/catalog",
-    title: "Catalog",
-    description: "Browse the full Commander card catalog with filters.",
-    emphasis: "secondary" as const,
   },
   {
     href: "/sets",
     title: "Sets",
-    description: "Explore Magic sets and open Commander-legal printings.",
+    description: "Explore Magic sets and open card printings.",
+    emphasis: "primary" as const,
+  },
+  {
+    href: "/browse?entity=commanders",
+    title: "Legal commanders",
+    description: "Filter legendary cards that can be commanders — not a meta ranking.",
     emphasis: "secondary" as const,
   },
   {
@@ -48,11 +42,11 @@ const DISCOVERY_SHORTCUTS = [
 export default function Home() {
   return (
     <div className={`${siteContainerClassName} flex flex-col justify-center py-16 lg:py-20`}>
-      <p className="text-sm font-medium tracking-wide text-primary">Commander discovery</p>
-      <h1 className="mt-2 font-heading text-4xl font-bold tracking-tight">EDHForge</h1>
+      <p className="text-sm font-medium tracking-wide text-primary">Catalog & decks</p>
+      <h1 className="mt-2 font-heading text-4xl font-bold tracking-tight">MTGPlayground</h1>
       <p className="mt-4 max-w-2xl text-lg text-muted-foreground">
-        Discover Commander staples and top commanders from cached EDHREC data, then analyze decks
-        and compare against the meta.
+        Browse Magic cards from Scryfall, manage printings in your collection, and build decks across
+        formats as the platform grows.
       </p>
 
       <div className="mt-10 grid gap-4 sm:grid-cols-2">

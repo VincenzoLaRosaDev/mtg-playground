@@ -7,6 +7,7 @@ import {
   classifyFromOverride,
   hasClassification,
 } from "../../src/lib/classification/compute";
+import { computeFrictionScore } from "../../src/lib/classification/friction";
 import { loadCardOverrides } from "../../src/lib/classification/overrides";
 
 config({ path: ".env.local" });
@@ -113,17 +114,51 @@ async function main() {
       await prisma.cardClassification.createMany({ data: batch });
     }
 
+    console.log("Updating friction scores...");
+    // Reset to GC-only baseline, then add tag friction for tagged cards.
+    await prisma.$executeRaw`
+      UPDATE cards
+      SET friction_score = CASE WHEN is_game_changer THEN 2 ELSE 0 END
+    `;
+
+    const cards = await prisma.card.findMany({
+      select: { id: true, oracleId: true, isGameChanger: true },
+    });
+    let frictionUpdated = 0;
+    for (let i = 0; i < cards.length; i += UPSERT_BATCH) {
+      const batch = cards.slice(i, i + UPSERT_BATCH);
+      await Promise.all(
+        batch.map(async (card) => {
+          const tagSlugs = tagSlugsByOracleId.get(card.oracleId) ?? [];
+          const score = computeFrictionScore({
+            isGameChanger: card.isGameChanger,
+            tagSlugs,
+          });
+          // Skip no-op when score matches GC-only baseline already applied.
+          const baseline = card.isGameChanger ? 2 : 0;
+          if (score === baseline) return;
+          await prisma.card.update({
+            where: { id: card.id },
+            data: { frictionScore: score },
+          });
+          frictionUpdated += 1;
+        }),
+      );
+    }
+
     await prisma.syncLog.update({
       where: { id: syncLog.id },
       data: {
         status: SyncStatus.SUCCESS,
         completedAt: new Date(),
         recordsProcessed: toUpsert.length,
-        errors: { overrideCount, tagCount },
+        errors: { overrideCount, tagCount, frictionUpdated },
       },
     });
 
-    console.log(`Done. ${toUpsert.length} card classifications stored.`);
+    console.log(
+      `Done. ${toUpsert.length} classifications; ${frictionUpdated} friction scores above GC baseline.`,
+    );
   } catch (error) {
     await prisma.syncLog.update({
       where: { id: syncLog.id },

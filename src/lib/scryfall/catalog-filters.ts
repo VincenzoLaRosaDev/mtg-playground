@@ -15,7 +15,7 @@ export function shouldIndexScryfallCard(card: Pick<ScryfallCard, "layout">): boo
   return !isExcludedCatalogLayout(card.layout);
 }
 
-/** Prisma filter for user-facing card queries and EDHREC card resolution. */
+/** Prisma filter for user-facing card queries. */
 export const playableCatalogCardWhere: Prisma.CardWhereInput = {
   layout: { notIn: [...EXCLUDED_CATALOG_LAYOUTS] },
 };
@@ -23,16 +23,16 @@ export const playableCatalogCardWhere: Prisma.CardWhereInput = {
 type CardLookupClient = Pick<PrismaClient, "card">;
 
 /**
- * Resolve slug → playable catalog row when multiple oracle cards share an EDHREC slug
+ * Resolve slug → playable catalog row when multiple oracle cards share a slug
  * (e.g. before art_series purge, or generic token names).
  */
-export async function findPlayableCardByEdhrecSlug<T extends Prisma.CardSelect>(
+export async function findPlayableCardBySlug<T extends Prisma.CardSelect>(
   db: CardLookupClient,
   slug: string,
   select: T,
 ): Promise<Prisma.CardGetPayload<{ select: T }> | null> {
   const baseWhere: Prisma.CardWhereInput = {
-    edhrecSlug: slug,
+    slug,
     ...playableCatalogCardWhere,
   };
 
@@ -57,6 +57,6 @@ export async function resolvePlayableCardId(
   db: CardLookupClient,
   slug: string,
 ): Promise<string | null> {
-  const card = await findPlayableCardByEdhrecSlug(db, slug, { id: true });
+  const card = await findPlayableCardBySlug(db, slug, { id: true });
   return card?.id ?? null;
 }

@@ -1,353 +1,151 @@
-# EDHForge — Product Specification
+# MTGPlayground — Product Specification
 
-> Last updated: 2026-07-14 · Phase 1.6 complete → Phase 2 (deck builder)
+> Last updated: 2026-07-20 · **Pivot** from EDHForge commander-center → catalog + collection + multi-format decks  
+> Package/UI: MTGPlayground · local folder / GitHub may still be `edhforge` until rename ops.
 
 ## Vision
 
-Commander-first platform combining:
+**MTGPlayground** is an Archidekt-like Magic platform:
 
-1. **Discovery** (EDHREC-like) — search cards, commanders, sets, precons; card/commander pages with synergies, staples, salt
-2. **Tools** — live deck editor, deep analysis, meta comparison vs EDHREC
-3. **Community** — publish immutable deck snapshots, multi-axis ratings, weekly rankings
+1. **Catalog** — Scryfall-backed cards, sets, and precons; **printing-first** (set, art, foil) with multiface support
+2. **Collection** — personal inventory at **printing level** (qty + finish)
+3. **Decks** — multi-format builder with legality, owned/missing vs collection
+4. **Community** — publish immutable deck snapshots, multi-axis ratings, rankings (platform corpus only; multi-format)
 
-**Competitive angle:** richer analysis + community on top of the same data sources EDHREC uses, with a proper deck editor.
+**Not in scope as a product promise:** scraped EDHREC/Moxfield/Archidekt meta, “as commander” popularity from third parties, or pretending Scryfall `edhrec_rank` is commander-choice rank.
+
+**Competitive angle:** honest catalog + ownership (collection) + multi-format deck tools on data you can legally cache (Scryfall + MTGJSON + user data).
 
 ## Constraints (MVP)
 
 | Constraint | Value |
 |---|---|
-| Format | Commander only |
+| Brand | MTGPlayground (EN UI) |
+| Formats (decks) | Multi-format constructed (Commander, Standard, Modern, … as legality data allows) |
 | Language | English (UI, DB, enums) |
-| Commander rules | Single commander + simple Partner; Background/Doctor/Companion → V2 |
-| Comments | Not in MVP → V2 |
-| Follow users | Not in MVP → V2 |
-| Sideboard | Optional in parser; Commander decks have no sideboard |
-| Premium tier | Designed for V2; free tier limits apply in MVP |
+| Data sources | Scryfall (oracle + printings), MTGJSON (precons); **no** EDHREC/meta scrape |
+| Card model | **Printing-first** site-wide; oracle for identity/legalities/analysis |
+| Collection grain | Printing-level (set + collector # + finish) |
+| Multiface | First-class (DFC/MDFC/transform/split/…); one printing = one physical card |
+| Card detail | **Single** oracle detail page + version picker (no Card \| Commander dual views) |
+| Comments / follow | Not in MVP → later |
+| Premium tier | Designed later; free tier limits apply in MVP |
+| Card data paywall | Forbidden (Scryfall Fan Content Policy) |
 
 ## Core entities
+
+### Oracle vs Printing
+
+- **OracleCard** — identity: name, oracle text, color identity, legalities, keywords, classifications (roles/themes), friction/GC flags, popularity *inclusion* rank
+- **Printing** — concrete version: set, collector number, rarity, images (incl. faces), finishes available, prices; Scryfall printing id
+- **CollectionItem** — user + printing + finish + quantity (+ optional wantlist flag)
+- **Deck / DeckCard** — format + list by **oracle** (legality); optional preferred printing for display; owned qty = sum of collection printings for that oracle
 
 ### Deck (private workspace)
 
 - Editable, unlimited revisions
 - Owner only
-- Import: Arena paste, manual editor, fork, precon (Phase 5)
-- Fields: name, description, commander, main deck, strategic_intent, archetype tags (taxonomy + free), power_level_declared (1–10), budget_estimate, brewer_notes
+- Format field (Commander, Standard, …)
+- Import: Arena paste, manual editor, fork, precon
+- Commander/Partner fields when format requires them
 
 ### DeckPublication (public snapshot)
 
-- **Immutable** after publish — votes/comments attach here
-- To change: edit private Deck → new Publication; optionally retire/delete old
-- Fields: title, public_description, publish_tag (OPTIMIZED | BUDGET), snapshot of decklist + metadata + computed salt/themes
-- Retire = hidden completely; hard delete cascades votes
+- Immutable after publish — votes attach here
+- Multi-format; tags refined beyond Commander-only (e.g. Optimized, Budget, + format-aware tags later)
+- Snapshot of decklist + metadata
 
 ### Relationships
 
 ```
+User 1──* CollectionItem ──* Printing ──* OracleCard
 User 1──* Deck
+Deck *──* DeckCard ──* OracleCard  (optional preferred Printing)
 User 1──* DeckPublication
-Deck 1──* DeckPublication   (same workspace, multiple publishes over time)
-DeckPublication *──* Card   (via PublicationCard, frozen)
-Deck *──* Card              (via DeckCard, editable)
+Deck 1──* DeckPublication
 PublicationRating: 1 per user per publication (power, budget, originality 1–10)
 ```
 
-### User limits (MVP)
+### User limits (MVP — provisional)
 
 | Resource | Limit |
 |---|---|
 | Private decks | 50 |
+| Collection distinct printings | TBD (high; e.g. 10k+) |
 | Active publications | 20 |
 | Total publications (incl. retired) | 100 |
-| Cards per decklist | 250 hard cap |
+| Cards per decklist | format-aware soft rules + hard cap (e.g. 250) |
 
 ## Feature list
 
-### MVP
+### MVP (post-pivot order)
 
-**Discovery (public, no login)**
+**Catalog (public)**
 
-- **Global search** (navbar): cards + commanders (+ sets in results); dedupe by `edhrec_slug`
-- **Browse** with default lists, sort, filters, and pagination (not search-only empty states)
-- **Card page** (`/cards/{slug}`): oracle canonical; commander meta via tab when applicable
-- **Commander page** (`/commanders/{slug}`): parallel route; cross-link to card view
-- **Set page**: card list with filters; links to card detail preserve set printing context (`?set=`)
-- Card page sections: oracle, EDHREC (top commanders, synergy when built), relatives by subtype
-- Commander page sections: rank, salt, themes, top cards, similar commanders
+- Search + browse cards (facets); sets; precons (when MTGJSON lands)
+- Card detail: oracle hub + **version picker** (set/art/foil) + multiface toggle
+- Popularity shown only as Scryfall **Inclusion** rank (honest copy), not commander popularity; commanders hub is a legality filter (name-first)
+- Deprecated: dual `/commanders/[slug]` meta detail as a product surface (redirect/merge into card detail)
 
-See [Discovery consistency (Phase 1.5)](#discovery-consistency-phase-15) for browse/search/detail behaviour.
+**Collection (auth)**
 
-**Deck workspace (auth required to save)**
+- Add/remove printings; qty; finish
+- Import (CSV / paste — printing resolution UX)
+- Owned vs wantlist
 
-- Live editor with Scryfall autocomplete (local DB, no live API)
-- Arena paste import with merge-duplicates warning + partial import error report
-- Legality engine: 100 singleton, ban list, color identity, commander + Partner
-- Fork from own or others' publications
+**Decks (auth to save)**
 
-**Analysis (registered; guest gets subset)**
+- Multi-format editor + legality
+- Owned / missing vs collection (oracle aggregation)
+- Arena paste import
+- Insights from classifications (roles, GC, friction, relations) **inside builder**, not as a second detail mode
 
-| Feature | Guest | Registered |
-|---|---|---|
-| Mana curve, types, land analysis | ✅ | ✅ |
-| Color pip / production | ✅ | ✅ |
-| Functional counts (removal, ramp, draw, etc.) | ❌ | ✅ |
-| Contextual judgment vs EDHREC | ❌ | ✅ |
-| Synergies (14 themes, card + deck level) | ❌ | ✅ |
-| Commander coherence alerts | ❌ | ✅ |
-| Meta Comparison section | ❌ | ✅ |
-| Save deck | ❌ | ✅ |
+**Community (after collection + decks work)**
 
-**Meta comparison (registered)** — vs EDHREC profile for selected commander:
+- Publish immutable snapshots
+- Multi-axis ratings; rankings (global / per format / per commander-or-archetype as applicable)
+- Public profiles
 
-Priority order: (a) mana curve, (c) functional roles, (b) staples missing, (e) commander popularity, (d) theme overlap. No win rate in MVP.
+### Later
 
-**Community (auth required)**
+- Comments, follow, notifications
+- Deeper analysis vs precon / own corpus
+- URL import from other builders **only** with ToS-safe methods or partnerships
+- Premium limits
+- Repo/GitHub folder rename `edhforge` → `mtgplayground` (package/UI done in 2.0.2)
 
-- Auth: email/password + Google + Discord
-- Publish → immutable snapshot
-- Tags: Optimized, Budget
-- Rating: Power, Budget, Originality (1–10 each); 1 vote/user/publication
-- Show brewer self-declared power vs community average
-- Rankings: global, per commander, per theme — weekly (rolling 7d) + all-time
-- Ranking sort: bayesian average, min 3 votes to enter
-- Public profile: username, display_name, avatar, bio, publications
-- Report content (minimal moderation)
-- Salt score on publications (from EDHREC card salt, averaged)
+## Discovery note (Phase 1.x legacy)
 
-### V2
+Phases 1–1.8 built an EDHForge commander-oriented discovery UI (including `/browse` Cards\|Commanders). Dual Card\|Commander detail was removed in Phase **2.0.4** (`/commanders/{slug}` → `/cards/{slug}`). Browse commanders remains a legality filter only.
 
-- Comments on publications
-- Follow users + notifications
-- Publish tags: Precon Upgrade, Themed/Flavor, CEDH
-- Gap analysis (enabler/payoff imbalance)
-- Export report (PDF/image/link)
-- URL import (Moxfield/Archidekt)
-- Premium tier (billing + higher limits)
-- Commander: Background, Doctor, Companion
-- ML: clustering for archetype inference; supervised ratings prediction
-- Other formats (if product expands)
+Historical sections below (1.5 / 1.6 / 1.8) remain for archive; they do **not** define the current end-state.
 
-### Nice-to-have
+---
 
-- UI translations, LLM deck descriptions, deck diff, API pubblica, similar commanders page
-- **Card Printings tab** on detail page — all reprints/arts per oracle (see [Printing context](#printing-context-set--future-printings-tab))
+## Discovery Scryfall (Phase 1.8) — archive
 
-## Discovery consistency (Phase 1.5)
+> **Superseded as product end-state by MTGPlayground pivot (2026-07-20).** Technical enrichment (popularity_rank, GC, friction, relations) remains useful on oracle cards.
 
-**Goal:** One coherent mental model before visual polish. Oracle card is the canonical entity; EDHREC meta and set printings attach to it.
+### Browse hub (`/browse`) — legacy
 
-### Canonical identity
+- Toggle Cards \| Commanders; Popularity = Scryfall inclusion rank
+- Facets: CI, CMC, type, Role, Theme, GC, Reserved, price band
 
-| Concept | Key | Canonical URL |
-|---|---|---|
-| Oracle card | `cards.edhrec_slug` (or `oracle_id` internally) | `/cards/{slug}` |
-| Commander meta | same slug when card is a commander | `/commanders/{slug}` **parallel** |
-| Set printing | `set_cards` row (oracle + set + collector #) | context via `?set={code}` on card URL |
+### Naming
 
-**Catalog scope:** Scryfall `art_series` layouts are **excluded** (not playable; caused slug collisions). All browse/search/detail uses playable catalog rows only.
-
-**Slug rule:** one name → one `edhrec_slug` on the oracle row. Commander and card share the slug when the card is commander-legal. When multiple oracle rows share a slug, resolution prefers the commander-legal playable card.
-
-### Global search (navbar)
-
-Primary entry point for “find a card/commander”.
-
-- **Scope:** unified — cards (catalog), commanders (EDHREC profile + catalog fallback), sets (name/code)
-- **Results:** grouped (Cards / Commanders / Sets); dedupe card vs commander when same slug
-- **Destination:** card result → `/cards/{slug}`; commander result → `/commanders/{slug}` or `/cards/{slug}?view=commander` (implementation choice; both routes stay valid)
-- **Route:** `/search?q=` and/or header combobox; section browse pages keep local filters but are not the only search UX
-
-### Cards browse (`/cards`)
-
-**Not search-only.** Default content on load. **Primary tab data source updated in Phase 1.6** (`edhrec_top_entries`); table below reflects Phase 1.5 baseline.
-
-| Tab | Data source | Default sort | Notes |
-|---|---|---|---|
-| **Popular** | `edhrec_card_data` (HOT + WARM) | `inclusion` or `num_decks` desc | → **Most played** + top index in 1.6 |
-| **All cards** | `cards` (commander-legal filter optional) | name asc | Full catalog |
-
-**Shared:** pagination (cursor), sort options, filters (color, CMC band, type contains, commander-legal, has EDHREC data). Search within browse narrows current tab or uses global search.
-
-### Commanders browse (`/commanders`)
-
-**Primary tab data source updated in Phase 1.6** (`edhrec_top_entries`).
-
-| Tab | Data source | Default sort | Notes |
-|---|---|---|---|
-| **Ranked** | `edhrec_commander_profiles` where `rank IS NOT NULL` | `rank` asc | → **Top commanders** + top index in 1.6 |
-| **All commanders** | Union: EDHREC profiles + catalog `cards.is_commander` | `num_decks` desc, then name | Every catalog commander listed |
-
-Search: EDHREC names first; **All** tab always includes full catalog with badges (not hidden until synced).
-
-### Sets browse (`/sets`)
-
-- **Default:** all sets, `releasedAt` desc
-- **Pagination:** required (~733 sets; today capped at 60)
-- **Sort:** release date, name, card count
-- **Filters:** set type (commander, expansion, masters, …), digital yes/no, indexed only (has `set_cards`)
-
-Set detail (`/sets/{code}`) unchanged in spirit; improve pagination on card list if &gt;500.
-
-### Pagination pattern (all browse APIs)
-
-- Request: `limit` (default 50, max 100), `cursor`, `sort`, `order`, filters
-- Response: `{ items, total, nextCursor }`
-- UI: **Load more** button (MVP); infinite scroll optional later
-
-### Detail pages — parallel routes + unified content
-
-**`/cards/{slug}`** — always renders oracle card (Scryfall). Never `notFound` if card exists in catalog.
-
-| Section | Source |
+| UI term | Meaning |
 |---|---|
-| Image, type, oracle, keywords | `cards` |
-| EDHREC salt, top commanders | `edhrec_card_data` via cache (empty state if missing) |
-| Relatives by subtype | `cards` local query |
-| **Commander tab** (if `is_commander` and EDHREC profile exists) | same sections as commander page: rank, salt, themes, top cards, similar |
+| **Popularity** | Scryfall `edhrec_rank` — Commander **deck inclusion**, not “as commander” |
+| **Friction** | 0–3: +2 GC, +1 stax-family otag |
 
-**`/commanders/{slug}`** — kept as **parallel route** (SEO + EDHREC-like URLs). Same underlying data; prominent link “View as card”. If no EDHREC profile but card exists in catalog → show card shell + banner (no hard 404).
+### Detail pack (D2) — legacy commander page
 
-**Cross-links:** both pages link to each other when slug is shared.
+Role staples / GC in CI / build skeleton / dual Card\|Commander tabs → **retire**; reuse insights in deck builder later.
 
-### Printing context (`?set=`)
+---
 
-**Problem:** `cards.imageUri` is default oracle printing; set list shows correct art in `set_cards.imageUri`.
+## Discovery consistency (Phase 1.5) — archive
 
-**MVP (Phase 1.5):** Set detail links to `/cards/{slug}?set={code}`. Card detail reads `set` searchParam; if `set_cards` has row for `(slug→oracle, set)`, use that `imageUri` for hero image. Fallback: oracle image.
+> Historical EDHREC-era behaviour. Superseded by 1.7 removal + 1.8 + MTGPlayground pivot.
 
-**Future — Printings tab (documented, not Phase 1.5):** Tab on card detail listing all indexed printings (from `set_cards` or future `card_printings` table); user picks art; optional URL `/cards/{slug}/prints/{id}`. See `docs/ROADMAP.md` Phase 1.5 backlog.
-
-### Empty / partial data UX
-
-| Situation | Behaviour |
-|---|---|
-| Card in catalog, no EDHREC | Card page works; EDHREC sections show “not cached yet” |
-| Commander in catalog, no EDHREC profile | Commander route works; EDHREC sections show “not cached yet”; omitted from top browse lists |
-| EDHREC stale (detail) | `StaleCacheBanner` when on-demand refresh fails (dev hints optional) |
-| EDHREC sync stale/failed (browse) | `EdhrecSyncNotice` on `/cards` and `/commanders` when HOT or top-list sync failed or >8 days old |
-| Set not indexed | Set metadata + sync hint (unchanged) |
-
-## Discovery parity (Phase 1.6)
-
-**Goal:** EDHREC-like list density and commander/card detail behaviour while keeping **catalog-first** identity and neutral copy. **Completed 2026-07-14** — unblocks Phase 2.
-
-Decisions: `docs/DECISIONS.md` (2026-07-12, 2026-07-12 top index). UI patterns: `docs/UI.md`.
-
-### In scope
-
-- `/cards` (**Top cards**) — EDHREC top lists; **time window** `week` \| `month` \| `year` (default `year`; no all-time — EDHREC has no card top JSON)
-- `/commanders` (**Top commanders**) — EDHREC top lists + **All time** (`edhrec_commander_profiles.rank`)
-- `/catalog` — full Scryfall **`cards`** catalog (`tab=all` API); same browse filters + **Commanders only**; links commanders to `/commanders/{slug}`. Full catalog via **global search** and **sets** as well (no All tab on top pages).
-- **Top list parity** — browse primary tabs read **`edhrec_top_entries`** (synced from EDHREC top JSON), not HOT+WARM subset
-- Commander detail — all `cardlists` sections; Themes \| Kindred; **Budget + Bracket + Theme** filter bar → **`edhrec_page_variants`**
-- Card detail — similar cards, Scryfall USD prices, salt badge, synergy on top commanders; **EDHREC cardlists** (top cards, game changers, type buckets); relatives; `EntityDetailTabs` unchanged (no Theme/Budget filter bar — EDHREC `?cost=` has no effect on card JSON)
-- Similar commanders — thumbnail + rank + decks
-- `/search`, `/sets`, `/` — visual alignment
-- Production **“Popularity data unavailable”** badge when overlay missing
-
-### Out of scope (Phase 1.6)
-
-- `/themes` hub routes (inline filters on detail only)
-- Dedicated Saltiest pages/tabs
-- External deck-builder links
-- Average deck when not in cached JSON
-- Full **38k card** EDHREC catalog sweep
-- Card Printings tab (backlog)
-
-### EDHREC data layers (nothing deprecated)
-
-| Layer | Storage | Used for |
-|---|---|---|
-| **Top index** | `edhrec_top_entries` (new) | Browse Most played / Top commanders + window filter |
-| **Default profiles** | `edhrec_commander_profiles`, `edhrec_card_data` | Detail default view, All-tab joins, search, sitemap, HOT freshness |
-| **Filter variants** | `edhrec_page_variants` (new) | Detail Theme/Budget/Bracket (commander + card) |
-| **Scryfall catalog** | `cards`, `set_cards`, … | Oracle, images, prices, All tabs, legality |
-
-Sync jobs **HOT**, **commander catalog**, and **on-demand** cache remain; add **`sync:edhrec-top-lists`**. See `docs/ARCHITECTURE.md`.
-
-### Cards browse (`/cards`) — Phase 1.6
-
-| Tab | Label | Data source | Default sort |
-|---|---|---|---|
-| Primary | **Most played** | `edhrec_top_entries` where `entity_type=card` + `window` | rank asc (EDHREC order) |
-| Secondary | **All** | `cards` catalog (+ optional join `edhrec_card_data` for sort/filter) | name asc |
-
-### Commanders browse (`/commanders`) — Phase 1.6
-
-| Tab | Label | Data source | Default sort |
-|---|---|---|---|
-| Primary | **Top commanders** | `edhrec_top_entries` where `entity_type=commander` + `window` | rank asc |
-| Secondary | **All** | catalog `is_commander` + optional `edhrec_commander_profiles` | num_decks desc |
-
-### Detail filters (commander + card)
-
-On `/commanders/{slug}` and `/cards/{slug}` only (not browse):
-
-- **Theme**, **Budget**, **Bracket** (commander; bracket TBD in spike) — change stats and cardlists via **`edhrec_page_variants`**; on-demand EDHREC fetch on miss
-- **Default** view (no filters) — `edhrec_commander_profiles` / `edhrec_card_data` unchanged
-
-Browse routes remain **Postgres-only** (no live EDHREC).
-
-### Empty / partial data UX (Phase 1.6 update)
-
-| Situation | Behaviour |
-|---|---|
-| Card in catalog, no popularity row | Card page works; sections show neutral empty state |
-| Commander in catalog, no profile | Commander route + All browse: card shell + **production badge** “Popularity data unavailable” |
-| Filter variant not cached | Fetch on-demand on detail; stale banner if fetch fails |
-
-## Analysis engine
-
-### Card classification priority
-
-1. Manual overrides (~200 competitive staples)
-2. Scryfall oracle tags (Tagger project, weight ≥ median)
-3. Conservative regex on oracle text
-4. No match → unclassified (prefer empty over false positive)
-
-### Functional counts (registered)
-
-- **Removal:** hard (destroy/exile) + soft (bounce, -X/-X, fight)
-- **Ramp:** mana + land search + cost reduction
-- **Draw:** strict "draw cards" only (no scry/loot in MVP)
-- **Counterspells** and **Discard** — separate categories
-
-### 14 synergy themes (high confidence only)
-
-Sacrifice/Aristocrats, Graveyard recursion, Token generation, +1/+1 Counters, Spells matter, Discard/Madness, Life gain/Drain, Equipment/Voltron, Landfall, Artifacts matter, Blink/Flicker, Burn, Tribal (subtype — includes instant/sorcery subtypes), Mill
-
-### UI adaptivity
-
-- Deck &lt; 60% of target size → card-level synergy focus
-- Deck ≥ 60% → deck-level theme dashboard
-
-### Archetype auto-detect
-
-Jaccard similarity between deck synergy themes and EDHREC `tag_counts` for commander. User can override. Fallback: manual tag if overlap below threshold.
-
-## Import format (Arena paste)
-
-```
-About
-Name Deck Name
-
-Deck
-4 Lightning Bolt
-...
-
-Sideboard
-2 Negate
-```
-
-- Merge duplicate card lines with warning
-- Unrecognized cards → skip + report count; partial import OK
-
-## Guest flow
-
-- Paste/import at `/analyze` — basic stats only, no save, no export link
-- Signup prompt for full analysis + save
-
-## Attribution
-
-- Card data: [Scryfall](https://scryfall.com) (Fan Content Policy — no paywall on card data)
-- Meta data: [EDHREC](https://edhrec.com) — link back, cache locally, no live dependency in hot path
-- Not affiliated with Wizards of the Coast
+*(See git history / older docs for full 1.5–1.6 EDHREC parity text if needed; not repeated here to avoid conflicting product truth.)*

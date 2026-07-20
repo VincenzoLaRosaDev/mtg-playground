@@ -12,9 +12,7 @@ import {
   BrowseToolbarPillGroups,
 } from "@/components/discovery/browse-filter-controls";
 import { BrowseFilterPanel, BrowseFilterPanelRow } from "@/components/discovery/browse-filter-panel";
-import {
-  browseToolbarListGridClassName,
-} from "@/components/discovery/browse-toolbar-shared";
+import { browseToolbarListGridClassName } from "@/components/discovery/browse-toolbar-shared";
 import {
   defaultOrderForTab,
   defaultSortForTab,
@@ -22,10 +20,6 @@ import {
   type CardBrowseSort,
 } from "@/lib/browse/cards-shared";
 import { appendCatalogFilterParams } from "@/lib/browse/catalog-filter-params";
-import {
-  DEFAULT_EDHREC_CARD_TOP_WINDOW,
-  type EdhrecCardTopWindowParam,
-} from "@/lib/edhrec/top-window";
 
 export type CardBrowseToolbarState = {
   query: string;
@@ -94,9 +88,7 @@ export function CardBrowseToolbar({ state, onChange }: CardBrowseToolbarProps) {
   );
 }
 
-export function defaultCardBrowseToolbarState(
-  _window: EdhrecCardTopWindowParam = DEFAULT_EDHREC_CARD_TOP_WINDOW,
-): CardBrowseToolbarState {
+export function defaultCardBrowseToolbarState(): CardBrowseToolbarState {
   const sort = defaultSortForTab();
 
   return {
@@ -115,17 +107,14 @@ export function defaultCardBrowseToolbarState(
 export function buildCardBrowseSearchParams(
   state: CardBrowseToolbarState,
   cursor?: string | null,
-  window?: EdhrecCardTopWindowParam,
 ): URLSearchParams {
   const params = new URLSearchParams({
-    tab: "popular",
     sort: state.sort,
     order: state.order,
     limit: "50",
   });
 
   if (cursor) params.set("cursor", cursor);
-  if (window) params.set("window", window);
   if (state.query.trim().length >= 2) params.set("q", state.query.trim());
   appendCatalogFilterParams(params, state);
 

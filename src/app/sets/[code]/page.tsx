@@ -19,8 +19,11 @@ import {
 import { hasActiveSetCardFilters } from "@/lib/scryfall/set-card-search-params";
 import { sortSetCards } from "@/lib/scryfall/set-card-sort";
 import { buildSetCatalogCardWhere } from "@/lib/scryfall/set-catalog-filters";
+import { parseCardFaces } from "@/lib/scryfall/faces";
 import { createPageMetadata } from "@/lib/seo/site";
 import { CARD_FACE_GRID_CLASS } from "@/lib/ui/card-face";
+
+export const dynamic = "force-dynamic";
 
 type SetDetailPageProps = {
   params: Promise<{ code: string }>;
@@ -105,20 +108,20 @@ export default async function SetDetailPage({ params, searchParams }: SetDetailP
     }
   }
 
-  const setCardsRaw = await prisma.setCard.findMany({
+  const printingsRaw = await prisma.printing.findMany({
     where: buildSetCardWhere(setCode, filters, matchingOracleIds),
     take: 500,
   });
 
   const catalogCards =
-    setCardsRaw.length > 0
+    printingsRaw.length > 0
       ? await prisma.card.findMany({
           where: {
-            oracleId: { in: setCardsRaw.map((card) => card.oracleId) },
+            oracleId: { in: printingsRaw.map((row) => row.oracleId) },
           },
           select: {
             oracleId: true,
-            edhrecSlug: true,
+            slug: true,
             typeLine: true,
             cmc: true,
             colorIdentity: true,
@@ -129,8 +132,8 @@ export default async function SetDetailPage({ params, searchParams }: SetDetailP
       : [];
 
   const catalogByOracle = new Map(catalogCards.map((card) => [card.oracleId, card]));
-  const setCards = sortSetCards(
-    setCardsRaw,
+  const printings = sortSetCards(
+    printingsRaw,
     catalogByOracle,
     resolvedSetCardSort(filters),
     resolvedSetCardOrder(filters),
@@ -150,41 +153,41 @@ export default async function SetDetailPage({ params, searchParams }: SetDetailP
         </Suspense>
       }
     >
-      {setCards.length === 0 ? (
+      {printings.length === 0 ? (
         <EmptyState
-          title={mtgSet.cardCount > 0 ? "Cards not indexed yet" : "No cards in this set"}
+          title={mtgSet.cardCount > 0 ? "Printings not indexed yet" : "No cards in this set"}
           description={
             mtgSet.cardCount > 0
-              ? `Run npm run sync:scryfall-set-cards -- --codes=${mtgSet.code} to load cards for this set.`
+              ? "Run npm run sync:scryfall-printings to load printings for this set."
               : "This set has no playable cards."
           }
         />
       ) : (
         <>
           <PageListMeta>
-            Showing {setCards.length}
-            {setCards.length >= 500 ? "+" : ""} cards
+            Showing {printings.length}
+            {printings.length >= 500 ? "+" : ""} printings
             {hasActiveSetCardFilters(filters) ? " (filtered)" : ""}
           </PageListMeta>
 
           <ul className={`mt-6 ${CARD_FACE_GRID_CLASS}`}>
-            {setCards.map((setCard) => {
-              const catalog = catalogByOracle.get(setCard.oracleId);
-              const imageUri = setCard.imageUri ?? catalog?.imageUri ?? null;
-              const detailHref = catalog?.edhrecSlug
-                ? catalog.isCommander
-                  ? `/commanders/${catalog.edhrecSlug}?set=${mtgSet.code}`
-                  : `/cards/${catalog.edhrecSlug}?set=${mtgSet.code}`
+            {printings.map((printing) => {
+              const catalog = catalogByOracle.get(printing.oracleId);
+              const imageUri = printing.imageUri ?? catalog?.imageUri ?? null;
+              const faces = parseCardFaces(printing.faces);
+              const detailHref = catalog?.slug
+                ? `/cards/${catalog.slug}?set=${mtgSet.code}&cn=${encodeURIComponent(printing.collectorNumber)}`
                 : null;
               return (
-                <li key={setCard.id}>
+                <li key={printing.id}>
                   <CardFaceTile
                     href={detailHref}
                     imageUri={imageUri}
-                    name={setCard.name}
+                    faces={faces}
+                    name={printing.name}
                     footer={
                       <p className="w-full text-center text-xs tabular-nums text-muted-foreground">
-                        #{setCard.collectorNumber}
+                        #{printing.collectorNumber}
                       </p>
                     }
                   />

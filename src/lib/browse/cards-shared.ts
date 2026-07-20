@@ -1,60 +1,97 @@
+import {
+  FUNCTIONAL_ROLES,
+  SYNERGY_THEMES,
+} from "@/lib/classification/types";
+import { INCLUSION_RANK_SORT_LABEL } from "@/lib/display/inclusion-rank";
+import { parseCatalogListPrice } from "@/lib/scryfall/card-prices";
+import type { CardFaceImage } from "@/lib/scryfall/faces";
 
-export type CardBrowseTab = "popular" | "all";
+export type AllCardSort = "popularity" | "name" | "cmc" | "price";
 
-export type PopularCardSort = "rank" | "inclusion" | "numDecks" | "name" | "salt";
-export type AllCardSort = "name" | "cmc";
+export type CardBrowseSort = AllCardSort;
 
-export type CardBrowseSort = PopularCardSort | AllCardSort;
+export type PriceBand = "low" | "mid" | "high";
 
 export type CardBrowseItem = {
   id: string;
   name: string;
-  edhrecSlug: string | null;
+  slug: string | null;
   typeLine: string;
   cmc: number;
   colorIdentity: string[];
   imageUri: string | null;
+  faces: CardFaceImage[];
   isCommander: boolean;
-  /** Scryfall USD prices JSON (for preview footer). */
+  /** Scryfall prices JSON (EUR via Cardmarket; USD via TCGPlayer). */
   prices: unknown;
-  hasEdhrecData: boolean;
-  rank: number | null;
-  salt: number | null;
-  numDecks: number | null;
-  inclusion: number | null;
-  potentialDecks: number | null;
+  popularityRank: number | null;
+  frictionScore: number;
+  isGameChanger: boolean;
+  isReserved: boolean;
+  /** EUR-first list price for sort (USD fallback). */
+  listPrice: number | null;
 };
 
 export function getCatalogBrowseSortOptions(): { value: AllCardSort; label: string }[] {
   return [
+    { value: "popularity", label: INCLUSION_RANK_SORT_LABEL },
     { value: "name", label: "Name" },
     { value: "cmc", label: "CMC" },
+    { value: "price", label: "Price" },
   ];
 }
 
 export function defaultCatalogSort(): AllCardSort {
-  return "name";
+  return "popularity";
 }
 
 export function defaultCatalogOrder(sort: AllCardSort): "asc" | "desc" {
-  return sort === "name" || sort === "cmc" ? "asc" : "desc";
+  if (sort === "name" || sort === "cmc" || sort === "price") {
+    return "asc";
+  }
+  // Inclusion rank: lower = more often included in Commander decks
+  return "asc";
 }
 
+/** @deprecated Use getCatalogBrowseSortOptions — kept for cards browse toolbar reuse. */
 export function getCardBrowseSortOptions(): { value: CardBrowseSort; label: string }[] {
-  return [
-    { value: "rank", label: "Rank" },
-    { value: "inclusion", label: "Inclusion" },
-    { value: "numDecks", label: "Decks" },
-    { value: "salt", label: "Salt" },
-    { value: "name", label: "Name" },
-  ];
+  return getCatalogBrowseSortOptions();
 }
 
 export function defaultSortForTab(): CardBrowseSort {
-  return "rank";
+  return defaultCatalogSort();
 }
 
 export function defaultOrderForTab(sort: CardBrowseSort): "asc" | "desc" {
-  if (sort === "inclusion" || sort === "rank" || sort === "name") return "asc";
-  return "desc";
+  return defaultCatalogOrder(sort);
 }
+
+/** @deprecated Use parseCatalogListPrice — EUR-first catalog price. */
+export function parseUsdPrice(prices: unknown): number | null {
+  return parseCatalogListPrice(prices);
+}
+
+export function parsePriceBand(value: string | null | undefined): PriceBand | undefined {
+  if (value === "low" || value === "mid" || value === "high") {
+    return value;
+  }
+  return undefined;
+}
+
+/** Bands use Scryfall EUR (Cardmarket). Same €1 / €5 cutoffs as the old USD bands. */
+export const PRICE_BAND_OPTIONS: { value: PriceBand; label: string }[] = [
+  { value: "low", label: "Low (< €1)" },
+  { value: "mid", label: "Mid (€1–5)" },
+  { value: "high", label: "High (> €5)" },
+];
+
+/** Client-safe facet options (no Prisma imports). */
+export const ROLE_FILTER_OPTIONS = FUNCTIONAL_ROLES.map((value) => ({
+  value,
+  label: value.replaceAll("_", " "),
+}));
+
+export const THEME_FILTER_OPTIONS = SYNERGY_THEMES.map((value) => ({
+  value,
+  label: value.replaceAll("_", " "),
+}));

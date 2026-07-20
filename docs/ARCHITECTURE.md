@@ -1,6 +1,6 @@
-# EDHForge — Architecture
+# MTGPlayground — Architecture
 
-> Last updated: 2026-07-16
+> Last updated: 2026-07-20 · Product pivot from EDHForge; package/UI = MTGPlayground; `printings` via default_cards
 
 ## Stack
 
@@ -40,87 +40,59 @@ See `.env.example`. Sync workflows run `npm run sync:*` scripts with `DATABASE_U
 ## Data sources (external-first)
 
 ```
-Tier 0  Scryfall bulk     → card catalog, legalities, prices, oracle tags
-Tier 1  EDHREC JSON       → commander meta, staples, salt, synergy, themes
-Tier 2  MTGJSON decks     → official precon decklists (Phase 5)
-Tier 3  Our engine        → regex/otag gaps, live editor analysis
-Tier 4  Platform data     → ratings, rankings (Phase 4+)
+Tier 0  Scryfall oracle_cards     → oracle identity, legalities, inclusion rank, GC, …
+Tier 0b Scryfall default_cards    → printings (set/cn/finish/faces/prices)
+Tier 1  MTGJSON decks             → official precon decklists (Phase 2.3)
+Tier 2  Our engine                → classifications, deck legality, analysis
+Tier 3  Platform data             → collection, decks, ratings, rankings (Phase 2.1+)
 ```
+
+EDHREC removed (2026-07-20). No third-party meta scrape. See pivot decision in `docs/DECISIONS.md`.
 
 ### Scryfall
 
-| Bulk file | Use | Join key |
+| Bulk / API | Use | Join key |
 |---|---|---|
-| `oracle_cards` | Card catalog (~30k) | `id`, `oracle_id` |
-| `oracle_tags` | Functional roles + themes | `oracle_id` |
+| `oracle_cards` | Oracle catalog | `id`, `oracle_id` |
+| `default_cards` | Printings index (finish, faces, prices) | Scryfall `id`; `oracle_id`, set+cn |
+| `oracle_tags` | Roles + themes | `oracle_id` |
+| Sets API | Set metadata (`mtg_sets`) | `code` |
 
-- Download via `GET api.scryfall.com/bulk-data/oracle-cards` → `jsonl_download_uri`
+- Download via `GET api.scryfall.com/bulk-data/…`
 - **No live API in hot path** — autocomplete/search from local Postgres
-- **Excluded layouts:** `art_series` (Art Series collectibles — not tournament-legal; share EDHREC slugs with playable cards). Filtered at sync (`shouldIndexScryfallCard`) and in queries (`playableCatalogCardWhere`). One-time cleanup: `npm run sync:purge-art-series`.
-- Slug resolution: `findPlayableCardByEdhrecSlug` prefers commander-legal rows when multiple oracle cards share a slug.
-- Sync: check daily, full reprocess weekly + on set release
-- Images: hotlink `cards.scryfall.io` (configured in `next.config.ts`)
+- **Excluded layouts:** `art_series` (and other non-playable as configured)
+- Slug helpers: `toCardSlug`; resolution prefers playable rows
+- Images: hotlink `cards.scryfall.io` (incl. `card_faces` imagery for multiface)
+- **Popularity / Inclusion:** `edhrec_rank` = Commander **inclusion** rank only — UI label **Inclusion**; never “as commander” popularity. Commanders browse is name-first; Inclusion still shown on tiles with honest copy.
 
-### EDHREC
-
-- Base: `https://json.edhrec.com/pages/`
-- **Unofficial** — no API key; use identifiable User-Agent; cache aggressively
-- Key endpoints:
-  - `/commanders/{slug}.json` — rank, salt, tag_counts, top cards, synergy
-  - `/average-decks/{slug}.json` — full average decklist
-  - `/cards/{slug}.json` — inclusion, top commanders
-- `inclusion` field = **absolute deck count**, not % → normalize: `inclusion / commander.num_decks`
-- **Global card popularity** (card page, top lists): EDHREC often omits `inclusion`; use **`num_decks / potential_decks`** for inclusion %
-- Slug: precompute `card.edhrecSlug` — NFKD accent strip, apostrophes removed, DFC front face (`toEdhrecSlug`)
-
-**Sync tiers:**
-
-| Tier | Scope | Frequency |
-|---|---|---|
-| HOT | Top ~500 commanders by rank + similar expansion | Weekly |
-| CATALOG | All `cards.is_commander` — commander JSON where EDHREC has a page | Before Phase 1.5 + monthly/manual |
-| WARM | Viewed in last 30 days | On-demand, TTL 7d |
-| COLD | Long-tail refresh | On-demand, TTL 30d |
-
-Also weekly: top ~2000 card pages.
-
-### MTGJSON (Phase 5)
+### MTGJSON (Phase 2.3)
 
 - `DeckList.json` + individual deck files for precons
-- Sync monthly + on new Commander product release
+- Sync monthly + on new product release
 
 ## Sync schedule
 
 | Job | When | Script |
 |---|---|---|
 | Scryfall oracle_cards | Daily 03:00 UTC | `scripts/sync/scryfall-process.ts` (skips `art_series`) |
-| Purge art_series + relink EDHREC | One-time / after bad import | `scripts/sync/purge-art-series.ts` |
+| Purge art_series | One-time / after bad import | `scripts/sync/purge-art-series.ts` |
 | Scryfall sets metadata | Weekly Sunday | `scripts/sync/scryfall-sets.ts` |
-| Scryfall set card index | Weekly Sunday (or `--codes=` on demand) | `scripts/sync/scryfall-set-cards.ts` |
+| Scryfall printings | Weekly Sunday (`--if-changed`) | `scripts/sync/scryfall-printings.ts` (`default_cards` bulk) |
 | Scryfall oracle_tags | Weekly Sunday | `scripts/sync/scryfall-tags.ts` (`--if-changed`) |
 | Card classifications | Weekly Sunday (after tags) | `scripts/sync/compute-card-classifications.ts` |
-| EDHREC hot tier | Weekly Sunday | `scripts/sync/edhrec-commanders.ts`, `scripts/sync/edhrec-cards.ts` — **full profile/card page JSON** |
-| EDHREC top lists | Weekly Sunday | `scripts/sync/edhrec-top-lists.ts` — browse index; **atomic** per `(entity, window)` replace (txn) |
-| Purge expired page variants | Weekly Sunday (after top lists) | `scripts/sync/purge-edhrec-page-variants.ts` |
-| EDHREC commander catalog sweep | Before 1.5; then monthly or manual | `scripts/sync/edhrec-commanders-catalog.ts` |
 | Rankings recompute | Weekly | `scripts/sync/recompute-rankings.ts` (Phase 4) |
 | MTGJSON precons | Monthly | `scripts/sync/mtgjson-precons.ts` (Phase 5) |
 
-GitHub Actions (`.github/workflows/sync-*.yml`): **temporarily disabled** (`SYNC_JOBS_ENABLED: "false"`, cron commented out) until `DATABASE_URL` is set on GitHub and syncs are intentionally enabled — see `README.md` § GitHub Actions. When enabled: Scryfall daily/weekly sync; EDHREC weekly HOT + top lists + variant purge; commander catalog COLD fill (manual / optional monthly cron).
+GitHub Actions (`.github/workflows/sync-*.yml`): **temporarily disabled** (`SYNC_JOBS_ENABLED: "false"`, cron commented out) until `DATABASE_URL` is set on GitHub and syncs are intentionally enabled — see `README.md` § GitHub Actions. When enabled: Scryfall daily/weekly sync only.
 
 Daily Scryfall runs fetch bulk metadata only when `updated_at` matches the last successful sync (`sync_logs.errors.bulkUpdatedAt`); full download runs when Scryfall publishes a new bulk file.
-
-**Runtime stale UX:**
-- Detail: `StaleCacheBanner` when on-demand EDHREC refresh fails (dev-only hints after catalog UX decision).
-- Browse (`/cards`, `/commanders`): `EdhrecSyncNotice` when `getEdhrecSyncHealth()` reports failure or staleness.
-- Health watches SyncLog job types `commanders_hot`, `cards_hot`, and **`top_lists`**. Notice if any latest run failed, or any of those jobs has no success within **8 days**.
 
 ## SEO
 
 - `NEXT_PUBLIC_SITE_URL` — canonical base for metadata, `/sitemap.xml`, `/robots.txt`
 - `src/lib/seo/site.ts` — shared `createPageMetadata()` helper
-- Dynamic `generateMetadata` on card/commander/set detail pages
-- Sitemap includes static routes + cached EDHREC commanders/cards + all sets (revalidates daily)
+- Dynamic `generateMetadata` on card/set detail pages (`/commanders/[slug]` redirects)
+- Sitemap: static routes + playable `cards` rows (`cards.slug`) for `/cards/{slug}` (capped) + all sets (revalidates daily)
 
 ## Application architecture
 
@@ -128,68 +100,49 @@ Daily Scryfall runs fetch bulk metadata only when `updated_at` matches the last 
 Browser
   └─ Analysis engine (client-side TS, Phase 2+) — lookup pre-computed card roles
 Next.js App Router
-  ├─ SSR pages: /cards/[slug], /commanders/[slug], /sets/[code], …
+  ├─ SSR pages: /browse, /cards/[slug], /sets/[code], … (/commanders/[slug] → redirect)
   ├─ Browse lists: RSC page loads first page via lib/browse → client island for filters / load-more
-  ├─ API routes: /api/search, /api/cards/browse, /api/commanders/browse, /api/sets/search (pagination + filter changes)
-  └─ Domain logic: src/lib/ (browse, edhrec, scryfall, …); src/services/ Phase 2+
+  ├─ API routes: /api/search, /api/browse, /api/sets/search (pagination + filter changes)
+  └─ Domain logic: src/lib/ (browse, discovery, scryfall, classification, …); src/services/ Phase 2+
 PostgreSQL
-  ├─ cards (+ roles/themes computed offline)
-  ├─ edhrec_top_entries (browse ranked index — Phase 1.6)
-  ├─ edhrec_commander_profiles (default commander meta + cardlists)
-  ├─ edhrec_card_data (default card meta + cardlists)
-  ├─ edhrec_page_variants (filtered detail payloads — Phase 1.6)
+  ├─ cards (+ popularity/GC/friction; roles/themes in card_classifications; slug via toCardSlug)
+  ├─ printings / mtg_sets
   ├─ decks, deck_publications, publication_ratings (Phase 2 / 4)
   └─ sync_logs
 ```
 
-**Rule:** user-facing **browse/search** routes read Postgres only. On cache miss/expiry, `src/lib/edhrec/cache.ts` may fetch EDHREC once, upsert (WARM/COLD tier or variant row), then serve from DB. **Detail filter changes** (theme/budget/bracket) upsert **`edhrec_page_variants`**; never live EDHREC in browse.
+**Rule:** user-facing **browse/search/detail** routes read Postgres only (Scryfall catalog). No live external meta APIs in the hot path. `/cards` and `/commanders` browse redirect to `/browse`; `/catalog` → `/browse?entity=cards`.
 
-## EDHREC cache layers (Phase 1.6)
+## Discovery browse APIs (Phase 1.8 hub)
 
-Four complementary layers — **none deprecated**:
-
-| Layer | Table(s) | Sync / fill | Primary consumers |
-|---|---|---|---|
-| **Top index** | `edhrec_top_entries` | `sync:edhrec-top-lists` weekly | `/cards` Most played, `/commanders` Top commanders, `window=` filter |
-| **Default profiles** | `edhrec_commander_profiles`, `edhrec_card_data` | HOT weekly, catalog sweep, on-demand | Detail default view, All tab joins, global search, sitemap, salt/rank columns |
-| **Filter variants** | `edhrec_page_variants` | On-demand on detail filter change | Commander + card detail with Theme/Budget/Bracket |
-| **Scryfall catalog** | `cards`, `set_cards`, … | Scryfall sync | Oracle, images, prices, All tabs, legality |
-
-**`sync_tier` (HOT/WARM/COLD)** on profile tables still drives TTL and weekly HOT refresh; browse primary tabs **no longer filter by tier** after 1.6.12.
-
-**Top JSON URLs:** `https://json.edhrec.com/pages/top/{window}.json` and `pages/commanders/{window}.json` for `week|month|year`. Follow each list’s **`more`** pointer (e.g. `top/year-past2years-1.json`) until `more` is null — **not** `--N.json` (403). **`window=all`:** no top JSON. **Commanders** browse uses profile `rank`; **cards** browse has **no all-time window** (week/month/year only). Full sync can take hours (tens of thousands of card rows).
-
-**Commander filter URLs (confirmed 2026-07-13, corrected 2026-07-13):** `pages/commanders/{slug}.json`; `…/{theme}.json`; `…/{budget|expensive}.json`; `…/{theme}/{budget|expensive}.json`; bracket slugs `exhibition|core|upgraded|optimized|cedh` (bracket **first** when combined). **`middle` / Mid budget is not available** — path `…/middle.json` returns 403 and `?cost=middle` returns unfiltered data; UI exposes Budget + Expensive only on commander detail. Stored in `edhrec_page_variants` on detail filter change (WARM TTL).
-
-**Card filter URLs (confirmed 2026-07-13, removed from UI 2026-07-13):** `pages/cards/{slug}.json?cost=` and `?theme=` exist but **`?cost=` does not change** card JSON on tested staples; no card detail filter bar. Variant cache path retained for a future EDHREC theme list on card pages.
-
-### Planned schema (1.6.10)
-
-**`edhrec_top_entries`** — `entity_type`, `window`, `rank`, `slug`, `name`, `num_decks`, `inclusion`, `potential_decks`, `synced_at`; unique `(entity_type, window, slug)`.
-
-**`edhrec_page_variants`** — `entity_type`, `slug`, nullable `theme`, `budget`, `bracket`, JSON payload (`cardlists`, stats), `synced_at`, `expires_at`; unique composite key.
-
-## Discovery browse APIs (Phase 1.5)
-
-Common list contract for `/api/cards/browse`, `/api/commanders/browse`, `/api/sets/search` (evolved), and `GET /api/search`:
+Common list contract for `/api/browse`, legacy `/api/cards/browse` / `/api/commanders/browse`, `/api/sets/search`, and `GET /api/search`:
 
 ```
-Query:  limit, cursor, sort, order, + resource-specific filters
+Query:  entity (browse), limit, cursor, sort, order, + resource-specific filters
 Response: { items: T[], total: number, nextCursor: string | null }
 ```
 
 | Endpoint | Purpose |
 |---|---|
-| `GET /api/search?q=` | Unified navbar + `/search` (cards, commanders, sets; dedupe by slug) |
-| `GET /api/cards/browse` | Tab `popular` \| `all` (`/catalog` UI); **`window=week\|month\|year` only** on top cards; sort/filter/paginate; `commanders_only` on `all` |
-| `GET /api/commanders/browse` | Top commanders (`edhrec_top_entries` + profile join); `window=` filter |
-| `GET /api/sets/search` | Cursor browse for sets (`items`, `total`, `nextCursor`; sort, filters) |
+| `GET /api/browse` | Unified hub browse (`entity=cards\|commanders`); cards default Inclusion sort; commanders default Name |
+| `GET /api/cards/browse` | Legacy catalog browse (same query stack; optional `commanders_only`) |
+| `GET /api/commanders/browse` | Legacy commanders wrapper (`is_commander` + require slug) |
+| `GET /api/search?q=` | Unified navbar + `/search` (cards + sets; legal commanders appear in cards with a flag) |
+| `GET /api/sets/search` | Cursor browse for sets |
+
+**Browse facets (v1):** color identity, CMC min/max, type contains, Role, Theme, Game Changer, Reserved, price band (EUR Low/Mid/High via Scryfall `prices.eur` / Cardmarket), rarity (cards entity). **Sort:** popularity (default), name, cmc, price (EUR-first).
+
+**Card enrichment columns:** `popularity_rank` (Scryfall `edhrec_rank`), `is_game_changer`, `is_reserved`, `friction_score`, `mana_cost`, `power`/`toughness`/`loyalty`.
+
+**Friction:** denormalized on `cards.friction_score` — +2 if Game Changer, +1 if friction-family oracle tag; capped at 3; recomputed in `sync:compute-classifications`.
+
+**SSR default hydrate cache:** `/browse` first paint uses `unstable_cache` (`src/lib/browse/browse-cache.ts`, tag `browse-hub`, revalidate 1h). Filtered/cursor API requests are uncached.
 
 Legacy `GET /api/cards/search` and `GET /api/commanders/search` were removed (2026-07-16) — superseded by `/api/search`.
 
-**Card detail printing context:** `/cards/{slug}?set={code}` — server reads `set_cards` for `(oracle_id, setCode)` to override hero `imageUri` before falling back to `cards.imageUri`.
+**Card detail printing context:** `/cards/{slug}?set={code}&cn={collector}&finish={foil|etched}` — `resolveCardPrinting` / `listOraclePrintings` in `src/lib/scryfall/card-printing.ts`. No `set` → oracle default image/faces/prices. `set` only → lowest `collector_number` in that set. `set`+`cn` → exact printing. `finish` (omit = nonfoil) drives price chip preference; VersionPicker under hero. Set detail and commander redirects preserve version params via `buildCardVersionHref`.
 
-**Detail routes:** `/cards/[slug]` loads catalog first; commander tab embeds EDHREC commander sections. `/commanders/[slug]` parallel; resolves catalog + `getCachedCommanderProfile`; soft fallback when profile missing.
+**Detail route:** `/cards/[slug]` is the sole oracle hub (`findPlayableCardBySlug`). Hero shows Inclusion / Legal commander / GC / Friction / Reserved + **staggered multiface** when `faces` has ≥2 images. Sections: classifications + similar + relatives-by-subtype. `/commanders/[slug]` permanentRedirects here (preserves `set`/`cn`/`finish`). Builder-oriented D2 (staples / GC-in-CI / skeleton) deferred to Phase 2.2.
 
 ## Folder structure
 
@@ -201,7 +154,7 @@ edhforge/
 │   ├── schema.prisma
 │   └── migrations/
 ├── scripts/
-│   ├── sync/                 ← batch jobs (Scryfall, EDHREC, …)
+│   ├── sync/                 ← batch jobs (Scryfall, …)
 │   ├── data/                 ← card-overrides.json
 │   └── dev/                  ← db-health-snapshot, etc.
 ├── packages/
@@ -210,8 +163,8 @@ edhforge/
 │   ├── app/                  ← Next.js routes + api/
 │   ├── components/
 │   │   ├── layout/           ← app shell, page shell, theme
-│   │   ├── discovery/        ← browse/detail EDHREC UI
-│   │   ├── mtg/              ← mana / rarity / salt icons
+│   │   ├── discovery/        ← browse/detail catalog UI
+│   │   ├── mtg/              ← mana / rarity icons
 │   │   ├── ui/               ← shadcn primitives
 │   │   └── dev/              ← catalog debug (gated)
 │   ├── hooks/                ← client hooks (e.g. useBrowseList)
@@ -219,11 +172,9 @@ edhforge/
 │   │   ├── db.ts / db/       ← Prisma client + connection helpers
 │   │   ├── browse/           ← browse query + param parsing
 │   │   │   ├── cards.ts      ← facade: parse + queryCardsBrowse
-│   │   │   ├── cards-filters.ts / cards-params.ts
-│   │   │   ├── cards-popular.ts / cards-catalog.ts
-│   │   │   └── commanders.ts · sets.ts · top-entries.ts · …
-│   │   ├── edhrec/           ← client, cache, variants, parsers
-│   │   ├── scryfall/         ← catalog filters, bulk client, prices
+│   │   │   ├── cards-filters.ts / cards-params.ts / cards-catalog.ts
+│   │   │   └── commanders.ts · sets.ts · browse-cache.ts · …
+│   │   ├── scryfall/         ← catalog filters, slug helpers, bulk client, prices
 │   │   ├── classification/   ← roles/themes (batch / sync)
 │   │   ├── search/           ← global search
 │   │   ├── seo/ · ui/ · mtg/ · display/ · catalog/ · dev/
@@ -236,32 +187,29 @@ Tests: `npm test` (Vitest). No DB required for current unit suite.
 
 ## Database schema (current + planned)
 
-### Implemented (Phase 0)
+### Implemented (Phase 0 + 1.7 + 1.8 + 2.0.5)
 
-- `cards` — Scryfall oracle card data
+- `cards` — Scryfall oracle card data; `slug` (`toCardSlug`) for routes; enrichment: `popularity_rank`, `is_game_changer`, `is_reserved`, `friction_score`, `mana_cost`, `power`/`toughness`/`loyalty`, **`faces` Json** (multiface)
 - `scryfall_oracle_tags` — Tagger tag metadata (slug, label)
 - `card_oracle_taggings` — raw `(oracle_id, tag_id, weight)` for catalog cards
-- `card_classifications` — derived `roles[]` + `themes[]` per oracle (override or oracle tag)
+- `card_classifications` — derived `roles[]` + `themes[]` per oracle (override or oracle tag); also drives Friction tag +1
 - `mtg_sets` — set metadata (code, name, release, type)
-- `set_cards` — unique oracle cards per set (indexed offline via Scryfall search)
+- `printings` — one Scryfall printing per row (set + collector #; finishes, faces, prices); soft-join via `oracle_id`
 - `sync_logs` — job audit trail (indexes on `(source, job_type, started_at)` and `(source, job_type, status, completed_at)`)
 
-### Phase 1
+**Removed (Phase 1.7):** `edhrec_commander_profiles`, `edhrec_card_data`, `edhrec_top_entries`, `edhrec_page_variants`; column rename `edhrec_slug` → `slug`.
 
-- `edhrec_commander_profiles` — default commander meta: rank/salt/decks + JSON cardlists/tag_counts (indexes: rank, num_decks, salt, expires_at, …)
-- `edhrec_card_data` — default card meta: salt/inclusion/**potential_decks** + JSON cardlists (indexes: inclusion, num_decks, salt, expires_at, …)
-- `edhrec_top_entries` — ranked browse index per time window (Phase 1.6)
-- `edhrec_page_variants` — filtered detail payloads commander/card (Phase 1.6; index on `expires_at` for purge)
+**Removed (Phase 2.0.5):** `set_cards` (replaced by `printings`).
 
-**Hot indexes (2026-07-16):** also `cards.cmc`, `cards.layout`. See migration `20260716010000_browse_sync_indexes`. GIN/trigram for color/type filters deferred.
+**Removed (2026-07-20):** `card_relations` + `CardRelationComponent` (Scryfall `all_parts` / Related parts on PDP — low value).
 
-### Phase 2
+**Hot indexes (2026-07-16 + 1.8):** `cards.cmc`, `cards.layout`, `cards.popularity_rank`, `cards.is_game_changer`, `cards.is_reserved`, `cards.friction_score`. GIN/trigram for color/type filters deferred.
 
-- `users`, `decks`, `deck_cards`
+### Planned (Phase 2.1+)
 
-### Phase 4
-
-- `deck_publications`, `publication_cards`, `publication_ratings`, `ranking_snapshots`
+- `collection_items` — user + printing + finish + qty
+- `users`, `decks`, `deck_cards` (multi-format)
+- `deck_publications`, `publication_ratings`, ranking snapshots (Phase 4)
 
 See `docs/PROJECT.md` for entity semantics.
 
@@ -275,6 +223,8 @@ Scryfall oracle_tags bulk
 Conservative regex on oracle_text
         ↓
 computed roles[] + themes[] stored in card_classifications (batch via compute-card-classifications.ts)
+        ↓ also
+cards.friction_score (GC + friction-family otags)
 ```
 
 Classification sources: `scripts/data/card-overrides.json` (232 staples, `oracle_id` key) → Scryfall oracle tags (weight ≥ median, excludes `weak`) → regex deferred to Phase 3. Mapping: `src/lib/classification/tag-mapping.ts`.

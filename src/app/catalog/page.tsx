@@ -1,17 +1,8 @@
-import { CatalogBrowseClient } from "@/app/catalog/catalog-browse-client";
-import { queryCardsBrowse } from "@/lib/browse/cards";
-import { getCatalogBrowseDefaults } from "@/lib/browse/catalog-defaults";
-import { prisma } from "@/lib/db";
+import { redirect } from "next/navigation";
 
-export default async function CatalogPage() {
-  const { toolbar, requestKey, queryParams } = getCatalogBrowseDefaults();
-  const initialData = await queryCardsBrowse(prisma, queryParams);
+export const dynamic = "force-dynamic";
 
-  return (
-    <CatalogBrowseClient
-      initialData={initialData}
-      initialToolbar={toolbar}
-      initialRequestKey={requestKey}
-    />
-  );
+/** Legacy path — Phase 1.7 catalog alias. */
+export default function CatalogRedirectPage() {
+  redirect("/browse?entity=cards");
 }

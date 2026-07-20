@@ -1,29 +1,33 @@
 import type { MetadataRoute } from "next";
 
 import { prisma } from "@/lib/db";
+import { playableCatalogCardWhere } from "@/lib/scryfall/catalog-filters";
 import { getSiteUrl } from "@/lib/seo/site";
 
+export const dynamic = "force-dynamic";
 export const revalidate = 86_400;
+
+/** Cap detail URLs; prefer lower inclusion rank when populated. */
+const SITEMAP_CARD_LIMIT = 8_000;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = getSiteUrl();
 
   const staticRoutes: MetadataRoute.Sitemap = [
     { url: baseUrl, changeFrequency: "weekly", priority: 1 },
-    { url: `${baseUrl}/cards`, changeFrequency: "weekly", priority: 0.9 },
-    { url: `${baseUrl}/commanders`, changeFrequency: "daily", priority: 0.9 },
+    { url: `${baseUrl}/browse`, changeFrequency: "weekly", priority: 0.9 },
     { url: `${baseUrl}/sets`, changeFrequency: "weekly", priority: 0.8 },
   ];
 
-  const [commanders, cards, sets] = await Promise.all([
-    prisma.edhrecCommanderProfile.findMany({
-      where: { rank: { not: null } },
+  const [cards, sets] = await Promise.all([
+    prisma.card.findMany({
+      where: {
+        ...playableCatalogCardWhere,
+        slug: { not: null },
+      },
       select: { slug: true, syncedAt: true },
-      orderBy: { rank: "asc" },
-    }),
-    prisma.edhrecCardData.findMany({
-      select: { slug: true, syncedAt: true },
-      orderBy: { syncedAt: "desc" },
+      orderBy: [{ popularityRank: { sort: "asc", nulls: "last" } }, { name: "asc" }],
+      take: SITEMAP_CARD_LIMIT,
     }),
     prisma.mtgSet.findMany({
       select: { code: true, syncedAt: true },
@@ -31,19 +35,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }),
   ]);
 
-  const commanderRoutes: MetadataRoute.Sitemap = commanders.map((commander) => ({
-    url: `${baseUrl}/commanders/${commander.slug}`,
-    lastModified: commander.syncedAt,
-    changeFrequency: "weekly",
-    priority: 0.7,
-  }));
-
-  const cardRoutes: MetadataRoute.Sitemap = cards.map((card) => ({
-    url: `${baseUrl}/cards/${card.slug}`,
-    lastModified: card.syncedAt,
-    changeFrequency: "weekly",
-    priority: 0.6,
-  }));
+  const cardRoutes: MetadataRoute.Sitemap = cards
+    .filter((row): row is typeof row & { slug: string } => Boolean(row.slug))
+    .map((card) => ({
+      url: `${baseUrl}/cards/${card.slug}`,
+      lastModified: card.syncedAt,
+      changeFrequency: "weekly" as const,
+      priority: 0.7,
+    }));
 
   const setRoutes: MetadataRoute.Sitemap = sets.map((set) => ({
     url: `${baseUrl}/sets/${set.code}`,
@@ -52,5 +51,5 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.5,
   }));
 
-  return [...staticRoutes, ...commanderRoutes, ...cardRoutes, ...setRoutes];
+  return [...staticRoutes, ...cardRoutes, ...setRoutes];
 }

@@ -80,6 +80,7 @@ async function upsertTags(prisma: PrismaClient, tags: ScryfallOracleTag[]) {
             parentIds: tag.parent_ids ?? [],
             syncedAt: new Date(),
           },
+          select: { id: true },
         }),
       ),
     );

@@ -1,45 +1,57 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
-import { CardDetailCardlistSections } from "@/components/discovery/card-detail-cardlist-sections";
+import { ClassificationBadges } from "@/components/discovery/classification-badges";
+import { DetailCardGridSection } from "@/components/discovery/detail-card-grid-section";
 import { DetailHeroAside } from "@/components/discovery/detail-hero-aside";
+import { DetailHeroMeta } from "@/components/discovery/detail-hero-meta";
 import { DetailSectionJump } from "@/components/discovery/detail-section-jump";
-import { DetailSectionPanel } from "@/components/discovery/detail-section-panel";
 import { CardRelativesBySubtype } from "@/components/discovery/card-relatives-by-subtype";
-import { EdhrecSimilarCards } from "@/components/discovery/edhrec-similar-cards";
-import { EdhrecTopCommanders } from "@/components/discovery/edhrec-top-commanders";
-import { EntityDetailTabs } from "@/components/discovery/entity-detail-tabs";
 import { EntityPreviewFooter } from "@/components/discovery/entity-preview-footer";
-import { StaleCacheBanner } from "@/components/discovery/stale-cache-banner";
+import { VersionPicker } from "@/components/discovery/version-picker";
 import { PageShell } from "@/components/layout/page-shell";
-import {
-  getTopCommandersFromCardlists,
-  parseCardDetailCardlists,
-} from "@/lib/edhrec/cardlists";
-import { getCardDetailEdhrecData } from "@/lib/edhrec/variant-cache";
 import { prisma } from "@/lib/db";
-import { findPlayableCardByEdhrecSlug } from "@/lib/scryfall/catalog-filters";
+import {
+  getCardClassification,
+  getSimilarCards,
+} from "@/lib/discovery/detail-pack";
+import { findPlayableCardBySlug } from "@/lib/scryfall/catalog-filters";
 import { getCardRelativesBySubtype } from "@/lib/scryfall/card-relatives";
-import { resolveCardHeroImage } from "@/lib/scryfall/card-printing";
-import { buildCardDetailNavItems } from "@/lib/ui/detail-section-nav";
-import { formatInclusionPercent } from "@/lib/display/formatters";
+import {
+  buildCardVersionHref,
+  listOraclePrintings,
+  parsePrintingFinish,
+  resolveCardPrinting,
+} from "@/lib/scryfall/card-printing";
+import {
+  buildCardDetailNavItems,
+  DETAIL_SECTION_IDS,
+} from "@/lib/ui/detail-section-nav";
 import { DETAIL_HERO_GRID_CLASS, DETAIL_MAIN_COLUMN_CLASS } from "@/lib/ui/layout";
 import { createPageMetadata } from "@/lib/seo/site";
 
+export const dynamic = "force-dynamic";
+
 type CardDetailPageProps = {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ set?: string }>;
+  searchParams: Promise<{ set?: string; cn?: string; finish?: string }>;
 };
 
 const cardSelect = {
   id: true,
   oracleId: true,
   name: true,
-  edhrecSlug: true,
+  slug: true,
   typeLine: true,
   imageUri: true,
+  faces: true,
   isCommander: true,
+  colorIdentity: true,
   prices: true,
+  popularityRank: true,
+  frictionScore: true,
+  isGameChanger: true,
+  isReserved: true,
 } as const;
 
 export async function generateMetadata({
@@ -47,13 +59,15 @@ export async function generateMetadata({
   searchParams,
 }: CardDetailPageProps): Promise<Metadata> {
   const { slug } = await params;
-  const { set: setCode } = await searchParams;
+  const { set: setCode, cn, finish } = await searchParams;
 
-  const card = await findPlayableCardByEdhrecSlug(prisma, slug, {
+  const card = await findPlayableCardBySlug(prisma, slug, {
     oracleId: true,
     name: true,
     typeLine: true,
     imageUri: true,
+    faces: true,
+    prices: true,
   });
 
   if (!card) {
@@ -65,120 +79,126 @@ export async function generateMetadata({
     });
   }
 
-  const hero = await resolveCardHeroImage(prisma, card.oracleId, card.imageUri, setCode);
-  const path = setCode ? `/cards/${slug}?set=${setCode.toLowerCase()}` : `/cards/${slug}`;
+  const printing = await resolveCardPrinting(
+    prisma,
+    card.oracleId,
+    { imageUri: card.imageUri, faces: card.faces, prices: card.prices },
+    { set: setCode, cn },
+  );
+  const path = buildCardVersionHref(slug, {
+    set: printing.setCode,
+    cn: printing.collectorNumber,
+    finish,
+  });
 
   return createPageMetadata({
     title: card.name,
-    description: `${card.name} — ${card.typeLine}. Card details, popularity stats, and related cards.`,
+    description: `${card.name} — ${card.typeLine}. Inclusion rank, roles, and related cards from Scryfall.`,
     path,
-    image: hero.imageUri,
+    image: printing.imageUri,
   });
 }
 
 export default async function CardDetailPage({ params, searchParams }: CardDetailPageProps) {
   const { slug } = await params;
-  const { set: setCodeParam } = await searchParams;
+  const { set: setCodeParam, cn: cnParam, finish: finishParam } = await searchParams;
+  const selectedFinish = parsePrintingFinish(finishParam);
 
-  const card = await findPlayableCardByEdhrecSlug(prisma, slug, cardSelect);
+  const card = await findPlayableCardBySlug(prisma, slug, cardSelect);
 
   if (!card) {
     notFound();
   }
 
-  const hero = await resolveCardHeroImage(
-    prisma,
-    card.oracleId,
-    card.imageUri,
-    setCodeParam,
-  );
+  const [printing, printings, classification, relativesResult] = await Promise.all([
+    resolveCardPrinting(
+      prisma,
+      card.oracleId,
+      { imageUri: card.imageUri, faces: card.faces, prices: card.prices },
+      { set: setCodeParam, cn: cnParam },
+    ),
+    listOraclePrintings(prisma, card.oracleId),
+    getCardClassification(prisma, card.oracleId),
+    getCardRelativesBySubtype(card),
+  ]);
 
-  const edhrecCard = await getCardDetailEdhrecData(slug, { warm: true });
-  const cardlists = edhrecCard.data?.cardlists;
-  const { subtypes, relatives } = await getCardRelativesBySubtype(card);
+  const { subtypes, relatives } = relativesResult;
 
-  const inclusionLabel = edhrecCard.data
-    ? formatInclusionPercent(
-        edhrecCard.data.inclusion,
-        edhrecCard.data.potentialDecks,
-        edhrecCard.data.numDecks,
-      )
-    : null;
+  const similar = await getSimilarCards(prisma, {
+    oracleId: card.oracleId,
+    colorIdentity: card.colorIdentity,
+    themes: classification?.themes ?? [],
+  });
 
-  const cardlistSections = cardlists ? parseCardDetailCardlists(cardlists) : [];
-  const hasTopCommanders =
-    cardlists != null && getTopCommandersFromCardlists(cardlists).length > 0;
-  const hasSimilarCards = (edhrecCard.data?.similarCards.length ?? 0) > 0;
   const hasRelatives = subtypes.length > 0 && relatives.length > 0;
   const sectionNavItems = buildCardDetailNavItems({
-    hasTopCommanders,
-    cardlistSections,
-    hasSimilarCards,
+    hasSimilarCards: similar.length > 0,
     hasRelatives,
   });
+
+  const footerPrices = printing.prices ?? card.prices;
 
   return (
     <PageShell
       title={card.name}
       description={card.typeLine}
       breadcrumbs={[
-        { label: "Top cards", href: "/cards" },
+        { label: "Browse", href: "/browse" },
         { label: card.name, href: `/cards/${slug}` },
       ]}
     >
-      {edhrecCard.isStale && edhrecCard.syncedAt && (
-        <div className="mb-6">
-          <StaleCacheBanner syncedAt={edhrecCard.syncedAt} context="page" />
-        </div>
-      )}
-
-      {card.isCommander && (
-        <EntityDetailTabs slug={slug} activeRoute="card" setCode={setCodeParam} />
-      )}
-
       <section className={DETAIL_HERO_GRID_CLASS}>
         <DetailHeroAside
-          imageUri={hero.imageUri}
+          imageUri={printing.imageUri}
+          faces={printing.faces}
           imageAlt={card.name}
-          setName={hero.setName}
-          setCode={hero.setCode}
+          setName={printing.setName}
+          setCode={printing.setCode}
+          collectorNumber={printing.collectorNumber}
+          versionPicker={
+            <VersionPicker
+              slug={slug}
+              printings={printings}
+              selectedSet={printing.setCode}
+              selectedCn={printing.collectorNumber}
+              selectedFinish={selectedFinish}
+            />
+          }
           previewFooter={
             <EntityPreviewFooter
-              prices={card.prices}
-              primary={{ kind: "inclusion", value: inclusionLabel }}
-              decks={edhrecCard.data?.numDecks ?? null}
-              salt={edhrecCard.data?.salt ?? null}
+              prices={footerPrices}
+              preferredFinish={selectedFinish}
+              popularityRank={card.popularityRank}
+              frictionScore={card.frictionScore}
             />
           }
           sectionNavItems={sectionNavItems}
         />
 
         <div className={DETAIL_MAIN_COLUMN_CLASS}>
+          <DetailHeroMeta
+            popularityRank={card.popularityRank}
+            frictionScore={card.frictionScore}
+            isGameChanger={card.isGameChanger}
+            isReserved={card.isReserved}
+            isCommander={card.isCommander}
+          />
+          <div className="mt-4">
+            <ClassificationBadges classification={classification} />
+          </div>
+
           <DetailSectionJump items={sectionNavItems} />
 
-          {edhrecCard.data && cardlists ? (
-            <EdhrecTopCommanders cardlists={cardlists} />
-          ) : (
-            <DetailSectionPanel title="Top commanders">
-              <p className="mt-2 text-sm text-muted-foreground">
-                Popularity data for this card is not in the catalog yet.
-              </p>
-            </DetailSectionPanel>
-          )}
-
-          {cardlists ? (
-            <CardDetailCardlistSections cardlists={cardlists} partition="unique" />
-          ) : null}
-
-          {edhrecCard.data?.similarCards.length ? (
-            <EdhrecSimilarCards similarCards={edhrecCard.data.similarCards} />
-          ) : null}
-
-          <CardRelativesBySubtype subtypes={subtypes} relatives={relatives} />
-
-          {cardlists ? (
-            <CardDetailCardlistSections cardlists={cardlists} partition="shared" />
-          ) : null}
+          <div className="mt-6 space-y-6">
+            {similar.length > 0 ? (
+              <DetailCardGridSection
+                id={DETAIL_SECTION_IDS.similarCards}
+                title="Similar cards"
+                cards={similar}
+              />
+            ) : null}
+            <CardRelativesBySubtype subtypes={subtypes} relatives={relatives} />
+          </div>
         </div>
       </section>
     </PageShell>

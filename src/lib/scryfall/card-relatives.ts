@@ -2,15 +2,20 @@ import { prisma } from "@/lib/db";
 
 import { parseSubtypes, subtypeTypeLineFilter } from "@/lib/scryfall/type-utils";
 import { playableCatalogCardWhere } from "@/lib/scryfall/catalog-filters";
+import { parseCardFaces, type CardFaceImage } from "@/lib/scryfall/faces";
 
 const DEFAULT_LIMIT = 16;
 
 export type CardRelative = {
   name: string;
-  edhrecSlug: string | null;
+  slug: string | null;
   typeLine: string;
   imageUri: string | null;
+  faces: CardFaceImage[];
   cmc: number;
+  prices: unknown;
+  popularityRank: number | null;
+  frictionScore: number;
 };
 
 export async function getCardRelativesBySubtype(
@@ -23,7 +28,7 @@ export async function getCardRelativesBySubtype(
     return { subtypes: [], relatives: [] };
   }
 
-  const relatives = await prisma.card.findMany({
+  const rows = await prisma.card.findMany({
     where: {
       ...playableCatalogCardWhere,
       id: { not: card.id },
@@ -35,14 +40,31 @@ export async function getCardRelativesBySubtype(
     },
     select: {
       name: true,
-      edhrecSlug: true,
+      slug: true,
       typeLine: true,
       imageUri: true,
+      faces: true,
       cmc: true,
+      prices: true,
+      popularityRank: true,
+      frictionScore: true,
     },
-    orderBy: { name: "asc" },
+    orderBy: [{ popularityRank: { sort: "asc", nulls: "last" } }, { name: "asc" }],
     take: limit,
   });
 
-  return { subtypes, relatives };
+  return {
+    subtypes,
+    relatives: rows.map((row) => ({
+      name: row.name,
+      slug: row.slug,
+      typeLine: row.typeLine,
+      imageUri: row.imageUri,
+      faces: parseCardFaces(row.faces),
+      cmc: row.cmc,
+      prices: row.prices,
+      popularityRank: row.popularityRank,
+      frictionScore: row.frictionScore,
+    })),
+  };
 }

@@ -22,24 +22,6 @@ export function buildColorIdentityWhere(colors?: string[]): Prisma.CardWhereInpu
   return { OR: colorFilters };
 }
 
-export function buildProfileColorIdentityWhere(
-  colors?: string[],
-): Prisma.EdhrecCommanderProfileWhereInput {
-  if (!colors?.length) {
-    return {};
-  }
-
-  const colorFilters: Prisma.EdhrecCommanderProfileWhereInput[] = [
-    { colorIdentity: { hasSome: colors.filter((color) => color !== "C") } },
-  ];
-
-  if (colors.includes("C")) {
-    colorFilters.push({ colorIdentity: { equals: [] } });
-  }
-
-  return { OR: colorFilters };
-}
-
 export function colorsToParam(colors: string[]): string | undefined {
   return colors.length > 0 ? colors.join(",") : undefined;
 }

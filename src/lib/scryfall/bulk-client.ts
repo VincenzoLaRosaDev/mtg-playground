@@ -1,9 +1,10 @@
 import type { ScryfallBulkData } from "@/lib/scryfall/types";
 
-export const SCRYFALL_USER_AGENT = "EDHForge/1.0 (+https://github.com/VincenzoLaRosaDev/edhforge)";
+export const SCRYFALL_USER_AGENT = "MTGPlayground/1.0 (+https://github.com/VincenzoLaRosaDev/edhforge)";
 
 export const ORACLE_CARDS_BULK_TYPE = "oracle_cards";
 export const ORACLE_TAGS_BULK_TYPE = "oracle_tags";
+export const DEFAULT_CARDS_BULK_TYPE = "default_cards";
 
 export async function fetchBulkMetadata(
   bulkType = ORACLE_CARDS_BULK_TYPE,

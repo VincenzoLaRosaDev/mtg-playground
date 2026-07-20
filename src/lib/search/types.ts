@@ -8,14 +8,6 @@ export type GlobalSearchCardResult = {
   isCommander: boolean;
 };
 
-export type GlobalSearchCommanderResult = {
-  slug: string;
-  name: string;
-  rank: number | null;
-  imageUri: string | null;
-  typeLine: string | null;
-};
-
 export type GlobalSearchSetResult = {
   code: string;
   name: string;
@@ -27,7 +19,6 @@ export type GlobalSearchSetResult = {
 export type GlobalSearchResponse = {
   query: string;
   cards: GlobalSearchCardResult[];
-  commanders: GlobalSearchCommanderResult[];
   sets: GlobalSearchSetResult[];
 };
 

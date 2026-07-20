@@ -1,100 +1,54 @@
-import { Layers } from "lucide-react";
-
 import { PriceChip } from "@/components/discovery/price-chip";
-import { SaltBadge } from "@/components/discovery/salt-badge";
 import {
-  MetricIconLabel,
-  SynergyMetricLabel,
-} from "@/components/discovery/metric-icon-label";
-import {
-  formatCompactCount,
-  formatSynergyPercent,
-} from "@/lib/display/formatters";
-
-export type EntityPreviewPrimary =
-  | { kind: "inclusion"; value: string | null }
-  | { kind: "rank"; value: string | null };
+  formatInclusionRank,
+  INCLUSION_RANK_SHORT_LABEL,
+  INCLUSION_RANK_TITLE,
+} from "@/lib/display/inclusion-rank";
+import type { PrintingFinish } from "@/lib/scryfall/card-printing";
 
 type EntityPreviewFooterProps = {
   prices?: unknown;
-  primary?: EntityPreviewPrimary | null;
-  /** Overrides the default “inclusion” / “rank” caption next to the primary value. */
-  primaryCaption?: string | null;
-  decks?: number | null;
-  /** Shown when non-null (commander-context list tiles). */
-  synergy?: number | null;
-  salt?: number | null;
+  preferredFinish?: PrintingFinish | null;
+  popularityRank?: number | null;
+  /** When false, omit inclusion rank. */
+  showInclusionRank?: boolean;
+  frictionScore?: number | null;
 };
 
+/** Compact footer under card faces — Price + Inclusion + Friction. */
 export function EntityPreviewFooter({
   prices,
-  primary,
-  primaryCaption,
-  decks,
-  synergy,
-  salt,
+  preferredFinish,
+  popularityRank,
+  showInclusionRank = true,
+  frictionScore,
 }: EntityPreviewFooterProps) {
-  const primaryValue =
-    primary?.value != null && primary.value !== "—" ? primary.value : null;
-  const synergyLabel =
-    synergy != null ? formatSynergyPercent(synergy) : null;
-  const showSynergy = synergyLabel != null && synergyLabel !== "—";
-  const showDecks = decks != null;
-  const showSalt = salt != null;
-  const caption =
-    primaryCaption ??
-    (primary?.kind === "inclusion" ? "inclusion" : primary?.kind === "rank" ? "Rank" : null);
-  const showPrices = prices != null;
-  const showPrimaryRow = primaryValue != null || showDecks;
+  const inclusion = showInclusionRank ? formatInclusionRank(popularityRank) : null;
+  const showFriction = frictionScore != null && frictionScore > 0;
+  const hasPrice = prices != null;
 
-  if (!showPrices && !primaryValue && !showDecks && !showSynergy && !showSalt) {
+  if (!hasPrice && !inclusion && !showFriction) {
     return null;
   }
 
   return (
-    <div className="flex w-full flex-col gap-1">
-      {showPrices || showSalt ? (
-        <div className="flex w-full min-w-0 flex-nowrap items-center justify-between gap-1.5">
-          {showPrices ? <PriceChip prices={prices} className="min-w-0" /> : <span />}
-          {showSalt ? <SaltBadge salt={salt!} className="h-5 shrink-0 px-1.5 text-[10px]" /> : null}
-        </div>
+    <div className="flex w-full min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+      {hasPrice ? (
+        <PriceChip
+          prices={prices}
+          preferredFinish={preferredFinish}
+          className="min-w-0"
+        />
       ) : null}
-
-      {showPrimaryRow ? (
-        <div className="flex min-w-0 items-baseline justify-between gap-2">
-          {primaryValue ? (
-            <p className="min-w-0 text-base font-semibold leading-tight tabular-nums tracking-tight text-foreground">
-              {primary?.kind === "rank" ? (
-                <>
-                  {caption ? <span>{caption} </span> : null}
-                  <span>{primaryValue}</span>
-                </>
-              ) : (
-                <>
-                  <span>{primaryValue}</span>
-                  {caption ? <span> {caption}</span> : null}
-                </>
-              )}
-            </p>
-          ) : (
-            <span />
-          )}
-          {showDecks ? (
-            <MetricIconLabel
-              icon={<Layers className="h-3.5 w-3.5" aria-hidden />}
-              className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-base font-semibold tabular-nums tracking-tight text-foreground"
-            >
-              <span className="sr-only">decks </span>
-              {formatCompactCount(decks!)}
-            </MetricIconLabel>
-          ) : null}
-        </div>
+      {inclusion ? (
+        <span title={INCLUSION_RANK_TITLE} className="shrink-0">
+          {INCLUSION_RANK_SHORT_LABEL} {inclusion}
+        </span>
       ) : null}
-
-      {showSynergy ? (
-        <div className="flex min-w-0 items-center">
-          <SynergyMetricLabel value={synergyLabel!} />
-        </div>
+      {showFriction ? (
+        <span title="Friction score (Game Changer / stax-family tags)" className="shrink-0">
+          Friction {frictionScore}
+        </span>
       ) : null}
     </div>
   );

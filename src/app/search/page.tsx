@@ -8,7 +8,7 @@ import SearchPage from "./search-page";
 
 export const metadata: Metadata = createPageMetadata({
   title: "Search",
-  description: "Search cards, commanders, and Magic sets across EDHForge.",
+  description: "Search cards, commanders, and Magic sets across MTGPlayground.",
   path: "/search",
   noIndex: true,
 });
@@ -17,7 +17,7 @@ function SearchPageFallback() {
   return (
     <PageShell
       title="Search"
-      description="Find cards, commanders, and sets across the EDHForge catalog."
+      description="Find cards, commanders, and sets across the MTGPlayground catalog."
     >
       <p className="text-sm text-muted-foreground">Loading search...</p>
     </PageShell>

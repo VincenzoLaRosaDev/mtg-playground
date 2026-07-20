@@ -1,4 +1,4 @@
-# EDHForge — Decision Log
+# MTGPlayground — Decision Log
 
 Append-only log of significant product and technical decisions.  
 **Never delete entries** — add superseding entries if a decision changes.
@@ -713,3 +713,104 @@ Defer GIN on `color_identity` / trigram on `type_line` until measured need. Next
 - Commander-context list tiles pass synergy when present
 
 **Consequences:** Same image+footer pattern on list, hero, and detail lists. `DetailHeroBadges` unused on hero (superseded). Similar commanders keep commander-style footer (prices · Rank · decks · salt). Similar cards enrich from `EdhrecCardData` + Scryfall prices for the same card-style footer (inclusion · decks · salt). Relatives / set tiles still use lighter meta.
+
+## 2026-07-16 — Neon egress: paginated top browse + slim selects
+
+**Context:** Neon Free 5 GB/month public network transfer exhausted. Root causes: (1) top-list browse loaded entire `edhrec_top_entries` windows (~30k rows) then `IN (...)` joins; (2) detail loaders `findUnique` without select returned fat `cardlists` JSON (sometimes twice per commander page); (3) sync `upsert` RETURNING full rows; (4) no SSR cache on default browse hydrate.
+
+**Decision:**
+1. **Browse:** SQL keyset pagination in `top-index-sql.ts` (JOIN + `LIMIT` + `COUNT`); remove production `loadTopEntryRows` full-window path
+2. **Detail:** explicit selects in `detail-select.ts` / `cache.ts` / `variant-cache.ts`; commander page uses lite profile only when filters need unfiltered theme options
+3. **Sync:** all hot upserts use `select: { id: true }` (or equivalent) so RETURNING is tiny
+4. **Cache:** `unstable_cache` on default `/cards` and `/commanders` SSR (1h, tags `browse-cards-top` / `browse-commanders-top`)
+
+**Consequences:** Default browse requests transfer page-sized results (~tens of KB) instead of multi-MB windows. Sync spikes drop sharply. Filtered/cursor API paths stay uncached. Local Postgres for dev remains recommended ops outside this change.
+
+## 2026-07-20 — Remove EDHREC data dependency
+**Context:** EDHREC ToS prohibit automated scraping/redistribution; partnership deferred. Community corpus not ready as meta substitute.
+**Decision:** Remove all EDHREC sync, cache tables, and UI meta. Discovery is Scryfall catalog-first (`/cards`, `/commanders` browse catalog; detail shells without popularity). Rename `Card.edhrecSlug` → `Card.slug` (`toCardSlug`). `/catalog` redirects to `/cards`. Future discovery enrichment is Scryfall-only (workshop), not EDHREC.
+**Consequences:** No salt/rank/synergy/top-list parity until Scryfall-based redesign. Phase 3 meta comparison must not target EDHREC profiles. Attribution footer is Scryfall + WotC only.
+**Supersedes:** Decisions that treat EDHREC JSON as Tier-1 meta source and discovery parity vs EDHREC (2026-07-08 data sources; Phase 1–1.6 EDHREC cache decisions).
+
+## 2026-07-20 — Scryfall discovery Phase B (hub + D2)
+**Context:** After removing EDHREC, discovery needed Scryfall-native popularity and classification-driven detail without pretending community meta exists.
+**Decision:** Single hub `/browse` with **Cards \| Commanders** toggle and rich facets (CI, CMC, type, Role, Theme, Game Changer, price band, Reserved). Redirect `/cards` → `/browse?entity=cards` and `/commanders` → `/browse?entity=commanders`; keep detail URLs. Ingest Scryfall `edhrec_rank` as **Popularity**, `game_changer`, reserved, mana/P/T/loyalty, and `all_parts` → `card_relations`. Persist **Friction** 0–3 (+2 GC, +1 stax-family otag, cap 3). Detail pack **D2**: hero Popularity/GC/Friction + role staples in CI + GC in CI + themes + similar (theme∩CI) + related + build skeleton (fixed targets; “available in CI”, not deck counts). Price bands labeled honestly (Low &lt;$1 / Mid $1–5 / High &gt;$5), not “budget meta”.
+**Consequences:** Nav is **Browse · Sets**. No inclusion %, synergy %, average-deck, or time windows in v1. Popularity copy must stay Scryfall-rank clear. Re-run `sync:scryfall` then `sync:compute-classifications` to populate rank/GC/relations/friction.
+**Supersedes:** Phase 1.7 “catalog shells without popularity” interim UX for browse/detail density.
+
+## 2026-07-20 — Pivot to MTGPlayground (catalog + collection + multi-format)
+**Context:** Without EDHREC/partnerships there is no legal Scryfall-like source for “as commander” popularity. Continuing as an EDHREC-style commander center would misrepresent `edhrec_rank` (deck inclusion, not commander choice). Product direction shifts toward Archidekt-like ownership tools.
+
+**Decision:**
+1. **Product name:** **MTGPlayground** (repo/package rename is a follow-up ops task; docs use the new name now).
+2. **Positioning:** Catalog + personal collection + multi-format deck building; not an external meta commander center.
+3. **Formats:** Deck builder supports **all major constructed formats** (not Commander-only). Commander remains a first-class format, not the sole scope.
+4. **Printing-first site-wide:** Manage card **versions** everywhere (set, artwork/collector number, foil/nonfoil/etched) like Archidekt — not only in collection. Collection grain is **printing-level** (option B).
+5. **Multiface:** First-class UI for DFC/MDFC/transform/split/etc. One physical printing / one deck oracle slot; render faces from Scryfall `card_faces`.
+6. **Single card detail:** Remove parallel Card \| Commander detail routes/tabs. One oracle hub with version picker + face toggle. Former commander D2 blocks (roles, GC, friction, relations, staples/skeleton) are **deferred into deck-builder insights**, not a second “commander view”.
+7. **Popularity:** Keep Scryfall inclusion rank on **cards** with honest copy; do **not** present it as commander popularity.
+8. **Community:** Keep publish + multi-axis ratings + rankings from the original plan, refined for **multi-format** and based on **platform corpus only** (no scraped meta).
+9. **Data sources:** Scryfall (oracle + printings sync) + MTGJSON (precons) + user collection/decks. No EDHREC/Moxfield/Archidekt scrape.
+
+**Consequences:** Roadmap reorders around printings schema, collection, multi-format decks, then analysis/community. Browse commanders-as-meta hub is deprecated. Neon storage/sync cost rises when full printings are indexed. WotC Fan Content Policy + Scryfall rules still apply (no paywall on card data).
+**Supersedes:** Commander-only MVP (2026-07-08); Phase 1.8 dual card/commander detail as product end-state; “commander center” discovery framing in PROJECT/AGENTS.
+
+## 2026-07-20 — Package/UI rebrand to MTGPlayground (Phase 2.0.2)
+**Context:** Docs already used MTGPlayground; UI, npm package name, and Scryfall User-Agents still said EDHForge.
+**Decision:** Rename user-facing brand and `package.json` to **MTGPlayground** / `mtgplayground`. Update SEO defaults and Scryfall User-Agent to `MTGPlayground/1.0`. Leave GitHub repo URL and local folder as `edhforge` until a separate ops rename.
+**Consequences:** No product behavior change. Historical decision entries keep the word EDHForge where they refer to the past.
+**Supersedes:** Pivot note that package rename was entirely deferred (partially completed for package/UI).
+
+## 2026-07-20 — Catalog honesty: Inclusion rank + commanders filter (Phase 2.0.3)
+**Context:** Scryfall `edhrec_rank` is Commander **deck inclusion**, not “chosen as commander”. Sorting/labeling the commanders hub by “Popularity” implied a false meta ranking (e.g. staples outranking true popular commanders).
+**Decision:** User-facing label **Inclusion** (tooltips explain deck inclusion). Keep sort param `popularity` for URL stability. **Commanders** browse defaults to **Name**, hides Inclusion on tiles/detail hero, and copy frames it as a legality catalog filter. Cards browse keeps Inclusion as default sort. Home demotes “Legal commanders” to secondary.
+**Consequences:** Commanders hub is no longer a fake top-commanders list. Full dual-view removal remains Phase 2.0.4.
+**Supersedes:** Phase 1.8 “Popularity” label as neutral-enough copy for commander browse.
+
+## 2026-07-20 — Single card detail; commanders slug redirects (Phase 2.0.4)
+**Context:** Pivot requires one oracle hub; Card \| Commander tabs duplicated D2 and implied a second “meta” product surface.
+**Decision:** Canonical detail is **`/cards/{slug}`** only. Remove `EntityDetailTabs`. `/commanders/{slug}` **permanentRedirect**s to `/cards/{slug}` (preserve `?set=`). All in-app links (browse, search, sets, tiles) go to `/cards/…`. Show **Legal commander** chip when `isCommander`. Former commander-only D2 blocks (role staples in CI, GC in CI, build skeleton) stay out of detail — deferred to deck-builder insights (Phase 2.2). Sitemap lists `/cards/{slug}` only.
+**Consequences:** Bookmarks to `/commanders/{slug}` still work via redirect. Browse `entity=commanders` remains a legality filter, not a parallel detail world.
+**Supersedes:** Symmetric EntityDetailTabs (2026-07-10 / 2026-07-16); parallel `/commanders/{slug}` detail as product surface.
+
+## 2026-07-20 — Show Inclusion on commanders browse tiles
+**Context:** After 2.0.3 hid Inclusion on commanders browse, the hub already states that commanders is a legality filter and Inclusion is not “as commander” popularity.
+**Decision:** Show **Inclusion** again on commanders browse tiles (same label/tooltip as cards). Keep name-first default sort and hub disclaimer.
+**Consequences:** Users can compare inclusion while filtering legal commanders without implying a commander-choice meta ranking.
+**Supersedes:** “hides Inclusion on tiles” clause of Catalog honesty (Phase 2.0.3).
+
+## 2026-07-20 — Printings table + default_cards bulk (Phase 2.0.5)
+**Context:** `set_cards` unique `(set, oracle)` collapsed multiple arts/CNs per set and lacked finishes, faces, and per-printing prices — insufficient for printing-first collection.
+**Decision:** Replace `set_cards` with **`printings`**: PK = Scryfall card id; unique `(set_code, collector_number)`; fields include `finishes[]`, `faces` Json, `prices` Json, `image_uri`. Sync from Scryfall bulk **`default_cards`** (`sync:scryfall-printings`), skipping `art_series` and rows whose set is not in `mtg_sets`. Soft-join to oracle via `oracle_id`. Hero `?set=` picks lowest collector number in that set until 2.0.7 adds `?cn=`.
+**Consequences:** Set detail can list multiple printings of the same oracle. Neon storage/sync cost rises vs the old search index. Version picker UI and multiface UI remain 2.0.6–2.0.7. Alias `sync:scryfall-set-cards` → printings script for old docs/workflows.
+**Supersedes:** 2026-07-09 `set_cards` + per-set `unique=cards` search index as the printing model.
+
+## 2026-07-20 — Multiface Flip UI (Phase 2.0.6)
+**Context:** Printings already store `faces` Json; tiles/detail only showed the front `imageUri`.
+**Decision:** Add `cards.faces` (backfilled from printings; oracle sync writes faces going forward). Shared `CardMultifaceImage`: **staggered front/back stack** (no Flip button). Hovering the back face (visible offset) raises it to the front until hover leaves. Wire into detail hero, browse/set `CardFaceTile`, similar/relatives grids.
+**Consequences:** DFC/MDFC/transform cards show both faces at a glance. Version picker (set/cn/foil) remains 2.0.7.
+**Supersedes:** “multiface UI remains 2.0.6” deferral in the printings decision.
+
+## 2026-07-20 — Version picker `?set=&cn=&finish=` (Phase 2.0.7)
+**Context:** Printing-first catalog needed a stable way to deep-link a concrete art/CN and finish before collection (2.1).
+**Decision:** Card detail exposes **VersionPicker** (select of oracle printings + finish toggle). URL contract: `?set={code}&cn={collector}&finish={foil|etched}`; omit `finish` for nonfoil; “Catalog default” clears params. Resolve via `resolveCardPrinting` (set-only → lowest CN). Set detail and `/commanders/{slug}` redirects use `buildCardVersionHref`. Prices in hero footer prefer foil/etched when selected.
+**Consequences:** Shareable printing URLs without auth. Collection items (2.1) can reuse the same set/cn/finish grain.
+**Supersedes:** “`?cn=` lands in 2.0.7” deferral in the printings decision (2.0.5).
+
+## 2026-07-20 — Drop Related parts / `card_relations`
+**Context:** Scryfall `all_parts` (tokens, meld, combo pieces) on card PDP added little discovery value vs similar + relatives-by-subtype, while costing sync + storage.
+**Decision:** Remove `RelatedPartsSection`, `getCardRelations`, oracle sync relation upserts, and drop `card_relations` + `CardRelationComponent` from schema.
+**Consequences:** Slimmer oracle sync; PDP sections are classifications / similar / relatives-by-subtype only. Token/meld discovery is out of scope unless revisited later.
+**Supersedes:** `all_parts` → `card_relations` clause of the Phase 1.8 discovery decision (2026-07-20).
+
+## 2026-07-20 — Catalog prices EUR-first (Scryfall / Cardmarket)
+**Context:** EU-first product was showing only Scryfall USD while `prices.eur` / `eur_foil` (Cardmarket via Scryfall) were already synced on cards and printings. A direct Cardmarket export sync was deferred as low ROI.
+**Decision:** Default catalog currency is **EUR**. `PriceChip`, price sort, and price bands (`< €1` / `€1–5` / `> €5`) read `prices.eur*`. Display falls back to USD only when EUR is missing. No Cardmarket API/export job for now.
+**Consequences:** Honest EU pricing without new sync. Bands exclude cards with no EUR. Direct Cardmarket export remains optional later for Low/Trend/AVG fields or buy links.
+**Supersedes:** USD-only price chip / “Low &lt;$1” band wording from Phase 1.8.
+
+## 2026-07-20 — Global search: single Cards section
+**Context:** After unified `/cards/{slug}` detail, navbar search still split **Commanders** vs **Cards**, duplicating legendaries and implying parallel entity types.
+**Decision:** `GET /api/search` returns one `cards[]` (plus `sets[]`). Legal commanders stay in that list with `isCommander` → UI label **Legal commander**. Remove the separate `commanders[]` bucket.
+**Consequences:** One hit per oracle; search matches detail/browse honesty. Browse hub `entity=commanders` remains a legality filter, not a search taxonomy.
+**Supersedes:** dual card/commander sections in global search (Phase 1.5.5).

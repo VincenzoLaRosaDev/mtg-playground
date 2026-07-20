@@ -4,6 +4,8 @@ import { getSetsBrowseDefaults } from "@/lib/browse/sets-defaults";
 import type { SetBrowseItem } from "@/lib/browse/sets-shared";
 import { prisma } from "@/lib/db";
 
+export const dynamic = "force-dynamic";
+
 export default async function SetsPage() {
   const { toolbar, requestKey, queryParams } = getSetsBrowseDefaults();
   const result = await querySetsBrowse(prisma, queryParams);

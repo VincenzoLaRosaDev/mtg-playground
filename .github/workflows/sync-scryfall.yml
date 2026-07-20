@@ -9,7 +9,7 @@ on:
   # schedule:
   #   # Daily oracle_cards check + sync when bulk changed (03:00 UTC)
   #   - cron: "0 3 * * *"
-  #   # Weekly sets + set index (Sundays 04:30 UTC, after EDHREC HOT)
+  #   # Weekly sets + set index (Sundays 04:30 UTC)
   #   - cron: "30 4 * * 0"
   workflow_dispatch:
     inputs:
@@ -87,8 +87,8 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
-      - name: Sync Scryfall set card index
-        run: npm run sync:scryfall-set-cards
+      - name: Sync Scryfall printings
+        run: npm run sync:scryfall-printings -- --if-changed
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
 

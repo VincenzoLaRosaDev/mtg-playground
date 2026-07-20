@@ -58,7 +58,7 @@ const setSelect = {
   iconUri: true,
   digital: true,
   _count: {
-    select: { setCards: true },
+    select: { printings: true },
   },
 } as const;
 
@@ -91,7 +91,7 @@ function buildSetFilters(filters: SetBrowseFilters): Prisma.MtgSetWhereInput {
   }
 
   if (filters.indexedOnly) {
-    where.setCards = { some: {} };
+    where.printings = { some: {} };
   }
 
   return where;
@@ -156,7 +156,7 @@ function getOrderBy(
     case "cardCount":
       return [{ cardCount: order }, { code: "asc" }];
     case "indexed":
-      return [{ setCards: { _count: order } }, { code: "asc" }];
+      return [{ printings: { _count: order } }, { code: "asc" }];
     case "releasedAt":
     default:
       return [{ releasedAt: order }, { code: "asc" }];
@@ -174,7 +174,7 @@ function mapSetRow(
     cardCount: row.cardCount,
     iconUri: row.iconUri,
     digital: row.digital,
-    indexedCardCount: row._count.setCards,
+    indexedCardCount: row._count.printings,
   };
 }
 

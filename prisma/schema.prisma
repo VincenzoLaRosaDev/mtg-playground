@@ -9,7 +9,6 @@ datasource db {
 
 enum SyncSource {
   SCRYFALL
-  EDHREC
   MTGJSON
 }
 
@@ -17,29 +16,6 @@ enum SyncStatus {
   RUNNING
   SUCCESS
   FAILED
-}
-
-enum EdhrecSyncTier {
-  HOT
-  WARM
-  COLD
-}
-
-enum EdhrecTopEntityType {
-  CARD
-  COMMANDER
-}
-
-enum EdhrecTopWindow {
-  WEEK
-  MONTH
-  YEAR
-  ALL
-}
-
-enum EdhrecPageEntityType {
-  CARD
-  COMMANDER
 }
 
 enum OracleTagWeight {
@@ -55,125 +31,45 @@ enum ClassificationSource {
 }
 
 model Card {
-  id            String   @id
-  oracleId      String   @unique @map("oracle_id")
-  name          String
-  searchName    String   @map("search_name")
-  edhrecSlug    String?  @map("edhrec_slug")
-  typeLine      String   @map("type_line")
-  cmc           Float
-  colors        String[]
-  colorIdentity String[] @map("color_identity")
-  oracleText    String?  @map("oracle_text") @db.Text
-  keywords      String[]
-  producedMana  String[] @map("produced_mana")
-  layout        String
-  imageUri      String?  @map("image_uri")
-  legalities    Json
-  prices        Json?
-  isCommander   Boolean  @default(false) @map("is_commander")
-  syncedAt      DateTime @default(now()) @map("synced_at")
-
-  edhrecCommanderProfile EdhrecCommanderProfile?
-  edhrecCardData         EdhrecCardData?
+  id              String   @id
+  oracleId        String   @unique @map("oracle_id")
+  name            String
+  searchName      String   @map("search_name")
+  slug            String?  @map("slug")
+  typeLine        String   @map("type_line")
+  cmc             Float
+  manaCost        String?  @map("mana_cost")
+  colors          String[]
+  colorIdentity   String[] @map("color_identity")
+  oracleText      String?  @map("oracle_text") @db.Text
+  keywords        String[]
+  producedMana    String[] @map("produced_mana")
+  layout          String
+  imageUri        String?  @map("image_uri")
+  faces           Json?
+  legalities      Json
+  prices          Json?
+  power           String?
+  toughness       String?
+  loyalty         String?
+  popularityRank  Int?     @map("popularity_rank")
+  isGameChanger   Boolean  @default(false) @map("is_game_changer")
+  isReserved      Boolean  @default(false) @map("is_reserved")
+  frictionScore   Int      @default(0) @map("friction_score")
+  isCommander     Boolean  @default(false) @map("is_commander")
+  syncedAt        DateTime @default(now()) @map("synced_at")
 
   @@index([searchName])
   @@index([name])
   @@index([isCommander])
-  @@index([edhrecSlug])
+  @@index([slug])
   @@index([cmc])
   @@index([layout])
+  @@index([popularityRank])
+  @@index([isGameChanger])
+  @@index([isReserved])
+  @@index([frictionScore])
   @@map("cards")
-}
-
-model EdhrecCommanderProfile {
-  id            String         @id @default(cuid())
-  slug          String         @unique
-  name          String
-  cardId        String?        @unique @map("card_id")
-  rank          Int?
-  salt          Float?
-  numDecks      Int?           @map("num_decks")
-  colorIdentity String[]       @map("color_identity")
-  tagCounts     Json           @default("{}") @map("tag_counts")
-  similarSlugs  String[]       @default([]) @map("similar_slugs")
-  cardlists     Json           @default("{}")
-  bracketCounts Json?          @map("bracket_counts")
-  budgetCounts  Json?          @map("budget_counts")
-  syncTier      EdhrecSyncTier @default(HOT) @map("sync_tier")
-  syncedAt      DateTime       @default(now()) @map("synced_at")
-  expiresAt     DateTime?      @map("expires_at")
-
-  card Card? @relation(fields: [cardId], references: [id])
-
-  @@index([rank])
-  @@index([name])
-  @@index([syncTier])
-  @@index([numDecks])
-  @@index([salt])
-  @@index([expiresAt])
-  @@map("edhrec_commander_profiles")
-}
-
-model EdhrecCardData {
-  id           String         @id @default(cuid())
-  slug         String         @unique
-  name         String
-  cardId       String?        @unique @map("card_id")
-  salt         Float?
-  numDecks     Int?           @map("num_decks")
-  inclusion    Int?
-  potentialDecks Int?         @map("potential_decks")
-  cardlists    Json           @default("{}")
-  similarCards Json           @default("[]") @map("similar_cards")
-  syncTier     EdhrecSyncTier @default(HOT) @map("sync_tier")
-  syncedAt     DateTime       @default(now()) @map("synced_at")
-  expiresAt    DateTime?      @map("expires_at")
-
-  card Card? @relation(fields: [cardId], references: [id])
-
-  @@index([name])
-  @@index([syncTier])
-  @@index([inclusion])
-  @@index([numDecks])
-  @@index([salt])
-  @@index([expiresAt])
-  @@map("edhrec_card_data")
-}
-
-model EdhrecTopEntry {
-  id             String              @id @default(cuid())
-  entityType     EdhrecTopEntityType @map("entity_type")
-  window         EdhrecTopWindow
-  rank           Int
-  slug           String
-  name           String
-  numDecks       Int?                @map("num_decks")
-  inclusion      Int?
-  potentialDecks Int?                @map("potential_decks")
-  syncedAt       DateTime            @default(now()) @map("synced_at")
-
-  @@unique([entityType, window, slug])
-  @@index([entityType, window, rank])
-  @@index([slug])
-  @@map("edhrec_top_entries")
-}
-
-model EdhrecPageVariant {
-  id         String               @id @default(cuid())
-  entityType EdhrecPageEntityType @map("entity_type")
-  slug       String
-  theme      String               @default("")
-  budget     String               @default("")
-  bracket    String               @default("")
-  payload    Json
-  syncedAt   DateTime             @default(now()) @map("synced_at")
-  expiresAt  DateTime?            @map("expires_at")
-
-  @@unique([entityType, slug, theme, budget, bracket])
-  @@index([entityType, slug])
-  @@index([expiresAt])
-  @@map("edhrec_page_variants")
 }
 
 model MtgSet {
@@ -187,7 +83,7 @@ model MtgSet {
   digital    Boolean   @default(false)
   syncedAt   DateTime  @default(now()) @map("synced_at")
 
-  setCards SetCard[]
+  printings Printing[]
 
   @@index([releasedAt])
   @@index([name])
@@ -195,22 +91,32 @@ model MtgSet {
   @@map("mtg_sets")
 }
 
-model SetCard {
-  id              String  @id @default(cuid())
-  setCode         String  @map("set_code")
-  oracleId        String  @map("oracle_id")
+/// One Scryfall printing (set + collector number). Soft-joins to cards via oracleId.
+model Printing {
+  id              String    @id
+  oracleId        String    @map("oracle_id")
+  setCode         String    @map("set_code")
+  collectorNumber String    @map("collector_number")
   name            String
-  collectorNumber String  @map("collector_number")
   rarity          String
-  imageUri        String? @map("image_uri")
+  layout          String
+  lang            String    @default("en")
+  digital         Boolean   @default(false)
+  finishes        String[]
+  imageUri        String?   @map("image_uri")
+  faces           Json?
+  prices          Json?
+  illustrationId  String?   @map("illustration_id")
+  releasedAt      DateTime? @map("released_at")
+  syncedAt        DateTime  @default(now()) @map("synced_at")
 
   set MtgSet @relation(fields: [setCode], references: [code], onDelete: Cascade)
 
-  @@unique([setCode, oracleId])
-  @@index([setCode])
+  @@unique([setCode, collectorNumber])
   @@index([oracleId])
+  @@index([setCode])
   @@index([rarity])
-  @@map("set_cards")
+  @@map("printings")
 }
 
 model SyncLog {

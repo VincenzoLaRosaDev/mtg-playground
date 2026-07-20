@@ -1,40 +1,39 @@
-export type RankedCommanderSort = "rank" | "numDecks" | "salt" | "name";
+import { INCLUSION_RANK_SORT_LABEL } from "@/lib/display/inclusion-rank";
 
-export type CommanderBrowseSort = RankedCommanderSort;
+export type CommanderBrowseSort = "popularity" | "name" | "cmc" | "price";
 
 export type CommanderBrowseItem = {
   cardId: string | null;
   slug: string;
   name: string;
-  rank: number | null;
-  salt: number | null;
-  numDecks: number | null;
   cmc: number | null;
   colorIdentity: string[];
   imageUri: string | null;
   typeLine: string | null;
   /** Scryfall USD prices JSON (for preview footer). */
   prices: unknown;
-  hasEdhrecMeta: boolean;
+  popularityRank: number | null;
+  frictionScore: number;
 };
 
-export function getCommanderBrowseSortOptions(): { value: CommanderBrowseSort; label: string }[] {
+export function getCommanderBrowseSortOptions(): {
+  value: CommanderBrowseSort;
+  label: string;
+}[] {
   return [
-    { value: "rank", label: "Rank" },
-    { value: "numDecks", label: "Decks" },
-    { value: "salt", label: "Salt" },
     { value: "name", label: "Name" },
+    { value: "cmc", label: "CMC" },
+    { value: "price", label: "Price" },
+    // Available but not default — inclusion ≠ “as commander” popularity
+    { value: "popularity", label: INCLUSION_RANK_SORT_LABEL },
   ];
 }
 
+/** Name-first: commanders browse is a catalog filter, not a meta ranking. */
 export function defaultSortForCommanderTab(): CommanderBrowseSort {
-  return "rank";
+  return "name";
 }
 
-export function defaultOrderForCommanderTab(
-  sort: CommanderBrowseSort,
-): "asc" | "desc" {
-  if (sort === "name") return "asc";
-  if (sort === "rank") return "asc";
-  return "desc";
+export function defaultOrderForCommanderTab(_sort: CommanderBrowseSort): "asc" | "desc" {
+  return "asc";
 }

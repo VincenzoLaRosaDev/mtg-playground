@@ -25,7 +25,7 @@ export async function resolveOracleIdsForRarities(
 
   const rows = await prisma.$queryRaw<{ oracle_id: string }[]>`
     SELECT oracle_id
-    FROM set_cards
+    FROM printings
     GROUP BY oracle_id
     HAVING MIN(
       CASE rarity

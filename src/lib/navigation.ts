@@ -1,6 +1,4 @@
 export const mainNav = [
-  { href: "/cards", label: "Top cards" },
-  { href: "/commanders", label: "Top commanders" },
-  { href: "/catalog", label: "Catalog" },
+  { href: "/browse", label: "Browse" },
   { href: "/sets", label: "Sets" },
 ] as const;

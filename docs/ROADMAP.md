@@ -1,8 +1,8 @@
-# EDHForge — Development Roadmap
+# MTGPlayground — Development Roadmap
 
-> Last updated: 2026-07-16 · Update checkboxes and dates as work completes.
+> Last updated: 2026-07-20 · Product pivot active — start at **Phase 2.0**
 
-**Legend:** ✅ done · 🔄 in progress · ⬜ todo
+**Legend:** ✅ done · 🔄 in progress · ⬜ todo · 🚫 blocked / needs redesign
 
 ---
 
@@ -180,6 +180,10 @@ Wave 7 → polish
 | Ops.8 | DB indexes: sync_logs + browse sort/TTL columns | ✅ | 2026-07-16 |
 | Ops.9 | Atomic `edhrec_top_entries` window rewrite | ✅ | 2026-07-16 |
 | Ops.10 | SSR first page for browse lists (`/cards` `/commanders` `/catalog` `/sets`) | ✅ | 2026-07-16 |
+| Ops.13 | Top-index browse: SQL keyset page (no full-window load) | ✅ | 2026-07-16 |
+| Ops.14 | Detail EDHREC loaders: explicit selects; lite profile for themes | ✅ | 2026-07-16 |
+| Ops.15 | Sync upserts: `select: { id }` to cut RETURNING egress | ✅ | 2026-07-16 |
+| Ops.16 | `unstable_cache` default browse hydrate (1h + tags) | ✅ | 2026-07-16 |
 
 **Audit follow-ups (deferred — pick up if/when needed):**
 
@@ -187,57 +191,134 @@ Wave 7 → polish
 |---|---|---|
 | Ops.4 | Enable GH Actions sync (secret + flag + cron) | Before public deploy / stale data matters |
 | Ops.11 | GIN on `color_identity` / trigram on `type_line` if filtered catalog queries slow | Measured need (see ARCHITECTURE hot indexes) |
-| Ops.12 | Safer `card_classifications` rebuild (txn/swap) + review soft FKs (`set_cards` / taggings) | Before Phase 3 analysis depends on classifications |
+| Ops.12 | Safer `card_classifications` rebuild (txn/swap) + review soft FKs (`printings` / taggings) | Before Phase 3 analysis depends on classifications |
 | — | Sentry + E2E | Already Phase 5.4 / 5.5 |
 | — | Deck builder / auth / analysis | Phase 2+ (below) |
 
 ---
 
-## Phase 2 — Deck Builder ⬜
+## Phase 1.7 — Remove EDHREC dependency ✅
 
-**Goal:** Create, import, edit, save Commander decks.
+**Goal:** ToS-safe Scryfall-only discovery baseline.
 
-| # | Task | Status |
-|---|---|---|
-| 2.1 | Auth.js: email + Google + Discord | ⬜ |
-| 2.2 | Prisma: User, Deck, DeckCard | ⬜ |
-| 2.3 | `packages/analysis` v1: curve, types, lands, colors | ⬜ |
-| 2.4 | Arena paste parser | ⬜ |
-| 2.5 | Live deck editor UI | ⬜ |
-| 2.6 | Commander legality engine | ⬜ |
-| 2.7 | Real-time stats panel in editor | ⬜ |
-| 2.8 | Guest flow `/analyze` | ⬜ |
-| 2.9 | Deck CRUD `/my/decks` | ⬜ |
-| 2.10 | User deck limits enforcement | ⬜ |
-| 2.11 | Fork from publication (stub for Phase 4) | ⬜ |
+| # | Task | Status | Done |
+|---|---|---|---|
+| 1.7.1 | Drop EDHREC schema/tables; rename edhrec_slug → slug | ✅ | 2026-07-20 |
+| 1.7.2 | Remove EDHREC sync scripts + GH workflows | ✅ | 2026-07-20 |
+| 1.7.3 | Catalog-first /cards /commanders; detail shells | ✅ | 2026-07-20 |
+| 1.7.4 | Docs + tests updated | ✅ | 2026-07-20 |
 
-**Demo:** Import list → fix errors → live curve → register → save.
+**Next:** Phase 1.8 Scryfall discovery enrichment.
 
 ---
 
-## Phase 3 — Intelligence Layer ⬜
+## Phase 1.8 — Scryfall discovery enrichment ✅
 
-**Goal:** Deep analysis + meta comparison vs EDHREC.
+**Goal:** Faceted `/browse` hub + D2 detail (Popularity / Friction / roles / related / build skeleton) without EDHREC or deck-corpus meta. **Completed 2026-07-20.**
 
-| # | Task | Status |
-|---|---|---|
-| 3.1 | Functional counts (removal/ramp/draw/counter/discard) | ⬜ |
-| 3.2 | 14 synergy themes (card + deck level) | ⬜ |
-| 3.3 | Adaptive UI (60% threshold) | ⬜ |
-| 3.4 | Commander coherence alerts | ⬜ |
-| 3.5 | Meta Comparison section (curve, roles, staples, themes) | ⬜ |
-| 3.6 | Archetype auto-detect from EDHREC tag_counts | ⬜ |
-| 3.7 | Deck salt score | ⬜ |
-| 3.8 | `/my/decks/[id]/analysis` page | ⬜ |
-| 3.9 | Feature gating guest vs registered | ⬜ |
+| # | Task | Status | Done |
+|---|---|---|---|
+| 1.8.1 | Schema: popularity_rank, GC, reserved, mana/P/T/loyalty, friction_score, card_relations; Scryfall sync + friction denorm | ✅ | 2026-07-20 |
+| 1.8.2 | Hub `/browse` (Cards \| Commanders) + `GET /api/browse` facets; redirects `/cards` `/commanders`; tile Popularity/Friction | ✅ | 2026-07-20 |
+| 1.8.3 | Detail D2: hero meta, role staples / GC in CI, themes, similar, related parts, build skeleton | ✅ | 2026-07-20 |
+| 1.8.4 | Docs (DECISIONS / PROJECT / ARCHITECTURE / UI / ROADMAP) | ✅ | 2026-07-20 |
 
-**Demo:** Full analysis with staples missing + curve vs EDHREC.
+**Out of v1:** keyword explorer, P/T filters, time windows, inclusion %, empirical synergy %.
+
+**Next:** Product pivot → MTGPlayground (see Phase 2.0).
 
 ---
 
-## Phase 4 — Community ⬜
+## Phase 2.0 — Product pivot (MTGPlayground) ✅
 
-**Goal:** Publish, vote, profiles, rankings.
+**Goal:** Reposition from EDHForge commander-center to **MTGPlayground**: printing-first catalog, collection, multi-format decks. Spec: `docs/PROJECT.md` · decision: `docs/DECISIONS.md` (2026-07-20 pivot). **Completed 2026-07-20.**
+
+| # | Task | Status | Done |
+|---|---|---|---|
+| 2.0.1 | Docs locked (PROJECT / ROADMAP / AGENTS / ARCHITECTURE / DECISIONS) | ✅ | 2026-07-20 |
+| 2.0.2 | Repo/package/UI rebrand `EDHForge` → `MTGPlayground` | ✅ | 2026-07-20 |
+| 2.0.3 | Catalog honesty: Popularity copy = inclusion rank; deprecate commanders-as-meta hub | ✅ | 2026-07-20 |
+| 2.0.4 | Unify card detail (remove Card \| Commander dual view); slim ex-D2 commander page | ✅ | 2026-07-20 |
+| 2.0.5 | Printing model: expand/replace `set_cards` → full Printings (finish, faces, prices) + sync | ✅ | 2026-07-20 |
+| 2.0.6 | Multiface UI on detail + tiles | ✅ | 2026-07-20 |
+| 2.0.7 | Version picker (set / art / foil) site-wide | ✅ | 2026-07-20 |
+
+**Demo:** One card page with multiple printings + face toggle; browse no longer implies commander meta.
+
+**Follow-up (2026-07-20):** Dropped Related parts / `card_relations` (Scryfall `all_parts`) from PDP + sync — see `docs/DECISIONS.md`.
+
+**Next:** Phase 2.1 Auth + Collection.
+
+---
+
+## Phase 2.1 — Auth + Collection ⬜
+
+**Goal:** Accounts and printing-level personal collection.
+
+| # | Task | Status |
+|---|---|---|
+| 2.1.1 | Auth.js: email + Google + Discord | ⬜ |
+| 2.1.2 | Prisma: User, CollectionItem (printing + finish + qty) | ⬜ |
+| 2.1.3 | Collection CRUD UI + search add | ⬜ |
+| 2.1.4 | Collection import (CSV / paste with printing resolve) | ⬜ |
+| 2.1.5 | Wantlist flag | ⬜ |
+
+**Demo:** Add MH2 Sol Ring foil ×1 → see it in collection.
+
+---
+
+## Phase 2.2 — Multi-format deck builder ⬜
+
+**Goal:** Create/import/edit decks for multiple formats; owned/missing vs collection.
+
+| # | Task | Status |
+|---|---|---|
+| 2.2.1 | Prisma: Deck, DeckCard (+ format, optional preferred printing) | ⬜ |
+| 2.2.2 | Live editor UI | ⬜ |
+| 2.2.3 | Multi-format legality engine | ⬜ |
+| 2.2.4 | Arena paste parser | ⬜ |
+| 2.2.5 | Owned / missing vs collection (oracle aggregate) | ⬜ |
+| 2.2.6 | Builder insights (roles / GC / friction / relations — ex-D2) | ⬜ |
+| 2.2.7 | Deck CRUD `/my/decks` + limits | ⬜ |
+| 2.2.8 | Guest analyze (optional) | ⬜ |
+
+**Demo:** Build a Modern deck → see missing cards vs collection → save.
+
+---
+
+## Phase 2.3 — Precons (MTGJSON) ⬜
+
+**Goal:** Official precon browse + fork into deck + gap vs collection.
+
+| # | Task | Status |
+|---|---|---|
+| 2.3.1 | MTGJSON precon sync | ⬜ |
+| 2.3.2 | `/precons` browse + detail | ⬜ |
+| 2.3.3 | Fork precon → deck | ⬜ |
+| 2.3.4 | Owned vs precon checklist | ⬜ |
+
+---
+
+## Phase 3 — Analysis (platform-native) ⬜
+
+**Goal:** Deck intelligence without external meta scrape.
+
+| # | Task | Status |
+|---|---|---|
+| 3.1 | Curve, types, lands, colors | ⬜ |
+| 3.2 | Functional role counts (classifications) | ⬜ |
+| 3.3 | Theme overlap (deck-level) | ⬜ |
+| 3.4 | Format coherence alerts | ⬜ |
+| 3.5 | Compare vs precon / own publications (not EDHREC) | ⬜ |
+| 3.6 | Analysis page `/my/decks/[id]/analysis` | ⬜ |
+
+**Supersedes:** Old Phase 3 “vs EDHREC profile” tasks.
+
+---
+
+## Phase 4 — Community (multi-format) ⬜
+
+**Goal:** Publish, vote, profiles, rankings on **platform corpus**, multi-format.
 
 | # | Task | Status |
 |---|---|---|
@@ -245,30 +326,39 @@ Wave 7 → polish
 | 4.2 | Publish flow (immutable snapshot) | ⬜ |
 | 4.3 | Fork publication → new Deck | ⬜ |
 | 4.4 | Multi-axis rating (power/budget/originality) | ⬜ |
-| 4.5 | Self-declared vs community power display | ⬜ |
+| 4.5 | Self-declared vs community display | ⬜ |
 | 4.6 | Public profile `/users/[username]` | ⬜ |
-| 4.7 | Bayesian rankings (weekly + all-time) | ⬜ |
-| 4.8 | Rankings pages (global, commander, theme) | ⬜ |
-| 4.9 | Retire + hard delete (cascade) | ⬜ |
+| 4.7 | Bayesian rankings (weekly + all-time; by format) | ⬜ |
+| 4.8 | Rankings pages (global, format, commander/archetype) | ⬜ |
+| 4.9 | Retire + hard delete | ⬜ |
 | 4.10 | Report content | ⬜ |
 
-**Demo:** Publish → receive votes → appear in weekly ranking.
+**Demo:** Publish → votes → weekly ranking for that format.
 
 ---
 
 ## Phase 5 — Polish & Launch ⬜
 
-**Goal:** Production-ready.
+**Goal:** Production-ready MTGPlayground.
 
 | # | Task | Status |
 |---|---|---|
-| 5.1 | MTGJSON precon import | ⬜ |
-| 5.2 | Onboarding + empty states | ⬜ |
-| 5.3 | Performance pass | ⬜ |
-| 5.4 | Sentry + sync health monitoring | ⬜ |
-| 5.5 | E2E tests (import, publish, vote) | ⬜ |
-| 5.6 | Premium tier schema (no billing) | ⬜ |
-| 5.7 | Production deploy + custom domain | ⬜ |
+| 5.1 | Onboarding + empty states | ⬜ |
+| 5.2 | Performance pass (printings volume) | ⬜ |
+| 5.3 | Sentry + sync health | ⬜ |
+| 5.4 | E2E (collection, deck, publish) | ⬜ |
+| 5.5 | Premium tier schema (no billing) | ⬜ |
+| 5.6 | Production deploy + domain | ⬜ |
+
+---
+
+## Superseded roadmap (EDHForge Commander-only)
+
+The following pre-pivot phases remain in git history for reference but are **not** the active plan:
+
+- ~~Phase 2 — Deck Builder (Commander-only)~~ → replaced by **2.1–2.2**
+- ~~Phase 3 — Intelligence vs EDHREC~~ → replaced by **Phase 3 platform-native**
+- ~~Phase 4–5 as originally scoped~~ → reframed above (precons moved earlier as **2.3**)
 
 ---
 
@@ -276,6 +366,6 @@ Wave 7 → polish
 
 When completing a task:
 
-1. Change `⬜` → `✅` and add date in Done column (Phase 0) or note in commit
+1. Change `⬜` → `✅` (or `🔄`) and add date where useful
 2. If adding new tasks, insert with next number in the correct phase
 3. If a phase scope changes, update `docs/PROJECT.md` and log in `docs/DECISIONS.md`

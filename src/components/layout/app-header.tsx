@@ -15,7 +15,7 @@ function SearchPageFallback() {
     <Input
       type="search"
       disabled
-      placeholder="Search cards, commanders, sets..."
+      placeholder="Search cards and sets..."
       className="opacity-60"
     />
   );
@@ -55,7 +55,7 @@ export function AppHeader() {
               href="/"
               className="font-heading text-lg font-semibold tracking-tight text-foreground"
             >
-              EDHForge
+              MTGPlayground
             </Link>
 
             <MobileNavSheet />

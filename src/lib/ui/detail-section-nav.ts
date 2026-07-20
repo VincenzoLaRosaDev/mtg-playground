@@ -1,10 +1,3 @@
-import type { ParsedCardListSection } from "@/lib/edhrec/cardlists";
-import {
-  isCardDetailUniqueCardlistTag,
-  isCommanderDetailUniqueCardlistTag,
-  parseAverageDeckSections,
-} from "@/lib/edhrec/cardlists";
-
 /** Scroll margin so anchored sections clear sticky header + section jump/nav. */
 export const DETAIL_SECTION_SCROLL_MARGIN =
   "scroll-mt-[calc(var(--site-header-height)+3.5rem)]";
@@ -12,157 +5,97 @@ export const DETAIL_SECTION_SCROLL_MARGIN =
 export const DETAIL_SECTION_HEADING_CLASS =
   "text-sm font-semibold uppercase tracking-wide text-muted-foreground";
 
+/** Same surface as browse filter panels (`bg-card`). */
 export const DETAIL_SECTION_PANEL_CLASS =
   "rounded-lg border border-border bg-card p-5 shadow-sm";
 
-/** Subtle fill for sections that exist only on this detail view (not the card/commander counterpart). */
-export const DETAIL_SECTION_UNIQUE_PANEL_CLASS =
-  "rounded-lg border border-border bg-primary/5 p-5 shadow-sm";
+/** @deprecated Use DETAIL_SECTION_PANEL_CLASS — unique tint removed for visual alignment. */
+export const DETAIL_SECTION_UNIQUE_PANEL_CLASS = DETAIL_SECTION_PANEL_CLASS;
 
-export const DETAIL_SECTION_UNIQUE_NAV_CLASS = "rounded-r-md bg-primary/10";
+/** @deprecated Unique nav tint removed — kept so call sites compile until cleaned. */
+export const DETAIL_SECTION_UNIQUE_NAV_CLASS = "";
 
-/** Outer wrapper when inner blocks already render their own panels (e.g. average deck). */
-export const DETAIL_SECTION_UNIQUE_WRAP_CLASS = "rounded-lg bg-primary/5 p-3";
+/** @deprecated Use plain spacing wrappers without primary tint. */
+export const DETAIL_SECTION_UNIQUE_WRAP_CLASS = "rounded-lg p-3";
 
-export function detailSectionPanelClass(uniqueToView = false): string {
-  return uniqueToView ? DETAIL_SECTION_UNIQUE_PANEL_CLASS : DETAIL_SECTION_PANEL_CLASS;
+export function detailSectionPanelClass(_uniqueToView = false): string {
+  return DETAIL_SECTION_PANEL_CLASS;
 }
 
 export const DETAIL_SECTION_IDS = {
-  topCommanders: "top-commanders",
-  deckThemes: "deck-themes",
-  averageDeck: "average-deck",
-  similarCards: "similar-cards",
-  similarCommanders: "similar-commanders",
   relativesBySubtype: "relatives-by-subtype",
+  similarCards: "similar-cards",
+  roleStaples: "role-staples",
+  gameChangers: "game-changers",
+  buildSkeleton: "build-skeleton",
 } as const;
 
-const CARD_ONLY_SECTION_IDS = new Set<string>([
-  DETAIL_SECTION_IDS.topCommanders,
-  DETAIL_SECTION_IDS.similarCards,
-  DETAIL_SECTION_IDS.relativesBySubtype,
-]);
+export function roleStapleSectionId(role: string): string {
+  return `${DETAIL_SECTION_IDS.roleStaples}-${role}`;
+}
 
-const COMMANDER_ONLY_SECTION_IDS = new Set<string>([
-  DETAIL_SECTION_IDS.deckThemes,
-  DETAIL_SECTION_IDS.averageDeck,
-  DETAIL_SECTION_IDS.similarCommanders,
-]);
+/** First letter uppercase for nav/section labels (e.g. "removal hard" → "Removal hard"). */
+export function capitalizeLabel(label: string): string {
+  if (!label) return label;
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
 
 export type DetailSectionNavItem = {
   id: string;
   label: string;
+  /** Kept for API compatibility; no longer styles nav items. */
   uniqueToView?: boolean;
 };
 
-export function cardlistSectionAnchorId(sectionTag: string): string {
-  return `cardlist-${sectionTag}`;
-}
-
-export function cardlistTagFromSectionId(sectionId: string): string | null {
-  const prefix = "cardlist-";
-  return sectionId.startsWith(prefix) ? sectionId.slice(prefix.length) : null;
-}
-
-export function isCardViewUniqueSectionId(sectionId: string): boolean {
-  if (CARD_ONLY_SECTION_IDS.has(sectionId)) {
-    return true;
-  }
-
-  const tag = cardlistTagFromSectionId(sectionId);
-  return tag != null && isCardDetailUniqueCardlistTag(tag);
-}
-
-export function isCommanderViewUniqueSectionId(sectionId: string): boolean {
-  if (COMMANDER_ONLY_SECTION_IDS.has(sectionId)) {
-    return true;
-  }
-
-  const tag = cardlistTagFromSectionId(sectionId);
-  return tag != null && isCommanderDetailUniqueCardlistTag(tag);
-}
-
-function sortNavItemsUniqueFirst(
-  items: DetailSectionNavItem[],
-  isUnique: (sectionId: string) => boolean,
-): DetailSectionNavItem[] {
-  const flagged = items.map((item) => ({
-    ...item,
-    uniqueToView: isUnique(item.id),
-  }));
-
-  return [
-    ...flagged.filter((item) => item.uniqueToView),
-    ...flagged.filter((item) => !item.uniqueToView),
-  ];
-}
-
-export function cardlistSectionNavItems(
-  sections: ParsedCardListSection[],
-): DetailSectionNavItem[] {
-  return sections.map((section) => ({
-    id: cardlistSectionAnchorId(section.id),
-    label: section.header,
-  }));
-}
-
-export function commanderCardlistSectionsForNav(
-  cardlists: Parameters<typeof parseAverageDeckSections>[0],
-  sections: ParsedCardListSection[],
-): ParsedCardListSection[] {
-  const averageDeckIds = new Set(
-    parseAverageDeckSections(cardlists).map((section) => section.id),
-  );
-
-  return sections.filter((section) => !averageDeckIds.has(section.id));
-}
-
 export function buildCardDetailNavItems(input: {
-  hasTopCommanders: boolean;
-  cardlistSections: ParsedCardListSection[];
-  hasSimilarCards: boolean;
+  hasSimilarCards?: boolean;
   hasRelatives: boolean;
 }): DetailSectionNavItem[] {
   const items: DetailSectionNavItem[] = [];
 
-  if (input.hasTopCommanders) {
-    items.push({ id: DETAIL_SECTION_IDS.topCommanders, label: "Top commanders" });
-  }
-
-  items.push(...cardlistSectionNavItems(input.cardlistSections));
-
   if (input.hasSimilarCards) {
     items.push({ id: DETAIL_SECTION_IDS.similarCards, label: "Similar cards" });
   }
-
   if (input.hasRelatives) {
-    items.push({ id: DETAIL_SECTION_IDS.relativesBySubtype, label: "Relatives by subtype" });
+    items.push({
+      id: DETAIL_SECTION_IDS.relativesBySubtype,
+      label: "Relatives by subtype",
+    });
   }
 
-  return sortNavItemsUniqueFirst(items, isCardViewUniqueSectionId);
+  return items;
 }
 
 export function buildCommanderDetailNavItems(input: {
-  hasThemes: boolean;
-  cardlistSections: ParsedCardListSection[];
-  hasAverageDeck: boolean;
-  hasSimilarCommanders: boolean;
+  roleStaples?: Array<{ role: string; label: string }>;
+  hasGameChangers?: boolean;
+  hasSimilarCards?: boolean;
+  hasRelatives?: boolean;
+  hasBuildSkeleton?: boolean;
 }): DetailSectionNavItem[] {
   const items: DetailSectionNavItem[] = [];
 
-  if (input.hasThemes) {
-    items.push({ id: DETAIL_SECTION_IDS.deckThemes, label: "Deck themes" });
+  for (const group of input.roleStaples ?? []) {
+    items.push({
+      id: roleStapleSectionId(group.role),
+      label: capitalizeLabel(group.label),
+    });
+  }
+  if (input.hasGameChangers) {
+    items.push({ id: DETAIL_SECTION_IDS.gameChangers, label: "Game Changers" });
+  }
+  if (input.hasSimilarCards) {
+    items.push({ id: DETAIL_SECTION_IDS.similarCards, label: "Similar" });
+  }
+  if (input.hasRelatives) {
+    items.push({
+      id: DETAIL_SECTION_IDS.relativesBySubtype,
+      label: "Relatives by subtype",
+    });
+  }
+  if (input.hasBuildSkeleton) {
+    items.push({ id: DETAIL_SECTION_IDS.buildSkeleton, label: "Build skeleton" });
   }
 
-  items.push(...cardlistSectionNavItems(input.cardlistSections));
-
-  if (input.hasAverageDeck) {
-    items.push({ id: DETAIL_SECTION_IDS.averageDeck, label: "Average deck" });
-  }
-
-  if (input.hasSimilarCommanders) {
-    items.push({ id: DETAIL_SECTION_IDS.similarCommanders, label: "Similar commanders" });
-  }
-
-  return sortNavItemsUniqueFirst(items, isCommanderViewUniqueSectionId);
+  return items;
 }

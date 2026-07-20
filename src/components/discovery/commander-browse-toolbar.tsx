@@ -1,3 +1,5 @@
+"use client";
+
 import {
   BrowseCatalogFilterFields,
   BrowseColorPillGroup,
@@ -5,9 +7,7 @@ import {
   BrowseSelectField,
 } from "@/components/discovery/browse-filter-controls";
 import { BrowseFilterPanel, BrowseFilterPanelRow } from "@/components/discovery/browse-filter-panel";
-import {
-  browseToolbarListGridClassName,
-} from "@/components/discovery/browse-toolbar-shared";
+import { browseToolbarListGridClassName } from "@/components/discovery/browse-toolbar-shared";
 import {
   defaultOrderForCommanderTab,
   defaultSortForCommanderTab,
@@ -15,7 +15,6 @@ import {
   type CommanderBrowseSort,
 } from "@/lib/browse/commanders-shared";
 import { colorsToParam } from "@/lib/browse/color-identity-filter";
-import type { EdhrecTopWindowParam } from "@/lib/edhrec/top-window";
 
 export type CommanderBrowseToolbarState = {
   query: string;
@@ -85,7 +84,6 @@ export function defaultCommanderBrowseToolbarState(): CommanderBrowseToolbarStat
 export function buildCommanderBrowseSearchParams(
   state: CommanderBrowseToolbarState,
   cursor?: string | null,
-  window?: EdhrecTopWindowParam,
 ): URLSearchParams {
   const params = new URLSearchParams({
     sort: state.sort,
@@ -94,7 +92,6 @@ export function buildCommanderBrowseSearchParams(
   });
 
   if (cursor) params.set("cursor", cursor);
-  if (window) params.set("window", window);
   if (state.query.trim().length >= 2) params.set("q", state.query.trim());
   const colorParam = colorsToParam(state.colors);
   if (colorParam) params.set("color", colorParam);

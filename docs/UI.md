@@ -1,19 +1,28 @@
-# EDHForge — UI guide
+# MTGPlayground — UI guide
 
-Living reference for layout and components. **Phase 1.6** discovery parity spec: `docs/PROJECT.md` § Discovery parity · task list: `docs/ROADMAP.md` § Phase 1.6.
+Living reference for layout and components. Historical Phase 1.6–1.8 discovery chrome remains below; **product end-state** is the MTGPlayground pivot (`docs/PROJECT.md`, `docs/DECISIONS.md` 2026-07-20).
 
-> Status: **Phase 1.6 complete** → Phase 2 deck builder next.
+> Status: Phase **2.0** complete → **Phase 2.1** Auth + Collection.
 
-## Principles
+## Pivot UI principles (current)
 
-1. **Data-first** — browse/search read Postgres only; detail pages may trigger on-demand cache refresh when filters change.
+1. **Printing-first** — version picker (set / art / foil) is a core pattern, not collection-only.
+2. **Single card detail** — one oracle page at `/cards/{slug}`; `/commanders/{slug}` redirects.
+3. **Multiface** — staggered front/back stack on detail + tiles; hover the back face to bring it forward.
+4. **Honest Inclusion** — Scryfall Commander **deck inclusion** rank only; never “as commander” popularity. UI label: **Inclusion**.
+5. **Commanders browse** — legality filter (name-first); not a meta ranking hub.
+6. **Collection + decks** — owned/missing in builder (Phase 2.1–2.2).
+
+## Principles (legacy EDHForge discovery)
+
+1. **Data-first** — browse/search read Postgres only.
 2. **Reuse the shell** — `AppHeader`, `AppFooter`, `PageShell`; shared discovery components across routes.
 3. **English only** (MVP) — labels, metadata, empty states.
-4. **Attribution** — Scryfall + EDHREC links in **footer only** (no “View on EDHREC” on detail).
-5. **Mobile-first, desktop-dense** — design for small screens first; expand density at `lg+`. Header uses hamburger `Sheet`; browse/detail filters stay always visible; detail section TOC is a sticky jump menu on mobile and a sticky aside nav on desktop (below the measured header height).
-6. **Oracle first** — card always at `/cards/{slug}`; popularity is an overlay with neutral empty states.
-7. **Parallel commander URLs** — `EntityDetailTabs` (outline `ToggleGroup`, same pattern as Themes/Kindred; Card | Commander links) on both card and commander routes.
-8. **Neutral popularity copy** — no upstream product names in UI except footer; use “Popularity data unavailable” badges in production.
+4. **Attribution** — Scryfall (+ WotC) in footer; no EDHREC.
+5. **Mobile-first, desktop-dense** — sticky header / section jump as today.
+6. **Oracle hub + printings** — card at `/cards/{slug}` with Version picker (`?set=` / `?cn=` / `?finish=`).
+7. ~~Parallel commander URLs~~ — **deprecated** by pivot; merge into single detail.
+8. **Neutral Inclusion copy** — inclusion-rank wording; no fake commander meta.
 
 ## Layout
 
@@ -87,15 +96,14 @@ Light mode / theme toggle: not shipped (kept possible via `next-themes`).
 | `BrowseFilterPanel` | `src/components/discovery/browse-filter-panel.tsx` | Card wrapper for filter toolbars |
 | `BrowseFilterPanelRow` | same | Last row flex wrapper; optional sort-order `Button` on the right |
 | `BrowseSelectField` / `BrowseSearchField` | `browse-filter-controls.tsx` | shadcn Select + Input for all browse/detail filter toolbars |
-| `EntityDetailTabs` | `entity-detail-tabs.tsx` | Outline `ToggleGroup` — Card ↔ Commander route switch |
 | `DetailSectionJump` | `detail-section-jump.tsx` | Mobile sticky section jump `DropdownMenu` (`lg:hidden`) |
 | Notices | `stale-cache-banner`, `edhrec-sync-notice`, `filter-unavailable-notice` | shadcn `Alert` (default / `warning` / `info` / muted) |
 
-## Browse pattern (Phase 1.6)
+## Browse pattern (Phase 1.8)
 
 ```
 PageShell
-  [toolbar slot] — window selector + BrowseFilterPanel (always visible)
+  [toolbar slot] — Cards|Commanders toggle + BrowseFilterPanel (always visible)
   PageListMeta — counts / hints
   Grid
   Load more (Button outline)
@@ -103,20 +111,19 @@ PageShell
 
 | Page | Title | View |
 |---|---|---|
-| `/cards` | **Top cards** | Grid only |
-| `/commanders` | **Top commanders** | Grid only |
-| `/catalog` | **Catalog** | Grid only — full `cards` table |
+| `/browse` | **Browse** | Hub grid — Cards \| Commanders toggle + facets |
+| `/cards` | (redirect) | → `/browse?entity=cards` |
+| `/commanders` | (redirect) | → `/browse?entity=commanders` |
 
-Full catalog browse: **global search** (`/search`), **catalog** (`/catalog`), and **sets** (`/sets`).
+Full catalog browse: **`/browse`**, **global search** (`/search`), and **sets** (`/sets`).
 
 ### Grid tile (default)
 
-Shared **`CardFaceTile`** — full-width card image (`CardImage` grid variant, proportional corner radius) + optional footer metrics. No outer border.
+Shared **`CardFaceTile`** — full-width card image (`CardMultifaceImage` / `CardImage` grid variant, proportional corner radius) + optional footer metrics. No outer border. Multiface cards show a **staggered front/back stack**; hover the back (offset strip) to raise it.
 
-- Rank, inclusion/decks, salt, synergy — footer row (`justify-between`, single line, no wrap)
-- `PopularityUnavailableBadge` when top index missing for window
+- Footer: Scryfall **Price** + **Inclusion** (rank) + **Friction** (when &gt; 0) on cards and commanders browse (Inclusion = deck inclusion, not “as commander”)
 
-Detail sections (`CardListSection`, similar cards/commanders, relatives, set detail grid) use the same tile + `CARD_FACE_GRID_CLASS`.
+Detail sections (role staples, relatives, set detail grid) use the same tile + `CARD_FACE_GRID_CLASS` / `CARD_FACE_DETAIL_GRID_CLASS`.
 
 ### Sets browse
 
@@ -126,9 +133,9 @@ Horizontal **set row cards** (`SetBrowseRow`) in a wide grid (`SET_BROWSE_GRID_C
 
 Compact **horizontal rows** (`Card` + thumbnail) per entity type — not `CardFaceTile` grid. Suited to mixed entity results and quick scanning.
 
-## Browse filters (Phase 1.6)
+## Browse filters (Phase 1.8)
 
-Shared **`BrowseFilterPanel`** styling on all list pages. Grid tokens live in `browse-toolbar-shared.ts`. **Cards / commanders / catalog** use `browseToolbarListGridClassName` (search · sort · type · CMC pair: 1 col → `sm` 2×2 → one row at `lg+`). CMC min/max are one grid cell (`browseToolbarCmcPairClassName`) so they stay compact without orphan columns. **Commander detail** uses equal `sm:grid-cols-3` (`browseToolbarCommanderDetailGridClassName`). **Sets browse** uses `browseToolbarDenseGridClassName`; **set detail** uses `browseToolbarSetDetailGridClassName`. Pill groups sit on a second row in **`BrowseFilterPanelRow`** with the sort-order icon on the right.
+Shared **`BrowseFilterPanel`** styling on all list pages. Grid tokens live in `browse-toolbar-shared.ts`. **Browse hub** uses `browseToolbarListGridClassName` (search · sort · type · CMC · role · theme · price band). CMC min/max are one grid cell (`browseToolbarCmcPairClassName`). **Sets browse** uses `browseToolbarDenseGridClassName`; **set detail** uses `browseToolbarSetDetailGridClassName`. Pill groups sit on a second row in **`BrowseFilterPanelRow`** with the sort-order icon on the right.
 
 | Control | Style | Pages |
 |---|---|---|
@@ -146,46 +153,37 @@ Shared **`BrowseFilterPanel`** styling on all list pages. Grid tokens live in `b
 
 Color filter uses **`colorIdentity`** (Commander identity), comma-separated in API `color=W,U` param.
 
-Catalog/top-card **rarity** filter matches the oracle’s **lowest** printing tier across `set_cards` (not “any printing”). Set detail filters each printing row directly.
+Catalog/top-card **rarity** filter matches the oracle’s **lowest** printing tier across `printings` (not “any printing”). Set detail filters each printing row directly.
 
-## Card detail (Phase 1.6 + 1.7)
+## Card detail (Phase 1.6–2.0)
 
-Printed-card facts (CMC, colors, oracle, keywords) are **not** duplicated in the main column — they live on the card image. Under the image: set printing note (when applicable), then the same **`EntityPreviewFooter`** as browse/list tiles (prices ↔ salt; primary ↔ compact decks).
+Printed-card facts (CMC, colors, oracle, keywords) are **not** duplicated in the main column — they live on the card image. Under the image: set/cn note → **VersionPicker** (set/art select + finish toggle when multiple) → **`EntityPreviewFooter`** (prices respect `?finish=`; Inclusion ↔ Friction).
+
+**Version URL:** `/cards/{slug}?set={code}&cn={collector}&finish={foil|etched}`. Catalog default drops params. Set pages link with `set`+`cn`. Nonfoil omits `finish`.
 
 **Mobile (`< lg`):** centered image (max 300px) → meta → sticky `DetailSectionJump` (below header) → sections.
 
 **Desktop (`lg+`):** image + meta scroll normally; only `DetailSectionNav` is sticky below the header. No compact/hide-on-scroll for under-image meta.
 
 ```
-[StaleCacheBanner?]
-EntityDetailTabs (when card is a commander)
-Hero aside: image → set note → EntityPreviewFooter → sticky DetailSectionNav (lg+)
-Main: DetailSectionJump (mobile) → unique sections → shared cardlists
+Hero aside: image → set/cn note → VersionPicker → EntityPreviewFooter → sticky DetailSectionNav (lg+)
+Main: DetailHeroMeta (Inclusion / Legal commander / GC / Friction / Reserved) → badges → DetailSectionJump → similar / relatives-by-subtype
 ```
 
-## Commander detail (Phase 1.6 + 1.7)
+`/commanders/[slug]` permanent-redirects to `/cards/[slug]` preserving version params (Phase 2.0.4 / 2.0.7). Former commander-only D2 blocks (role staples, GC in CI, build skeleton) are deferred to deck-builder insights. Related parts (`all_parts`) removed from PDP.
 
-Same under-image `EntityPreviewFooter` (USD → Rank → decks / salt). Theme / Budget / Bracket filters always visible in the main column. Card tiles in commander cardlists show inclusion + synergy when present; similar commanders use Rank like other commander tiles.
+## Commander detail (archive — superseded by 2.0.4)
 
-```
-[StaleCacheBanner?]
-EntityDetailTabs
-Hero aside: image → EntityPreviewFooter → sticky DetailSectionNav (lg+)
-Main: filter bar → DetailSectionJump (mobile) → unique sections → shared cardlists
-```
+~~Card \| Commander tabs and parallel `/commanders/[slug]` detail~~ — removed. Keep browse `entity=commanders` as a legality filter only.
 
-### Card vs commander parity (list + detail)
+### Card vs commander parity (historical)
 
-| Element | Card | Commander |
+| Element | Card detail (current) | Former commander detail |
 |---|---|---|
-| Browse / hero / detail-list footer | `EntityPreviewFooter` | `EntityPreviewFooter` |
-| Primary metric | inclusion % | rank (`#N`; detail: all-time) |
-| Prices · decks · salt | ✅ | ✅ |
-| Synergy (footer) | top commanders on card detail | card tiles under commander detail |
-| Browse CMC + colors | ✅ (filters/search) | ✅ (filters) |
-| Detail EDHREC sections | top commanders, **cardlists**, similar cards, relatives | themes, cardlists, similar commanders |
-
-Sections that exist on **only one** of the two detail views (card vs commander) appear **first** in `DetailSectionNav` and in the main column, with a subtle tinted panel (`bg-primary/5`). Shared cardlist buckets (e.g. New Cards, Top Cards, Creatures) follow without emphasis.
+| Canonical URL | `/cards/{slug}` | redirected → cards |
+| Inclusion rank | ✅ | ✅ on browse tiles (honest label); detail redirects to cards |
+| Legal commander chip | when `isCommander` | n/a |
+| Role staples / GC in CI / skeleton | deferred to builder | were on page |
 
 ## Components (target after 1.6)
 
@@ -205,7 +203,7 @@ Folder: `src/components/discovery/`
 | `CommanderFilterBar` | 1.6.14 | Theme / budget / bracket (commander) |
 | `RankBadge` | 1.6.1 | `#42` (legacy; browse/hero use footer primary) |
 | `SaltBadge` | 1.6.1 | Used inside `EntityPreviewFooter` |
-| `PriceChip` | 1.6.16 | Scryfall USD (inside `EntityPreviewFooter`) |
+| `PriceChip` | 1.6.16 | Scryfall **EUR** (Cardmarket) with USD fallback; inside `EntityPreviewFooter` |
 | `DetailHeroBadges` | 1.6.16 | *(superseded by `EntityPreviewFooter` on hero)* |
 | `CardDetailCardlistSections` | 1.6.16 | EDHREC co-played cardlists on card detail |
 | `DetailSectionNav` | 1.6.20 | Desktop sticky section list (`lg+`, below header) |
@@ -219,7 +217,7 @@ Folder: `src/components/discovery/`
 | `SaltIcon` + `SaltBadge` | 1.6.20 | Salt shaker + value |
 | `metric-icon-label` | 1.6.20 | Inclusion / synergy / decks icon prefixes |
 | `EdhrecSimilarCards` | 1.6.16 | Card detail similar grid — `EntityPreviewFooter` (prices · inclusion · decks · salt from cache) |
-| Existing | 1.5–1.6 | `LoadMoreButton`, toolbars, `EntityDetailTabs`, grid tiles, … |
+| Existing | 1.5–1.6 | `LoadMoreButton`, toolbars, grid tiles, … |
 
 **Dev-only:** `CatalogDebugPanel`, `DevEdhrecCoverageBadge` (dev list rows when overlay missing — production uses `PopularityUnavailableBadge`).
 
@@ -230,9 +228,9 @@ Folder: `src/components/discovery/`
 | `/` | Discovery shortcuts (Top cards, Top commanders, Catalog, Sets, Search) |
 | `/cards`, `/commanders` | Top lists only (no All tab); grid tiles; time window |
 | `/catalog` | Full catalog grid; commander filter; no EDHREC rank |
-| `/commanders/[slug]` | Filters + multi-section cardlists |
-| `/cards/[slug]` | Similar, prices, salt badge |
-| `/search` | Compact horizontal result rows (cards, commanders, sets) |
+| `/commanders/[slug]` | **Redirect →** `/cards/[slug]` (2.0.4) |
+| `/cards/[slug]` | Sole oracle hub; Inclusion + Legal commander chip |
+| `/search` | Compact horizontal result rows (cards, sets) |
 | `/sets` | Horizontal set cards in wide grid; dense filter toolbar |
 | `/sets/[code]` | `CardFaceTile` grid; footer is centered collector `#` only; filters + **sort by** in toolbar |
 

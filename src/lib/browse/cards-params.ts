@@ -1,87 +1,66 @@
 import {
   type AllCardSort,
   type CardBrowseSort,
-  type CardBrowseTab,
-  type PopularCardSort,
   defaultOrderForTab,
+  parsePriceBand,
 } from "@/lib/browse/cards-shared";
 import type { CardBrowseFilters } from "@/lib/browse/cards-filters";
-import { parseBrowseColorsParam, parseBrowseLimit, parseBrowseOptionalNumber, parseBrowseOrder } from "@/lib/browse/params";
+import {
+  parseBrowseColorsParam,
+  parseBrowseLimit,
+  parseBrowseOptionalNumber,
+  parseBrowseOrder,
+} from "@/lib/browse/params";
 import { parseRaritiesParam } from "@/lib/browse/rarity-filter";
 import type { BrowseOrder } from "@/lib/browse/types";
-import {
-  parseCardTopWindowParam,
-  type EdhrecCardTopWindowParam,
-} from "@/lib/edhrec/top-window";
+import { parseCatalogListPrice } from "@/lib/scryfall/card-prices";
+
+export type BrowseEntity = "cards" | "commanders";
 
 export type CardBrowseParams = {
-  tab?: CardBrowseTab;
-  window?: EdhrecCardTopWindowParam;
   limit?: number;
   cursor?: string | null;
   sort?: CardBrowseSort;
   order?: BrowseOrder;
   filters?: CardBrowseFilters;
+  entity?: BrowseEntity;
 };
 
 export type CardBrowseCursor = {
-  tab: CardBrowseTab;
-  window?: EdhrecCardTopWindowParam;
   sort: CardBrowseSort;
   order: BrowseOrder;
-  slug?: string;
   id?: string;
   name: string;
-  rank?: number | null;
-  inclusion?: number | null;
-  numDecks?: number | null;
-  salt?: number | null;
   cmc?: number;
+  popularityRank?: number | null;
+  /** EUR-first list price (legacy cursors may still send `usdPrice`). */
+  listPrice?: number | null;
+  usdPrice?: number | null;
 };
 
-function parseCardBrowseTab(value: string | null | undefined): CardBrowseTab {
-  return value === "all" ? "all" : "popular";
+function parseCardBrowseSort(value: string | null | undefined): CardBrowseSort {
+  if (value === "name" || value === "cmc" || value === "price" || value === "popularity") {
+    return value;
+  }
+  return "popularity";
 }
 
-function defaultOrderForCardBrowseTab(tab: CardBrowseTab, sort: CardBrowseSort): "asc" | "desc" {
-  if (tab === "all") {
-    if (sort === "name" || sort === "cmc") return "asc";
-    return "desc";
-  }
-
-  return defaultOrderForTab(sort);
-}
-
-function parseCardBrowseSort(tab: CardBrowseTab, value: string | null | undefined): CardBrowseSort {
-  if (tab === "popular") {
-    if (
-      value === "rank" ||
-      value === "numDecks" ||
-      value === "name" ||
-      value === "salt" ||
-      value === "inclusion"
-    ) {
-      return value;
-    }
-    return "rank";
-  }
-
-  return value === "cmc" ? "cmc" : "name";
+export function parseBrowseEntity(value: string | null | undefined): BrowseEntity {
+  return value === "commanders" ? "commanders" : "cards";
 }
 
 export function parseCardBrowseParams(searchParams: URLSearchParams): CardBrowseParams {
-  const tab = parseCardBrowseTab(searchParams.get("tab"));
-  const window = parseCardTopWindowParam(searchParams.get("window"));
-  const sort = parseCardBrowseSort(tab, searchParams.get("sort"));
-  const hasEdhrecParam = searchParams.get("has_edhrec");
+  const sort = parseCardBrowseSort(searchParams.get("sort"));
+  const entity = parseBrowseEntity(searchParams.get("entity"));
+  const role = searchParams.get("role")?.trim() || undefined;
+  const theme = searchParams.get("theme")?.trim() || undefined;
 
   return {
-    tab,
-    window,
     limit: parseBrowseLimit(searchParams.get("limit")),
     cursor: searchParams.get("cursor"),
     sort,
-    order: parseBrowseOrder(searchParams.get("order"), defaultOrderForCardBrowseTab(tab, sort)),
+    order: parseBrowseOrder(searchParams.get("order"), defaultOrderForTab(sort)),
+    entity,
     filters: {
       query: searchParams.get("q")?.trim() || undefined,
       colors: parseBrowseColorsParam(searchParams.get("color")),
@@ -89,52 +68,38 @@ export function parseCardBrowseParams(searchParams: URLSearchParams): CardBrowse
       cmcMax: parseBrowseOptionalNumber(searchParams.get("cmc_max")),
       typeContains: searchParams.get("type")?.trim() || undefined,
       commanderLegal: searchParams.get("commander") === "legal",
-      commandersOnly: searchParams.get("commanders_only") === "true",
+      commandersOnly:
+        entity === "commanders" || searchParams.get("commanders_only") === "true",
+      requireSlug: entity === "commanders" || searchParams.get("require_slug") === "true",
       rarities: parseRaritiesParam(searchParams.get("rarity")),
-      hasEdhrec:
-        hasEdhrecParam === "true" ? true : hasEdhrecParam === "false" ? false : undefined,
+      role,
+      theme,
+      gameChanger: searchParams.get("gc") === "1" || searchParams.get("game_changer") === "true",
+      reserved: searchParams.get("reserved") === "1" || searchParams.get("reserved") === "true",
+      priceBand: parsePriceBand(searchParams.get("price_band") ?? searchParams.get("budget")),
     },
   };
 }
 
-export function popularCursorPayload(
-  row: {
-    name: string;
-    rank: number | null;
-    inclusion: number | null;
-    numDecks: number | null;
-    salt: number | null;
-  },
-  slug: string,
-  sort: PopularCardSort,
-  order: BrowseOrder,
-  window: EdhrecCardTopWindowParam,
-): CardBrowseCursor {
-  return {
-    tab: "popular",
-    window,
-    sort,
-    order,
-    slug,
-    name: row.name,
-    rank: row.rank,
-    inclusion: row.inclusion,
-    numDecks: row.numDecks,
-    salt: row.salt,
-  };
-}
-
 export function allCursorPayload(
-  row: { id: string; name: string; cmc: number },
+  row: {
+    id: string;
+    name: string;
+    cmc: number;
+    popularityRank?: number | null;
+    prices?: unknown;
+    listPrice?: number | null;
+  },
   sort: AllCardSort,
   order: BrowseOrder,
 ): CardBrowseCursor {
   return {
-    tab: "all",
     sort,
     order,
     id: row.id,
     name: row.name,
     cmc: row.cmc,
+    popularityRank: row.popularityRank ?? null,
+    listPrice: row.listPrice ?? parseCatalogListPrice(row.prices),
   };
 }

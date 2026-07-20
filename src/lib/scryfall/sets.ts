@@ -65,8 +65,8 @@ export function buildSetCardWhere(
   setCode: string,
   filters: SetCardFilters,
   matchingOracleIds?: string[],
-): Prisma.SetCardWhereInput {
-  const where: Prisma.SetCardWhereInput = { setCode };
+): Prisma.PrintingWhereInput {
+  const where: Prisma.PrintingWhereInput = { setCode };
 
   if (filters.rarities?.length) {
     where.rarity = { in: filters.rarities };

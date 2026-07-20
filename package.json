@@ -1,5 +1,5 @@
 {
-  "name": "edhforge",
+  "name": "mtgplayground",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -15,17 +15,12 @@
     "db:push": "prisma db push",
     "sync:scryfall": "tsx scripts/sync/scryfall-process.ts",
     "sync:scryfall-sets": "tsx scripts/sync/scryfall-sets.ts",
-    "sync:scryfall-set-cards": "tsx scripts/sync/scryfall-set-cards.ts",
+    "sync:scryfall-printings": "tsx scripts/sync/scryfall-printings.ts",
+    "sync:scryfall-set-cards": "tsx scripts/sync/scryfall-printings.ts",
     "sync:scryfall-tags": "tsx scripts/sync/scryfall-tags.ts",
     "sync:compute-classifications": "tsx scripts/sync/compute-card-classifications.ts",
     "sync:build-card-overrides": "tsx scripts/sync/build-card-overrides.ts",
-    "sync:edhrec-commanders": "tsx scripts/sync/edhrec-commanders.ts",
-    "sync:edhrec-commanders-catalog": "tsx scripts/sync/edhrec-commanders-catalog.ts",
-    "sync:edhrec-cards": "tsx scripts/sync/edhrec-cards.ts",
-    "sync:edhrec-top-lists": "tsx scripts/sync/edhrec-top-lists.ts",
-    "sync:backfill-edhrec-slugs": "tsx scripts/sync/backfill-edhrec-slugs.ts",
     "sync:purge-art-series": "tsx scripts/sync/purge-art-series.ts",
-    "sync:purge-edhrec-page-variants": "tsx scripts/sync/purge-edhrec-page-variants.ts",
     "vendor:mana-symbols": "node scripts/vendor/mana-symbols.mjs"
   },
   "dependencies": {

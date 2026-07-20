@@ -84,7 +84,7 @@ export function CatalogDebugPanel() {
         <div className="rounded-lg border border-info/40 bg-card/95 p-3 text-xs text-card-foreground shadow-lg backdrop-blur">
           <div className="flex items-start justify-between gap-3">
             <p className="font-semibold uppercase tracking-wide text-info-foreground">
-              EDHForge catalog · dev
+              MTGPlayground catalog · dev
             </p>
             <button
               type="button"
@@ -101,15 +101,14 @@ export function CatalogDebugPanel() {
             </button>
           </div>
           <p className="mt-2 text-muted-foreground">
-            User-facing UI reads one Postgres catalog. Scryfall supplies card/set identity;
-            popularity overlays sync on a schedule.
+            User-facing UI reads one Postgres catalog. Scryfall supplies card/set identity.
           </p>
           {loading && <p className="mt-3 text-muted-foreground">Loading sync status…</p>}
           {error && <p className="mt-3 text-destructive">{error}</p>}
           {health && !loading && (
             <dl className="mt-3 space-y-1">
               <div className="flex justify-between gap-3">
-                <dt>Popularity sync</dt>
+                <dt>Scryfall sync</dt>
                 <dd className="text-right">{health.syncStatus}</dd>
               </div>
               <div className="flex justify-between gap-3">
