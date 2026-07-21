@@ -1,0 +1,30 @@
+---
+description: MTGPlayground project context — read docs before any implementation
+alwaysApply: true
+---
+
+# MTGPlayground — Start here
+
+This is **MTGPlayground** (repo may still be named `edhforge`): Scryfall catalog + collection + multi-format decks.
+
+Before planning or coding:
+
+1. Read `AGENTS.md`
+2. Skim `docs/PROJECT.md` (product) and `docs/ARCHITECTURE.md` (technical)
+3. Check `docs/ROADMAP.md` for current phase — start at **Phase 2.0**
+
+## Non-negotiables
+
+- **Multi-format** decks (not Commander-only); English only
+- **Printing-first** site-wide (set/art/foil) + multiface; collection is printing-level
+- **Single card detail** (no Card \| Commander dual views as end-state)
+- **Deck** (private) vs **DeckPublication** (immutable public snapshot)
+- **No live meta scrape** — Scryfall/MTGJSON + Postgres; no EDHREC cache
+- **Prisma 7** — `@/generated/prisma/client` + `@prisma/adapter-pg`
+- **No ML in MVP**
+- Do not paywall Scryfall card data (Fan Content Policy)
+- Popularity = Scryfall **inclusion** rank only — never “as commander” popularity
+
+## When done with a task
+
+Update `docs/ROADMAP.md` checkboxes. If you made a significant choice, append to `docs/DECISIONS.md`.

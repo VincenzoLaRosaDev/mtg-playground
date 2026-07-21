@@ -3,7 +3,6 @@ import { unstable_cache } from "next/cache";
 import { getBrowseHubDefaults } from "@/lib/browse/browse-defaults";
 import { queryCardsBrowse } from "@/lib/browse/cards";
 import { getCardsBrowseDefaults } from "@/lib/browse/cards-defaults";
-import type { BrowseEntity } from "@/lib/browse/cards-params";
 import { queryCommandersBrowse } from "@/lib/browse/commanders";
 import { getCommandersBrowseDefaults } from "@/lib/browse/commanders-defaults";
 import { prisma } from "@/lib/db";
@@ -14,12 +13,12 @@ export const BROWSE_HUB_CACHE_TAG = "browse-hub";
 
 const DEFAULT_BROWSE_REVALIDATE_SECONDS = 3600;
 
-export function getCachedDefaultBrowseHub(entity: BrowseEntity) {
-  const { queryParams } = getBrowseHubDefaults(entity);
+export function getCachedDefaultBrowseHub(commandersOnly = false) {
+  const { queryParams } = getBrowseHubDefaults({ commandersOnly });
 
   return unstable_cache(
     () => queryCardsBrowse(prisma, queryParams),
-    [`browse-hub-default-${entity}-v3`],
+    [`browse-hub-default-${commandersOnly ? "commanders" : "cards"}-v4`],
     {
       revalidate: DEFAULT_BROWSE_REVALIDATE_SECONDS,
       tags: [BROWSE_HUB_CACHE_TAG, BROWSE_CARDS_TOP_CACHE_TAG],

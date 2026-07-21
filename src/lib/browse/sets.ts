@@ -275,3 +275,13 @@ export async function querySetsBrowse(
     cursorPayload(item, sort, order),
   );
 }
+
+/** Distinct `set_type` values present in `mtg_sets` (sorted). */
+export async function listDistinctSetTypes(prisma: PrismaClient): Promise<string[]> {
+  const rows = await prisma.mtgSet.findMany({
+    distinct: ["setType"],
+    select: { setType: true },
+    orderBy: { setType: "asc" },
+  });
+  return rows.map((row) => row.setType);
+}

@@ -1,12 +1,11 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useMemo, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 
 import {
   BrowseCatalogFilterFields,
   BrowseColorPillGroup,
-  BrowseFilterPill,
   BrowseFilterPillRow,
   BrowseFilterSection,
   BrowseRarityPillGroup,
@@ -17,6 +16,10 @@ import {
 import { BrowseFilterPanel, BrowseFilterPanelRow } from "@/components/discovery/browse-filter-panel";
 import { browseToolbarSetDetailGridClassName } from "@/components/discovery/browse-toolbar-shared";
 import { Button } from "@/components/ui/button";
+import {
+  getBrowseFormatFilterOptions,
+  type ScryfallBrowseFormat,
+} from "@/lib/formats/scryfall-formats";
 import {
   buildSetCardSearchParams,
   hasActiveSetCardFilters,
@@ -34,7 +37,22 @@ type SetCardFiltersProps = {
   setCode: string;
 };
 
-function toToolbarState(filters: SetCardFilters) {
+type ToolbarState = {
+  query: string;
+  sort: SetCardSort;
+  order: "asc" | "desc";
+  rarities: string[];
+  colors: string[];
+  typeContains: string;
+  cmcMin: string;
+  cmcMax: string;
+  format: ScryfallBrowseFormat | "";
+};
+
+/** Debounce for text/number fields that would otherwise SSR-navigate on every keystroke. */
+const TEXT_FILTER_DEBOUNCE_MS = 300;
+
+function toToolbarState(filters: SetCardFilters): ToolbarState {
   const sort = filters.sort ?? defaultSetCardSort();
 
   return {
@@ -46,8 +64,26 @@ function toToolbarState(filters: SetCardFilters) {
     typeContains: filters.typeContains ?? "",
     cmcMin: filters.cmcMin != null ? String(filters.cmcMin) : "",
     cmcMax: filters.cmcMax != null ? String(filters.cmcMax) : "",
-    commanderLegal: filters.commanderLegal === true,
+    format: filters.format ?? "",
   };
+}
+
+function toSetCardFilters(state: ToolbarState): SetCardFilters {
+  return {
+    query: state.query.trim() || undefined,
+    rarities: state.rarities,
+    colors: state.colors,
+    typeContains: state.typeContains.trim() || undefined,
+    cmcMin: state.cmcMin ? Number(state.cmcMin) : undefined,
+    cmcMax: state.cmcMax ? Number(state.cmcMax) : undefined,
+    format: state.format || undefined,
+    sort: state.sort,
+    order: state.order,
+  };
+}
+
+function textKey(state: ToolbarState): string {
+  return [state.query, state.typeContains, state.cmcMin, state.cmcMax].join("\0");
 }
 
 export function SetCardFilters({ setCode }: SetCardFiltersProps) {
@@ -55,54 +91,104 @@ export function SetCardFilters({ setCode }: SetCardFiltersProps) {
   const searchParams = useSearchParams();
   const [, startTransition] = useTransition();
 
-  const filters = useMemo(
+  const urlFilters = useMemo(
     () => parseSetCardFiltersFromSearchParams(new URLSearchParams(searchParams.toString())),
     [searchParams],
   );
-  const state = toToolbarState(filters);
-  const sortOptions = getSetCardSortOptions();
+  const urlState = useMemo(() => toToolbarState(urlFilters), [urlFilters]);
 
-  function applyFilters(next: SetCardFilters) {
-    const params = buildSetCardSearchParams(next);
+  /** Local draft so typing stays responsive while URL/SSR catch up. */
+  const [draft, setDraft] = useState<ToolbarState>(urlState);
+  const draftRef = useRef(draft);
+  draftRef.current = draft;
+
+  /** Text snapshot we last asked the router to apply — avoids clobbering newer keystrokes. */
+  const pendingTextKeyRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const incoming = textKey(urlState);
+    const pending = pendingTextKeyRef.current;
+
+    if (pending != null) {
+      if (pending === incoming) {
+        pendingTextKeyRef.current = null;
+        setDraft(urlState);
+        return;
+      }
+      // Stale or superseded navigation: keep local text, take discrete fields from URL.
+      setDraft((current) => ({
+        ...urlState,
+        query: current.query,
+        typeContains: current.typeContains,
+        cmcMin: current.cmcMin,
+        cmcMax: current.cmcMax,
+      }));
+      return;
+    }
+
+    // External URL change (back/forward, shared link).
+    setDraft(urlState);
+  }, [urlState]);
+
+  function navigate(next: ToolbarState) {
+    pendingTextKeyRef.current = textKey(next);
+    const params = buildSetCardSearchParams(toSetCardFilters(next));
     const query = params.toString();
-
     startTransition(() => {
-      router.push(query ? `/sets/${setCode}?${query}` : `/sets/${setCode}`);
+      router.replace(query ? `/sets/${setCode}?${query}` : `/sets/${setCode}`);
     });
   }
 
-  function update(patch: Partial<typeof state>) {
-    const merged = { ...state, ...patch };
-    const sort = merged.sort as SetCardSort;
-
-    applyFilters({
-      query: merged.query.trim() || undefined,
-      rarities: merged.rarities,
-      colors: merged.colors,
-      typeContains: merged.typeContains.trim() || undefined,
-      cmcMin: merged.cmcMin ? Number(merged.cmcMin) : undefined,
-      cmcMax: merged.cmcMax ? Number(merged.cmcMax) : undefined,
-      commanderLegal: merged.commanderLegal ? true : undefined,
-      sort,
-      order: merged.order,
-    });
+  /** Immediate URL update (sort, pills, clear). */
+  function commit(next: ToolbarState) {
+    setDraft(next);
+    navigate(next);
   }
+
+  function patchImmediate(patch: Partial<ToolbarState>) {
+    commit({ ...draftRef.current, ...patch });
+  }
+
+  /** Local-only update; debounced effect pushes text fields to the URL. */
+  function patchDraft(patch: Partial<ToolbarState>) {
+    setDraft((current) => ({ ...current, ...patch }));
+  }
+
+  useEffect(() => {
+    if (textKey(draft) === textKey(urlState)) {
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      navigate(draftRef.current);
+    }, TEXT_FILTER_DEBOUNCE_MS);
+
+    return () => clearTimeout(timeout);
+    // navigate/urlState identity handled via textKey compare; setCode is stable per page.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional text-field debounce
+  }, [draft.query, draft.typeContains, draft.cmcMin, draft.cmcMax, setCode]);
+
+  const sortOptions = getSetCardSortOptions();
+  const formatOptions = getBrowseFormatFilterOptions();
+  const showClear =
+    hasActiveSetCardFilters(urlFilters) ||
+    Boolean(draft.query || draft.typeContains || draft.cmcMin || draft.cmcMax || draft.format);
 
   return (
     <BrowseFilterPanel>
       <div className={browseToolbarSetDetailGridClassName}>
         <BrowseSearchField
           label="Search in set"
-          value={state.query}
-          onChange={(query) => update({ query })}
+          value={draft.query}
+          onChange={(query) => patchDraft({ query })}
           placeholder="Filter by card name..."
         />
 
         <BrowseSelectField
           label="Sort by"
-          value={state.sort}
+          value={draft.sort}
           onChange={(sort) =>
-            update({
+            patchImmediate({
               sort: sort as SetCardSort,
               order: defaultSetCardOrder(sort as SetCardSort),
             })
@@ -110,43 +196,56 @@ export function SetCardFilters({ setCode }: SetCardFiltersProps) {
           options={sortOptions}
         />
 
-        <BrowseCatalogFilterFields values={state} onChange={(patch) => update(patch)} inline />
+        <BrowseCatalogFilterFields
+          values={draft}
+          onChange={(patch) => patchDraft(patch)}
+          inline
+        />
+
+        <BrowseSelectField
+          label="Format"
+          value={draft.format}
+          onChange={(format) =>
+            patchImmediate({ format: (format as ScryfallBrowseFormat | "") || "" })
+          }
+          options={[{ value: "", label: "Any format" }, ...formatOptions]}
+        />
       </div>
 
       <BrowseFilterPanelRow
-        sortOrder={{ order: state.order, onChange: (order) => update({ order }) }}
+        sortOrder={{ order: draft.order, onChange: (order) => patchImmediate({ order }) }}
       >
         <BrowseToolbarPillGroups>
-          <BrowseColorPillGroup colors={state.colors} onChange={(colors) => update({ colors })} />
-          <BrowseRarityPillGroup
-            rarities={state.rarities}
-            onChange={(rarities) => update({ rarities })}
+          <BrowseColorPillGroup
+            colors={draft.colors}
+            onChange={(colors) => patchImmediate({ colors })}
           />
-          <BrowseFilterSection title="Options">
-            <BrowseFilterPillRow>
-              <BrowseFilterPill
-                label="Commander legal"
-                selected={state.commanderLegal}
-                onClick={() => update({ commanderLegal: !state.commanderLegal })}
-              />
-              {hasActiveSetCardFilters(filters) ? (
+          <BrowseRarityPillGroup
+            rarities={draft.rarities}
+            onChange={(rarities) => patchImmediate({ rarities })}
+          />
+          {showClear ? (
+            <BrowseFilterSection title="Options">
+              <BrowseFilterPillRow>
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
                   className="rounded-full px-2.5 text-xs"
                   onClick={() =>
-                    applyFilters({
-                      sort: filters.sort,
-                      order: filters.order,
-                    })
+                    commit(
+                      toToolbarState({
+                        sort: urlFilters.sort,
+                        order: urlFilters.order,
+                      }),
+                    )
                   }
                 >
                   Clear filters
                 </Button>
-              ) : null}
-            </BrowseFilterPillRow>
-          </BrowseFilterSection>
+              </BrowseFilterPillRow>
+            </BrowseFilterSection>
+          ) : null}
         </BrowseToolbarPillGroups>
       </BrowseFilterPanelRow>
     </BrowseFilterPanel>

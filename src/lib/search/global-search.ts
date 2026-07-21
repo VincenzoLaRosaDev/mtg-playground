@@ -1,5 +1,7 @@
 import type { PrismaClient } from "@/generated/prisma/client";
 
+import { listRankedCardIdsMatchingTextSearch } from "@/lib/search/card-text-search-query";
+import { parseCardFaces } from "@/lib/scryfall/faces";
 import {
   GLOBAL_SEARCH_DEFAULT_LIMIT,
   GLOBAL_SEARCH_MAX_LIMIT,
@@ -8,7 +10,6 @@ import {
   type GlobalSearchResponse,
   type GlobalSearchSetResult,
 } from "@/lib/search/types";
-import { playableCatalogCardWhere } from "@/lib/scryfall/catalog-filters";
 
 export type GlobalSearchParams = {
   query: string;
@@ -23,14 +24,6 @@ function parseSearchLimit(value: number | undefined): number {
   return Math.min(Math.floor(value), GLOBAL_SEARCH_MAX_LIMIT);
 }
 
-function buildNameSearchWhere(query: string, searchName: string) {
-  return [
-    { searchName: { startsWith: searchName } },
-    { searchName: { contains: searchName } },
-    { name: { contains: query, mode: "insensitive" as const } },
-  ];
-}
-
 export async function queryGlobalSearch(
   prisma: PrismaClient,
   params: GlobalSearchParams,
@@ -42,36 +35,52 @@ export async function queryGlobalSearch(
     return { query, cards: [], sets: [] };
   }
 
+  const rankedIds = await listRankedCardIdsMatchingTextSearch(prisma, query, limit);
+  const cardRows =
+    rankedIds && rankedIds.length > 0
+      ? await prisma.card.findMany({
+          where: { id: { in: rankedIds } },
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            typeLine: true,
+            cmc: true,
+            colorIdentity: true,
+            imageUri: true,
+            faces: true,
+            isCommander: true,
+            prices: true,
+            popularityRank: true,
+            frictionScore: true,
+            isGameChanger: true,
+            isReserved: true,
+          },
+        })
+      : [];
+
+  const byId = new Map(cardRows.map((row) => [row.id, row]));
+  const cards: GlobalSearchCardResult[] = (rankedIds ?? [])
+    .map((id) => byId.get(id))
+    .filter((row): row is NonNullable<typeof row> => row != null)
+    .map((row) => ({
+      id: row.id,
+      slug: row.slug,
+      name: row.name,
+      typeLine: row.typeLine,
+      cmc: row.cmc,
+      colorIdentity: row.colorIdentity,
+      imageUri: row.imageUri,
+      faces: parseCardFaces(row.faces),
+      isCommander: row.isCommander,
+      prices: row.prices,
+      popularityRank: row.popularityRank,
+      frictionScore: row.frictionScore,
+      isGameChanger: row.isGameChanger,
+      isReserved: row.isReserved,
+    }));
+
   const searchName = query.toLowerCase();
-
-  const cardRows = await prisma.card.findMany({
-    where: {
-      ...playableCatalogCardWhere,
-      OR: buildNameSearchWhere(query, searchName),
-    },
-    orderBy: [{ name: "asc" }],
-    take: limit,
-    select: {
-      name: true,
-      slug: true,
-      typeLine: true,
-      cmc: true,
-      colorIdentity: true,
-      imageUri: true,
-      isCommander: true,
-    },
-  });
-
-  const cards: GlobalSearchCardResult[] = cardRows.map((row) => ({
-    slug: row.slug,
-    name: row.name,
-    typeLine: row.typeLine,
-    cmc: row.cmc,
-    colorIdentity: row.colorIdentity,
-    imageUri: row.imageUri,
-    isCommander: row.isCommander,
-  }));
-
   const setRows = await prisma.mtgSet.findMany({
     where: {
       OR: [
@@ -87,6 +96,9 @@ export async function queryGlobalSearch(
       setType: true,
       iconUri: true,
       releasedAt: true,
+      digital: true,
+      cardCount: true,
+      _count: { select: { printings: true } },
     },
   });
 
@@ -96,6 +108,9 @@ export async function queryGlobalSearch(
     setType: row.setType,
     iconUri: row.iconUri,
     releasedAt: row.releasedAt?.toISOString() ?? null,
+    digital: row.digital,
+    cardCount: row.cardCount,
+    indexedCardCount: row._count.printings,
   }));
 
   return { query, cards, sets };

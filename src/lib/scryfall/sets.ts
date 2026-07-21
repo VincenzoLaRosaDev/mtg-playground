@@ -7,6 +7,10 @@ import {
   parseSetCardSort,
   parseSetCardSortOrder,
 } from "@/lib/scryfall/set-card-sort";
+import {
+  resolveFormatFromSearchParams,
+  type ScryfallBrowseFormat,
+} from "@/lib/formats/scryfall-formats";
 
 export const SET_RARITIES = ["common", "uncommon", "rare", "mythic", "special", "bonus"] as const;
 
@@ -14,7 +18,7 @@ export type SetCardFilters = {
   query?: string;
   rarities?: string[];
   colors?: string[];
-  commanderLegal?: boolean;
+  format?: ScryfallBrowseFormat;
   typeContains?: string;
   cmcMin?: number;
   cmcMax?: number;
@@ -26,6 +30,7 @@ export function parseSetCardFilters(searchParams: {
   q?: string;
   rarity?: string;
   color?: string;
+  format?: string;
   commander?: string;
   type?: string;
   cmc_min?: string;
@@ -43,7 +48,10 @@ export function parseSetCardFilters(searchParams: {
     colors: searchParams.color
       ? searchParams.color.split(",").map((value) => value.trim().toUpperCase()).filter(Boolean)
       : undefined,
-    commanderLegal: searchParams.commander === "legal" ? true : undefined,
+    format: resolveFormatFromSearchParams({
+      format: searchParams.format,
+      commander: searchParams.commander,
+    }),
     typeContains: searchParams.type?.trim() || undefined,
     cmcMin: searchParams.cmc_min ? Number(searchParams.cmc_min) : undefined,
     cmcMax: searchParams.cmc_max ? Number(searchParams.cmc_max) : undefined,

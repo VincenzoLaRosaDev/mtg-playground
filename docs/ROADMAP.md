@@ -190,7 +190,8 @@ Wave 7 → polish
 | # | Item | When |
 |---|---|---|
 | Ops.4 | Enable GH Actions sync (secret + flag + cron) | Before public deploy / stale data matters |
-| Ops.11 | GIN on `color_identity` / trigram on `type_line` if filtered catalog queries slow | Measured need (see ARCHITECTURE hot indexes) |
+| Ops.11 | GIN FTS on card text search (`search_tsv`) for browse + global `q` | ✅ | 2026-07-21 |
+| Ops.11b | GIN on `color_identity` / trigram if color/type filter queries slow | Measured need |
 | Ops.12 | Safer `card_classifications` rebuild (txn/swap) + review soft FKs (`printings` / taggings) | Before Phase 3 analysis depends on classifications |
 | — | Sentry + E2E | Already Phase 5.4 / 5.5 |
 | — | Deck builder / auth / analysis | Phase 2+ (below) |
@@ -247,6 +248,8 @@ Wave 7 → polish
 
 **Follow-up (2026-07-20):** Dropped Related parts / `card_relations` (Scryfall `all_parts`) from PDP + sync — see `docs/DECISIONS.md`.
 
+**Follow-up (2026-07-21):** Card detail two-band layout + **As card / As commander** list packs (`?view=commander`) — see `docs/DECISIONS.md`. D2 helpers remain on detail for commander view; Phase **2.2.6** still covers deck-builder reuse.
+
 **Next:** Phase 2.1 Auth + Collection.
 
 ---
@@ -278,7 +281,7 @@ Wave 7 → polish
 | 2.2.3 | Multi-format legality engine | ⬜ |
 | 2.2.4 | Arena paste parser | ⬜ |
 | 2.2.5 | Owned / missing vs collection (oracle aggregate) | ⬜ |
-| 2.2.6 | Builder insights (roles / GC / friction / relations — ex-D2) | ⬜ |
+| 2.2.6 | Builder insights (roles / GC / friction / relations — reuse detail D2 helpers) | ⬜ |
 | 2.2.7 | Deck CRUD `/my/decks` + limits | ⬜ |
 | 2.2.8 | Guest analyze (optional) | ⬜ |
 

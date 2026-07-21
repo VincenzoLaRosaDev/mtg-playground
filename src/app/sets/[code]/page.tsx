@@ -91,7 +91,7 @@ export default async function SetDetailPage({ params, searchParams }: SetDetailP
 
   if (
     filters.colors?.length ||
-    filters.commanderLegal ||
+    filters.format ||
     filters.typeContains ||
     filters.cmcMin != null ||
     filters.cmcMax != null

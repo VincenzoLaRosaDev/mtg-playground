@@ -111,28 +111,32 @@ PostgreSQL
   └─ sync_logs
 ```
 
-**Rule:** user-facing **browse/search/detail** routes read Postgres only (Scryfall catalog). No live external meta APIs in the hot path. `/cards` and `/commanders` browse redirect to `/browse`; `/catalog` → `/browse?entity=cards`.
+**Rule:** user-facing **browse/search/detail** routes read Postgres only (Scryfall catalog). No live external meta APIs in the hot path. `/cards` and `/catalog` → `/browse`; `/commanders` → `/browse?commanders_only=true`.
 
 ## Discovery browse APIs (Phase 1.8 hub)
 
 Common list contract for `/api/browse`, legacy `/api/cards/browse` / `/api/commanders/browse`, `/api/sets/search`, and `GET /api/search`:
 
 ```
-Query:  entity (browse), limit, cursor, sort, order, + resource-specific filters
+Query:  limit, cursor, sort, order, format, commanders_only, + resource-specific filters
 Response: { items: T[], total: number, nextCursor: string | null }
 ```
 
 | Endpoint | Purpose |
 |---|---|
-| `GET /api/browse` | Unified hub browse (`entity=cards\|commanders`); cards default Inclusion sort; commanders default Name |
-| `GET /api/cards/browse` | Legacy catalog browse (same query stack; optional `commanders_only`) |
+| `GET /api/browse` | Unified hub browse; default Inclusion sort; `commanders_only=true` (or legacy `entity=commanders`) → `isCommander` + Name sort default; `format=` → `legalities[format] === "legal"` |
+| `GET /api/cards/browse` | Legacy catalog browse (same query stack; optional `commanders_only` / `format`) |
 | `GET /api/commanders/browse` | Legacy commanders wrapper (`is_commander` + require slug) |
-| `GET /api/search?q=` | Unified navbar + `/search` (cards + sets; legal commanders appear in cards with a flag) |
+| `GET /api/search?q=` | Unified navbar + `/search` (cards + sets; cards via weighted FTS on name/type/oracle; legal commanders flagged) |
 | `GET /api/sets/search` | Cursor browse for sets |
 
-**Browse facets (v1):** color identity, CMC min/max, type contains, Role, Theme, Game Changer, Reserved, price band (EUR Low/Mid/High via Scryfall `prices.eur` / Cardmarket), rarity (cards entity). **Sort:** popularity (default), name, cmc, price (EUR-first).
+**Browse facets (v1):** color identity, CMC min/max, type contains, Role, Theme, **Format** (curated Scryfall keys via `src/lib/formats/scryfall-formats.ts`; JSONB path equals `legal`; legacy `commander=legal` → `format=commander`), Game Changer, Reserved, **Commander** (`isCommander` via `commanders_only`), rarity. No **price band** filter — oracle catalog prices are for one Scryfall representative printing, not min/max across versions. **Role/Theme selects** are hide-empty against `card_classifications` (closed enums in `FUNCTIONAL_ROLES` / `SYNERGY_THEMES`; fall back to full enum if classifications are empty). **Sort:** `popularity` (Inclusion / Commander — default when Format is Any or Commander), `color` (Color & CMC via denormalized `color_sort` — default for other formats), name, cmc, price (EUR-first, representative printing). Options Commander (`commanders_only`) defaults sort to Name.
 
-**Card enrichment columns:** `popularity_rank` (Scryfall `edhrec_rank`), `is_game_changer`, `is_reserved`, `friction_score`, `mana_cost`, `power`/`toughness`/`loyalty`.
+**Sets browse:** set-type select options come from `DISTINCT mtg_sets.set_type` (`listDistinctSetTypes`), not a hardcoded subset.
+
+**Card enrichment columns:** `popularity_rank` (Scryfall `edhrec_rank`), `color_sort` (Arena/Scryfall color order key from `colors[]`; set at sync + migration backfill), `search_document` (oracle + face text corpus), `search_tsv` (DB-generated weighted tsvector), `is_game_changer`, `is_reserved`, `friction_score`, `mana_cost`, `power`/`toughness`/`loyalty`.
+
+**Card text search:** browse `q` and `GET /api/search` share FTS on `search_tsv` via `to_tsquery`. **Hybrid:** tokens joined with `<->` (phrase adjacency); **last token always gets `:*` prefix** so partial typing works (`destroy all creatu`, `day of judgmen`). Single-token queries are `token:*`. Not fuzzy for typos in the middle of a word. Type contains remains a separate AND filter.
 
 **Friction:** denormalized on `cards.friction_score` — +2 if Game Changer, +1 if friction-family oracle tag; capped at 3; recomputed in `sync:compute-classifications`.
 
@@ -140,9 +144,9 @@ Response: { items: T[], total: number, nextCursor: string | null }
 
 Legacy `GET /api/cards/search` and `GET /api/commanders/search` were removed (2026-07-16) — superseded by `/api/search`.
 
-**Card detail printing context:** `/cards/{slug}?set={code}&cn={collector}&finish={foil|etched}` — `resolveCardPrinting` / `listOraclePrintings` in `src/lib/scryfall/card-printing.ts`. No `set` → oracle default image/faces/prices. `set` only → lowest `collector_number` in that set. `set`+`cn` → exact printing. `finish` (omit = nonfoil) drives price chip preference; VersionPicker under hero. Set detail and commander redirects preserve version params via `buildCardVersionHref`.
+**Card detail printing context:** `/cards/{slug}?set={code}&cn={collector}&finish={foil|etched}` — `resolveCardPrinting` / `listOraclePrintings` in `src/lib/scryfall/card-printing.ts`. No `set` → catalog default printing (`cards.id` === `printings.id`, else `image_uri` match) with set/cn/finishes filled for the VersionPicker. `set` only → lowest `collector_number` in that set. `set`+`cn` → exact printing. `finish` (omit = nonfoil) drives price chip preference and a CSS foil/etched sheen on the hero (Scryfall art is shared across finishes). VersionPicker lists real printings only (no “Catalog default” row). Set detail and commander redirects preserve version params via `buildCardVersionHref`.
 
-**Detail route:** `/cards/[slug]` is the sole oracle hub (`findPlayableCardBySlug`). Hero shows Inclusion / Legal commander / GC / Friction / Reserved + **staggered multiface** when `faces` has ≥2 images. Sections: classifications + similar + relatives-by-subtype. `/commanders/[slug]` permanentRedirects here (preserves `set`/`cn`/`finish`). Builder-oriented D2 (staples / GC-in-CI / skeleton) deferred to Phase 2.2.
+**Detail route:** `/cards/[slug]` is the sole oracle hub (`findPlayableCardBySlug`). **Overview band:** Inclusion / Legal commander / GC / Friction / Reserved + **staggered multiface** + VersionPicker / prices. **Lists band:** As card (similar + relatives) by default; when `isCommander`, **As card | As commander** toggle via `?view=commander` switches to D2 pack (role staples / GC in CI / similar / relatives / build skeleton) with sticky TOC. `/commanders/[slug]` permanentRedirects here (preserves `set`/`cn`/`finish`). Same D2 helpers remain available for deck-builder insights (Phase 2.2.6).
 
 ## Folder structure
 
@@ -203,7 +207,7 @@ Tests: `npm test` (Vitest). No DB required for current unit suite.
 
 **Removed (2026-07-20):** `card_relations` + `CardRelationComponent` (Scryfall `all_parts` / Related parts on PDP — low value).
 
-**Hot indexes (2026-07-16 + 1.8):** `cards.cmc`, `cards.layout`, `cards.popularity_rank`, `cards.is_game_changer`, `cards.is_reserved`, `cards.friction_score`. GIN/trigram for color/type filters deferred.
+**Hot indexes (2026-07-16 + 1.8):** `cards.cmc`, `cards.layout`, `cards.popularity_rank`, `cards.is_game_changer`, `cards.is_reserved`, `cards.friction_score`, `cards.color_sort`. **FTS:** `cards.search_tsv` GIN (generated from name A + type_line B + `search_document` C). GIN on `color_identity` / trigram deferred until measured.
 
 ### Planned (Phase 2.1+)
 

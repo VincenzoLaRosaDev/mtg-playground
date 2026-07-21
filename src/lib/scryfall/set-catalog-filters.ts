@@ -4,7 +4,7 @@ import { buildCatalogCardWhere, type CardBrowseFilters } from "@/lib/browse/card
 export function buildSetCatalogCardWhere(filters: SetCardFilters) {
   const catalogFilters: CardBrowseFilters = {
     colors: filters.colors,
-    commanderLegal: filters.commanderLegal,
+    format: filters.format,
     typeContains: filters.typeContains,
     cmcMin: filters.cmcMin,
     cmcMax: filters.cmcMax,

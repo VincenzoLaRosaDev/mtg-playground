@@ -26,6 +26,8 @@ import {
 import { mapScryfallFaces } from "../../src/lib/scryfall/faces";
 import { shouldIndexScryfallCard } from "../../src/lib/scryfall/catalog-filters";
 import { computeFrictionScore } from "../../src/lib/classification/friction";
+import { computeColorSortKey } from "../../src/lib/browse/color-sort";
+import { buildCardSearchDocumentFromScryfall } from "../../src/lib/search/card-text-search";
 
 // Must run before importing db.ts (that module reads DATABASE_URL at load time)
 config({ path: ".env.local" });
@@ -104,6 +106,8 @@ function mapCard(card: ScryfallCard) {
     // Tag-based +1 applied later by classifications job; GC contributes here.
     frictionScore: computeFrictionScore({ isGameChanger, tagSlugs: [] }),
     isCommander: isCommanderLegal(card),
+    colorSort: computeColorSortKey(card.colors ?? []),
+    searchDocument: buildCardSearchDocumentFromScryfall(card),
     syncedAt: new Date(),
   };
 }

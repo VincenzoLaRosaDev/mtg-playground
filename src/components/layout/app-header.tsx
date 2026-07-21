@@ -7,6 +7,7 @@ import { GlobalSearch } from "@/components/discovery/global-search";
 import { MobileNavSheet } from "@/components/layout/mobile-nav-sheet";
 import { NavLinks } from "@/components/layout/nav-links";
 import { Input } from "@/components/ui/input";
+import { CARD_TEXT_SEARCH_PLACEHOLDER } from "@/lib/search/card-text-search";
 import { SITE_HEADER_HEIGHT_VAR, siteContainerClassName } from "@/lib/ui/layout";
 import { cn } from "@/lib/utils";
 
@@ -15,7 +16,7 @@ function SearchPageFallback() {
     <Input
       type="search"
       disabled
-      placeholder="Search cards and sets..."
+      placeholder={`${CARD_TEXT_SEARCH_PLACEHOLDER} + sets`}
       className="opacity-60"
     />
   );

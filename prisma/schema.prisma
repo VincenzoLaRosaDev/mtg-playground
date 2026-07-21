@@ -57,6 +57,13 @@ model Card {
   isReserved      Boolean  @default(false) @map("is_reserved")
   frictionScore   Int      @default(0) @map("friction_score")
   isCommander     Boolean  @default(false) @map("is_commander")
+  /** Arena/Scryfall color order key — see `computeColorSortKey`. */
+  colorSort       Int      @default(0) @map("color_sort")
+  /**
+   * Oracle/face text corpus for FTS weight C.
+   * `search_tsv` is a DB-generated column (not mapped) — see migration.
+   */
+  searchDocument  String   @default("") @map("search_document") @db.Text
   syncedAt        DateTime @default(now()) @map("synced_at")
 
   @@index([searchName])
@@ -69,6 +76,7 @@ model Card {
   @@index([isGameChanger])
   @@index([isReserved])
   @@index([frictionScore])
+  @@index([colorSort])
   @@map("cards")
 }
 

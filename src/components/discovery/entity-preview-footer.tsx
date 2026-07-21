@@ -5,6 +5,7 @@ import {
   INCLUSION_RANK_TITLE,
 } from "@/lib/display/inclusion-rank";
 import type { PrintingFinish } from "@/lib/scryfall/card-printing";
+import { cn } from "@/lib/utils";
 
 type EntityPreviewFooterProps = {
   prices?: unknown;
@@ -13,6 +14,7 @@ type EntityPreviewFooterProps = {
   /** When false, omit inclusion rank. */
   showInclusionRank?: boolean;
   frictionScore?: number | null;
+  className?: string;
 };
 
 /** Compact footer under card faces — Price + Inclusion + Friction. */
@@ -22,6 +24,7 @@ export function EntityPreviewFooter({
   popularityRank,
   showInclusionRank = true,
   frictionScore,
+  className,
 }: EntityPreviewFooterProps) {
   const inclusion = showInclusionRank ? formatInclusionRank(popularityRank) : null;
   const showFriction = frictionScore != null && frictionScore > 0;
@@ -32,7 +35,12 @@ export function EntityPreviewFooter({
   }
 
   return (
-    <div className="flex w-full min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+    <div
+      className={cn(
+        "flex w-full min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground",
+        className,
+      )}
+    >
       {hasPrice ? (
         <PriceChip
           prices={prices}

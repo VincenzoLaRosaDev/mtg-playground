@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useState } from "react";
 
 import {
   BrowseHubToolbar,
@@ -17,26 +16,35 @@ import type { BrowseHubToolbarSnapshot } from "@/lib/browse/browse-defaults";
 import type { CardBrowseItem } from "@/lib/browse/cards-shared";
 import {
   defaultCatalogOrder,
-  defaultCatalogSort,
+  defaultCatalogSortForFormat,
   getCatalogBrowseSortOptions,
 } from "@/lib/browse/cards-shared";
-import type { BrowseEntity } from "@/lib/browse/cards-params";
 import { CARD_FACE_GRID_CLASS } from "@/lib/ui/card-face";
 
 type BrowseHubClientProps = {
   initialData: BrowseListInitialData<CardBrowseItem>;
   initialToolbar: BrowseHubToolbarSnapshot;
   initialRequestKey: string;
+  presentRoles: string[];
+  presentThemes: string[];
 };
+
+/** Show Inclusion on tiles for Any/Commander format, or when sorting by Inclusion. */
+export function shouldShowBrowseInclusionRank(state: {
+  format: string;
+  sort: string;
+}): boolean {
+  if (state.sort === "popularity") return true;
+  return !state.format || state.format === "commander";
+}
 
 export function BrowseHubClient({
   initialData,
   initialToolbar,
   initialRequestKey,
+  presentRoles,
+  presentThemes,
 }: BrowseHubClientProps) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
   const [toolbar, setToolbar] = useState<BrowseHubToolbarState>(initialToolbar);
 
   const { items, total, nextCursor, loading, loadingMore, error, loadMore } =
@@ -50,29 +58,23 @@ export function BrowseHubClient({
       buildSearchParams: (cursor) => buildBrowseHubSearchParams(toolbar, cursor),
     });
 
-  useEffect(() => {
-    const entity = toolbar.entity;
-    const current = searchParams.get("entity") ?? "cards";
-    if (current === entity) return;
-    const next = new URLSearchParams(searchParams.toString());
-    next.set("entity", entity);
-    router.replace(`${pathname}?${next.toString()}`);
-  }, [toolbar.entity, pathname, router, searchParams]);
-
   function handleToolbarChange(patch: Partial<BrowseHubToolbarState>) {
     setToolbar((current) => {
       const next = { ...current, ...patch };
 
-      if (patch.entity && patch.entity !== current.entity) {
-        // Reset rarity / commander-legal when switching entity.
-        if (patch.entity === "commanders") {
-          next.rarities = [];
-          next.commanderLegal = false;
-          // Catalog filter of legal commanders — not an inclusion “top commanders” list
+      if (patch.commandersOnly != null && patch.commandersOnly !== current.commandersOnly) {
+        if (patch.commandersOnly) {
           next.sort = "name";
           next.order = defaultCatalogOrder("name");
-        } else if (patch.entity === "cards") {
-          next.sort = defaultCatalogSort();
+        } else {
+          next.sort = defaultCatalogSortForFormat(next.format);
+          next.order = defaultCatalogOrder(next.sort);
+        }
+      }
+
+      if (patch.format !== undefined && patch.format !== current.format) {
+        if (!next.commandersOnly) {
+          next.sort = defaultCatalogSortForFormat(next.format);
           next.order = defaultCatalogOrder(next.sort);
         }
       }
@@ -80,7 +82,7 @@ export function BrowseHubClient({
       if (patch.sort) {
         const validSorts = getCatalogBrowseSortOptions().map((option) => option.value);
         if (!validSorts.includes(patch.sort)) {
-          next.sort = defaultCatalogSort();
+          next.sort = defaultCatalogSortForFormat(next.format);
           next.order = defaultCatalogOrder(next.sort);
         }
       }
@@ -93,21 +95,28 @@ export function BrowseHubClient({
     });
   }
 
-  const title = toolbar.entity === "commanders" ? "Commanders" : "Cards";
-  const description =
-    toolbar.entity === "commanders"
-      ? "Legendary cards that can be your commander — catalog filter, not a popularity ranking."
-      : "Browse the Scryfall card catalog. Inclusion rank reflects Commander deck inclusion.";
+  const showInclusion = shouldShowBrowseInclusionRank(toolbar);
+
+  const description = toolbar.commandersOnly
+    ? "Legendary cards that can be your commander — catalog filter, not a popularity ranking."
+    : "Browse the Scryfall card catalog. Inclusion is Commander (EDH) deck inclusion from Scryfall.";
 
   return (
     <PageShell
       title="Browse"
       description={description}
-      toolbar={<BrowseHubToolbar state={toolbar} onChange={handleToolbarChange} />}
+      toolbar={
+        <BrowseHubToolbar
+          state={toolbar}
+          onChange={handleToolbarChange}
+          presentRoles={presentRoles}
+          presentThemes={presentThemes}
+        />
+      }
     >
       <PageListMeta>
-        {title}
-        {toolbar.entity === "commanders"
+        {toolbar.commandersOnly ? "Commanders" : "Cards"}
+        {toolbar.commandersOnly
           ? " · legal commanders from Scryfall."
           : " · Scryfall catalog."}
         {total > 0
@@ -125,6 +134,7 @@ export function BrowseHubClient({
           <CardGridTile
             key={card.id}
             card={card}
+            showInclusionRank={showInclusion}
           />
         ))}
       </div>
@@ -141,5 +151,3 @@ export function BrowseHubClient({
     </PageShell>
   );
 }
-
-export type { BrowseEntity };

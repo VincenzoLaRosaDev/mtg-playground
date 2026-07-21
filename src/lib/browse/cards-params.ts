@@ -2,7 +2,6 @@ import {
   type AllCardSort,
   type CardBrowseSort,
   defaultOrderForTab,
-  parsePriceBand,
 } from "@/lib/browse/cards-shared";
 import type { CardBrowseFilters } from "@/lib/browse/cards-filters";
 import {
@@ -13,6 +12,7 @@ import {
 } from "@/lib/browse/params";
 import { parseRaritiesParam } from "@/lib/browse/rarity-filter";
 import type { BrowseOrder } from "@/lib/browse/types";
+import { resolveFormatFromSearchParams } from "@/lib/formats/scryfall-formats";
 import { parseCatalogListPrice } from "@/lib/scryfall/card-prices";
 
 export type BrowseEntity = "cards" | "commanders";
@@ -32,6 +32,7 @@ export type CardBrowseCursor = {
   id?: string;
   name: string;
   cmc?: number;
+  colorSort?: number;
   popularityRank?: number | null;
   /** EUR-first list price (legacy cursors may still send `usdPrice`). */
   listPrice?: number | null;
@@ -39,7 +40,13 @@ export type CardBrowseCursor = {
 };
 
 function parseCardBrowseSort(value: string | null | undefined): CardBrowseSort {
-  if (value === "name" || value === "cmc" || value === "price" || value === "popularity") {
+  if (
+    value === "name" ||
+    value === "cmc" ||
+    value === "price" ||
+    value === "popularity" ||
+    value === "color"
+  ) {
     return value;
   }
   return "popularity";
@@ -67,7 +74,10 @@ export function parseCardBrowseParams(searchParams: URLSearchParams): CardBrowse
       cmcMin: parseBrowseOptionalNumber(searchParams.get("cmc_min")),
       cmcMax: parseBrowseOptionalNumber(searchParams.get("cmc_max")),
       typeContains: searchParams.get("type")?.trim() || undefined,
-      commanderLegal: searchParams.get("commander") === "legal",
+      format: resolveFormatFromSearchParams({
+        format: searchParams.get("format"),
+        commander: searchParams.get("commander"),
+      }),
       commandersOnly:
         entity === "commanders" || searchParams.get("commanders_only") === "true",
       requireSlug: entity === "commanders" || searchParams.get("require_slug") === "true",
@@ -76,7 +86,6 @@ export function parseCardBrowseParams(searchParams: URLSearchParams): CardBrowse
       theme,
       gameChanger: searchParams.get("gc") === "1" || searchParams.get("game_changer") === "true",
       reserved: searchParams.get("reserved") === "1" || searchParams.get("reserved") === "true",
-      priceBand: parsePriceBand(searchParams.get("price_band") ?? searchParams.get("budget")),
     },
   };
 }
@@ -86,6 +95,7 @@ export function allCursorPayload(
     id: string;
     name: string;
     cmc: number;
+    colorSort?: number;
     popularityRank?: number | null;
     prices?: unknown;
     listPrice?: number | null;
@@ -99,6 +109,7 @@ export function allCursorPayload(
     id: row.id,
     name: row.name,
     cmc: row.cmc,
+    colorSort: row.colorSort ?? 0,
     popularityRank: row.popularityRank ?? null,
     listPrice: row.listPrice ?? parseCatalogListPrice(row.prices),
   };

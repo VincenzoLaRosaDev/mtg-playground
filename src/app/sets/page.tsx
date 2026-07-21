@@ -1,14 +1,20 @@
 import { SetsBrowseClient } from "@/app/sets/sets-browse-client";
-import { querySetsBrowse } from "@/lib/browse/sets";
+import { listDistinctSetTypes, querySetsBrowse } from "@/lib/browse/sets";
 import { getSetsBrowseDefaults } from "@/lib/browse/sets-defaults";
-import type { SetBrowseItem } from "@/lib/browse/sets-shared";
+import {
+  buildSetTypeFilterOptions,
+  type SetBrowseItem,
+} from "@/lib/browse/sets-shared";
 import { prisma } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
 export default async function SetsPage() {
   const { toolbar, requestKey, queryParams } = getSetsBrowseDefaults();
-  const result = await querySetsBrowse(prisma, queryParams);
+  const [result, setTypes] = await Promise.all([
+    querySetsBrowse(prisma, queryParams),
+    listDistinctSetTypes(prisma),
+  ]);
 
   const initialData = {
     items: result.items.map(
@@ -26,6 +32,7 @@ export default async function SetsPage() {
       initialData={initialData}
       initialToolbar={toolbar}
       initialRequestKey={requestKey}
+      typeOptions={buildSetTypeFilterOptions(setTypes)}
     />
   );
 }

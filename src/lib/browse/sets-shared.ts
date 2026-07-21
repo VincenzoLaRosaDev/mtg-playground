@@ -11,19 +11,27 @@ export type SetBrowseItem = {
   indexedCardCount: number;
 };
 
-/** Common Scryfall set types for browse filtering (sync skips token/memorabilia). */
-export const SET_BROWSE_TYPE_OPTIONS = [
-  { value: "", label: "Any type" },
-  { value: "expansion", label: "Expansion" },
-  { value: "core", label: "Core" },
-  { value: "masters", label: "Masters" },
-  { value: "commander", label: "Commander" },
-  { value: "draft_innovation", label: "Draft innovation" },
-  { value: "starter", label: "Starter" },
-  { value: "promo", label: "Promo" },
-  { value: "eternal", label: "Eternal" },
-  { value: "alchemy", label: "Alchemy" },
-] as const;
+export type SetTypeFilterOption = { value: string; label: string };
+
+/** Title-case Scryfall set_type for select labels (`draft_innovation` → `Draft Innovation`). */
+export function labelSetType(setType: string): string {
+  return setType
+    .split("_")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+/** Build set-type select options from distinct DB values (plus “Any type”). */
+export function buildSetTypeFilterOptions(setTypes: string[]): SetTypeFilterOption[] {
+  return [
+    { value: "", label: "Any type" },
+    ...setTypes.map((setType) => ({
+      value: setType,
+      label: labelSetType(setType),
+    })),
+  ];
+}
 
 export function getSetBrowseSortOptions(): { value: SetBrowseSort; label: string }[] {
   return [

@@ -103,7 +103,7 @@ Light mode / theme toggle: not shipped (kept possible via `next-themes`).
 
 ```
 PageShell
-  [toolbar slot] — Cards|Commanders toggle + BrowseFilterPanel (always visible)
+  [toolbar slot] — BrowseFilterPanel (always visible; Commander option first)
   PageListMeta — counts / hints
   Grid
   Load more (Button outline)
@@ -111,11 +111,11 @@ PageShell
 
 | Page | Title | View |
 |---|---|---|
-| `/browse` | **Browse** | Hub grid — Cards \| Commanders toggle + facets |
-| `/cards` | (redirect) | → `/browse?entity=cards` |
-| `/commanders` | (redirect) | → `/browse?entity=commanders` |
+| `/browse` | **Browse** | Hub grid — facets; **Format** select (`legalities`); **Commander** option filters `isCommander` |
+| `/cards` | (redirect) | → `/browse` |
+| `/commanders` | (redirect) | → `/browse?commanders_only=true` |
 
-Full catalog browse: **`/browse`**, **global search** (`/search`), and **sets** (`/sets`).
+Full catalog browse: **`/browse`**, **global search** (`/search` — same card/set grids), and **sets** (`/sets`).
 
 ### Grid tile (default)
 
@@ -135,7 +135,7 @@ Compact **horizontal rows** (`Card` + thumbnail) per entity type — not `CardFa
 
 ## Browse filters (Phase 1.8)
 
-Shared **`BrowseFilterPanel`** styling on all list pages. Grid tokens live in `browse-toolbar-shared.ts`. **Browse hub** uses `browseToolbarListGridClassName` (search · sort · type · CMC · role · theme · price band). CMC min/max are one grid cell (`browseToolbarCmcPairClassName`). **Sets browse** uses `browseToolbarDenseGridClassName`; **set detail** uses `browseToolbarSetDetailGridClassName`. Pill groups sit on a second row in **`BrowseFilterPanelRow`** with the sort-order icon on the right.
+Shared **`BrowseFilterPanel`** styling on all list pages. Grid tokens live in `browse-toolbar-shared.ts`. **Browse hub** uses two field rows: primary (`browseToolbarHubPrimaryGridClassName` — search · sort · type · CMC) and secondary (`browseToolbarHubSecondaryGridClassName` — Role · Theme · Format, equal columns). Pill row uses `browseToolbarHubPillGroupsClassName` (Color + Rarity hug; Options flexes so pills stay one line). CMC min/max are one grid cell (`browseToolbarCmcPairClassName`). **Sets browse** uses `browseToolbarDenseGridClassName`; **set detail** uses `browseToolbarSetDetailGridClassName` (includes Format). Pill groups sit on a second row in **`BrowseFilterPanelRow`** with the sort-order icon on the right.
 
 | Control | Style | Pages |
 |---|---|---|
@@ -145,45 +145,69 @@ Shared **`BrowseFilterPanel`** styling on all list pages. Grid tokens live in `b
 | Rarity | Multi-select **rarity gem** buttons | Top cards, Catalog, Set detail |
 | Sort order | **Arrow up/down** icon — right side of last filter row (`BrowseFilterPanelRow`) | Browse pages with sort |
 | Sort order (field row) | Removed from grid | — |
-| Search | Leading **search** icon in field | Browse toolbars, global search |
+| Search | Leading **search** icon; matches **name, type, oracle text** (FTS) | Browse toolbars, global search |
 | Grid / list toggle | **Backlog** — grid-only today; no unused toggle component in tree | Recreate if needed |
-| Commander legal / Commanders only / Indexed only | **Toggle pills** (not checkboxes) | Catalog, Top cards, Set detail, Sets browse |
+| Format | Select — curated Scryfall keys; filter `legalities[format] === "legal"` | `/browse`, set detail |
+| Sort by | **Inclusion (Commander)** / **Color & CMC** / Name / CMC / Price | `/browse` |
+| Sort defaults | Format Any or Commander → Inclusion; other formats → Color & CMC; Options Commander on → Name | `/browse` |
+| Commander (hub) | **Toggle pill** — `isCommander` (can be your commander), not format legality | `/browse` Options (**first**) |
 | Type contains, CMC min/max | Text + **compact number** fields (`~4.25rem`) | All card lists + set detail |
+| Set type | Select from **distinct** `mtg_sets.set_type` | `/sets` |
+| Role / Theme | Select from product enums, **hide-empty** vs `card_classifications` | `/browse` |
 | Set detail sort | Collector #, Name, Rarity, CMC + order toggle | `/sets/[code]` |
 
 Color filter uses **`colorIdentity`** (Commander identity), comma-separated in API `color=W,U` param.
+
+**Inclusion** on browse tiles is Commander (EDH) deck inclusion from Scryfall. Sort label is **Inclusion (Commander)**. Tile footer hides Inclusion when Format is a non-Commander constructed format **and** sort is not Inclusion (avoids implying Modern/Pioneer popularity).
 
 Catalog/top-card **rarity** filter matches the oracle’s **lowest** printing tier across `printings` (not “any printing”). Set detail filters each printing row directly.
 
 ## Card detail (Phase 1.6–2.0)
 
-Printed-card facts (CMC, colors, oracle, keywords) are **not** duplicated in the main column — they live on the card image. Under the image: set/cn note → **VersionPicker** (set/art select + finish toggle when multiple) → **`EntityPreviewFooter`** (prices respect `?finish=`; Inclusion ↔ Friction).
+Printed-card facts (CMC, colors, oracle, keywords) are **not** duplicated in the main column — they live on the card image.
 
-**Version URL:** `/cards/{slug}?set={code}&cn={collector}&finish={foil|etched}`. Catalog default drops params. Set pages link with `set`+`cn`. Nonfoil omits `finish`.
+**Two bands:**
 
-**Mobile (`< lg`):** centered image (max 300px) → meta → sticky `DetailSectionJump` (below header) → sections.
+1. **Overview** — image + set/cn caption | details panel filling the fluid column: **Status** (chips) → **Version / Finish** (responsive row) → **Market** (prices) → **Roles | Themes** (two columns from `sm`)
+2. **Lists** — related sections; sticky **DetailSectionNav** (lg+) / **DetailSectionJump** (mobile) on the left of the lists band (not under the image)
 
-**Desktop (`lg+`):** image + meta scroll normally; only `DetailSectionNav` is sticky below the header. No compact/hide-on-scroll for under-image meta.
+**As card / As commander:** When `isCommander`, a full-width **As card | As commander** ToggleGroup switches list packs via `?view=commander` (default = card). Non-commanders have no toggle and always show card lists. Version params (`set` / `cn` / `finish`) are preserved across view switches.
+
+| View | Sections |
+|---|---|
+| As card | Similar cards · Relatives by subtype |
+| As commander | Role staples (per role) · Game Changers in CI · Similar · Relatives · Build skeleton |
+
+**Version URL:** `/cards/{slug}?set={code}&cn={collector}&finish={foil|etched}&view=commander`. Bare `/cards/{slug}` still resolves the catalog-default printing and pre-selects it in the VersionPicker (no separate “Catalog default” option). Set pages link with `set`+`cn`. Nonfoil omits `finish`. Foil/etched add a CSS sheen on the hero image (same Scryfall art URI).
+
+**Card tilt:** Detail + grid previews use CSS 3D pointer tilt (`CardTilt` via `CardMultifaceImage`). Thumbnails stay flat. Respects `prefers-reduced-motion`; no continuous tilt on touch.
+
+**Click targets:** Set browse rows (`SetBrowseRow`) are full-surface links (no card art). Card tiles (`CardFaceTile`) link the face image only — footer metrics stay outside the hit target. Interactive chrome (`Button`, `Toggle` / filter pills & mana/rarity, `Select`, dropdown items) uses `cursor-pointer`.
+
+**Mobile (`< lg`):** overview (centered image max 300px → meta) → optional view toggle → sticky `DetailSectionJump` → sections.
+
+**Desktop (`lg+`):** overview (image | meta) scrolls; lists band uses sticky TOC + sections (`DETAIL_LISTS_GRID_CLASS`).
 
 ```
-Hero aside: image → set/cn note → VersionPicker → EntityPreviewFooter → sticky DetailSectionNav (lg+)
-Main: DetailHeroMeta (Inclusion / Legal commander / GC / Friction / Reserved) → badges → DetailSectionJump → similar / relatives-by-subtype
+Overview: image + set/cn | Status chips → Version/Finish → Market prices → Roles | Themes
+Lists: [As card | As commander full-width]? → sticky DetailSectionNav (lg+) | sections for active view
 ```
 
-`/commanders/[slug]` permanent-redirects to `/cards/[slug]` preserving version params (Phase 2.0.4 / 2.0.7). Former commander-only D2 blocks (role staples, GC in CI, build skeleton) are deferred to deck-builder insights. Related parts (`all_parts`) removed from PDP.
+`/commanders/[slug]` permanent-redirects to `/cards/[slug]` preserving version params (Phase 2.0.4 / 2.0.7). Related parts (`all_parts`) remain removed from PDP. Deck-builder insights (Phase 2.2.6) may still reuse the same D2 helpers.
 
-## Commander detail (archive — superseded by 2.0.4)
+## Commander detail (archive — dual routes superseded by 2.0.4)
 
-~~Card \| Commander tabs and parallel `/commanders/[slug]` detail~~ — removed. Keep browse `entity=commanders` as a legality filter only.
+~~Parallel `/commanders/[slug]` detail + route-switching Card \| Commander tabs~~ — removed. List packs return on the single `/cards/[slug]` hub via **As card / As commander** (`?view=commander`) when `isCommander`. Browse uses a **Commander** Options pill (`commanders_only` / `isCommander`), not a Cards \| Commanders entity tab.
 
-### Card vs commander parity (historical)
+### Card vs commander parity
 
-| Element | Card detail (current) | Former commander detail |
+| Element | Card detail (current) | Notes |
 |---|---|---|
-| Canonical URL | `/cards/{slug}` | redirected → cards |
-| Inclusion rank | ✅ | ✅ on browse tiles (honest label); detail redirects to cards |
-| Legal commander chip | when `isCommander` | n/a |
-| Role staples / GC in CI / skeleton | deferred to builder | were on page |
+| Canonical URL | `/cards/{slug}` | `/commanders/{slug}` redirects here |
+| Inclusion rank | ✅ | Deck inclusion — not “as commander” popularity |
+| Legal commander chip | when `isCommander` | |
+| As card / As commander lists | when `isCommander` | `?view=commander` for D2 pack |
+| Role staples / GC in CI / skeleton | As commander view | Also reusable in deck builder (2.2.6) |
 
 ## Components (target after 1.6)
 
@@ -230,7 +254,7 @@ Folder: `src/components/discovery/`
 | `/catalog` | Full catalog grid; commander filter; no EDHREC rank |
 | `/commanders/[slug]` | **Redirect →** `/cards/[slug]` (2.0.4) |
 | `/cards/[slug]` | Sole oracle hub; Inclusion + Legal commander chip |
-| `/search` | Compact horizontal result rows (cards, sets) |
+| `/search` | Card grid (`CARD_FACE_GRID_CLASS` + `CardGridTile`) and set grid (`SET_BROWSE_GRID_CLASS` + `SetBrowseRow`) — same tiles as browse / sets |
 | `/sets` | Horizontal set cards in wide grid; dense filter toolbar |
 | `/sets/[code]` | `CardFaceTile` grid; footer is centered collector `#` only; filters + **sort by** in toolbar |
 
@@ -245,8 +269,9 @@ Folder: `src/components/discovery/`
 - [x] Production popularity-unavailable badge
 - [x] No live EDHREC in browse/search server render
 - [x] Footer attribution unchanged
+- [x] Search: card + set grids aligned with browse / sets list
 - [x] Sets browse: horizontal cards in wide grid
-- [x] Search: compact horizontal rows
+- [x] Search navbar dropdown: compact horizontal rows (unchanged)
 
 ## Backlog (post-1.6)
 

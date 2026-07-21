@@ -2,9 +2,15 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 
-import { CardFacePlaceholder, CardImage } from "@/components/discovery/card-image";
+import {
+  CardFacePlaceholder,
+  CardFinishOverlay,
+  CardImage,
+} from "@/components/discovery/card-image";
+import { CardTilt } from "@/components/discovery/card-tilt";
+import type { PrintingFinish } from "@/lib/scryfall/card-printing";
 import { canFlipFaces, flipFaceUris, type CardFaceImage } from "@/lib/scryfall/faces";
 import { CARD_FACE_ASPECT_CLASS, CARD_FACE_RADIUS_CLASS } from "@/lib/ui/card-face";
 import { cn } from "@/lib/utils";
@@ -16,6 +22,7 @@ type CardMultifaceImageProps = {
   variant?: "thumbnail" | "detail" | "grid";
   /** When set, the stack links to this href. */
   href?: string | null;
+  finish?: PrintingFinish | null;
 };
 
 /** Fraction of the tile reserved so the back offset stays inside the same aspect box. */
@@ -28,10 +35,12 @@ function StackFace({
   src,
   alt,
   sizes,
+  finish,
 }: {
   src: string;
   alt: string;
   sizes: string;
+  finish?: PrintingFinish | null;
 }) {
   return (
     <div
@@ -41,7 +50,36 @@ function StackFace({
       )}
     >
       <Image src={src} alt={alt} fill className="object-cover" sizes={sizes} unoptimized />
+      <CardFinishOverlay finish={finish} />
     </div>
+  );
+}
+
+function withOptionalLink(href: string | null | undefined, node: ReactNode) {
+  if (href) {
+    return (
+      <Link
+        href={href}
+        className="block w-full cursor-pointer transition-opacity hover:opacity-90"
+      >
+        {node}
+      </Link>
+    );
+  }
+  return node;
+}
+
+function withTilt(
+  variant: "thumbnail" | "detail" | "grid",
+  node: ReactNode,
+): ReactNode {
+  if (variant === "thumbnail") {
+    return node;
+  }
+  return (
+    <CardTilt intensity={variant === "detail" ? "detail" : "grid"} className="w-full">
+      {node}
+    </CardTilt>
   );
 }
 
@@ -49,6 +87,7 @@ function StackFace({
  * Single-face image, or a staggered front/back stack for multiface cards.
  * The stacked variant keeps the same aspect box as single faces (bottom-aligned)
  * so grid footers stay level. Hovering the back raises it until hover leaves.
+ * Detail/grid get CSS 3D pointer tilt; thumbnails stay flat.
  */
 export function CardMultifaceImage({
   imageUri,
@@ -56,6 +95,7 @@ export function CardMultifaceImage({
   name,
   variant = "grid",
   href,
+  finish = null,
 }: CardMultifaceImageProps) {
   const uris = flipFaceUris(faces, imageUri);
   const stacked = canFlipFaces(faces) && variant !== "thumbnail";
@@ -64,28 +104,19 @@ export function CardMultifaceImage({
 
   if (uris.length === 0) {
     const placeholder = <CardFacePlaceholder variant={variant} label={name} />;
-    if (href) {
-      return (
-        <Link href={href} className="block transition-opacity hover:opacity-90">
-          {placeholder}
-        </Link>
-      );
-    }
-    return placeholder;
+    return withOptionalLink(href, withTilt(variant, placeholder));
   }
 
   if (!stacked) {
     const image = (
-      <CardImage src={uris[0]!} alt={faces?.[0]?.name ?? name} variant={variant} />
+      <CardImage
+        src={uris[0]!}
+        alt={faces?.[0]?.name ?? name}
+        variant={variant}
+        finish={finish}
+      />
     );
-    if (href) {
-      return (
-        <Link href={href} className="block transition-opacity hover:opacity-90">
-          {image}
-        </Link>
-      );
-    }
-    return image;
+    return withOptionalLink(href, withTilt(variant, image));
   }
 
   const frontUri = uris[0]!;
@@ -115,7 +146,7 @@ export function CardMultifaceImage({
             onMouseEnter={() => setBackRaised(true)}
             onMouseLeave={() => setBackRaised(false)}
           >
-            <StackFace src={backUri} alt={backName} sizes={sizes} />
+            <StackFace src={backUri} alt={backName} sizes={sizes} finish={finish} />
           </div>
 
           <div
@@ -124,20 +155,12 @@ export function CardMultifaceImage({
               backRaised ? "z-0" : "z-10",
             )}
           >
-            <StackFace src={frontUri} alt={frontName} sizes={sizes} />
+            <StackFace src={frontUri} alt={frontName} sizes={sizes} finish={finish} />
           </div>
         </div>
       </div>
     </div>
   );
 
-  if (href) {
-    return (
-      <Link href={href} className="block w-full transition-opacity hover:opacity-90">
-        {stack}
-      </Link>
-    );
-  }
-
-  return stack;
+  return withOptionalLink(href, withTilt(variant, stack));
 }

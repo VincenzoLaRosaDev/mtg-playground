@@ -180,8 +180,14 @@ export function BrowseFilterPillRow({ children }: BrowseFilterPillRowProps) {
   return <div className="flex flex-wrap items-center gap-2">{children}</div>;
 }
 
-export function BrowseToolbarPillGroups({ children }: { children: ReactNode }) {
-  return <div className={browseToolbarPillGroupsClassName}>{children}</div>;
+export function BrowseToolbarPillGroups({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return <div className={cn(browseToolbarPillGroupsClassName, className)}>{children}</div>;
 }
 
 type BrowseSelectFieldProps = {
@@ -248,7 +254,7 @@ type BrowseCatalogFilterFieldsProps = {
 export function BrowseCatalogFilterFields({
   values,
   onChange,
-  typePlaceholder = "e.g. Instant, Artifact",
+  typePlaceholder = "e.g. Instant, Elf",
   inline = false,
 }: BrowseCatalogFilterFieldsProps) {
   const typeId = useId();

@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 
 import { CardFacePlaceholder, CardImage } from "@/components/discovery/card-image";
+import { SetIcon } from "@/components/mtg/set-icon";
 import { Input } from "@/components/ui/input";
 import { LoadingSpinner } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
@@ -14,6 +15,7 @@ import {
   GLOBAL_SEARCH_MIN_QUERY_LENGTH,
   type GlobalSearchResponse,
 } from "@/lib/search/types";
+import { CARD_TEXT_SEARCH_PLACEHOLDER } from "@/lib/search/card-text-search";
 import { formatSetType } from "@/lib/scryfall/sets";
 
 const DEBOUNCE_MS = 250;
@@ -54,7 +56,7 @@ function SearchResultLink({
       <Link
         href={href}
         onClick={onSelect}
-        className="flex items-center gap-3 px-3 py-2 text-sm hover:bg-accent"
+        className="flex cursor-pointer items-center gap-3 px-3 py-2 text-sm hover:bg-accent"
       >
         {children}
       </Link>
@@ -173,7 +175,7 @@ export function GlobalSearch() {
                 setOpen(true);
               }
             }}
-            placeholder="Search cards and sets..."
+            placeholder={`${CARD_TEXT_SEARCH_PLACEHOLDER} + sets`}
             autoComplete="off"
             role="combobox"
             aria-expanded={showDropdown}
@@ -251,15 +253,7 @@ export function GlobalSearch() {
                       onSelect={handleSelect}
                     >
                       {set.iconUri ? (
-                        <div className="relative h-6 w-6 shrink-0">
-                          <Image
-                            src={set.iconUri}
-                            alt=""
-                            fill
-                            className="object-contain"
-                            unoptimized
-                          />
-                        </div>
+                        <SetIcon src={set.iconUri} className="h-6 w-6" />
                       ) : (
                         <span className="inline-block h-6 w-6 shrink-0 rounded bg-muted" />
                       )}

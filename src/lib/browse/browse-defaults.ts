@@ -2,13 +2,12 @@ import {
   defaultCatalogOrder,
   defaultCatalogSort,
   type AllCardSort,
-  type PriceBand,
 } from "@/lib/browse/cards-shared";
-import type { BrowseEntity, CardBrowseParams } from "@/lib/browse/cards-params";
+import type { CardBrowseParams } from "@/lib/browse/cards-params";
 import type { BrowseOrder } from "@/lib/browse/types";
+import type { ScryfallBrowseFormat } from "@/lib/formats/scryfall-formats";
 
 export type BrowseHubToolbarSnapshot = {
-  entity: BrowseEntity;
   query: string;
   sort: AllCardSort;
   order: BrowseOrder;
@@ -17,12 +16,14 @@ export type BrowseHubToolbarSnapshot = {
   cmcMin: string;
   cmcMax: string;
   typeContains: string;
-  commanderLegal: boolean;
+  /** Scryfall format legality (`legalities[format] === "legal"`). */
+  format: ScryfallBrowseFormat | "";
+  /** `isCommander` filter — legal legendary commanders only. */
+  commandersOnly: boolean;
   role: string;
   theme: string;
   gameChanger: boolean;
   reserved: boolean;
-  priceBand: PriceBand | "";
 };
 
 export type BrowseHubDefaults = {
@@ -31,11 +32,12 @@ export type BrowseHubDefaults = {
   queryParams: CardBrowseParams;
 };
 
-export function getBrowseHubDefaults(entity: BrowseEntity = "cards"): BrowseHubDefaults {
-  // Commanders: name-first (not inclusion-rank “meta”). Cards: inclusion default.
-  const sort: AllCardSort = entity === "commanders" ? "name" : defaultCatalogSort();
+export function getBrowseHubDefaults(options?: {
+  commandersOnly?: boolean;
+}): BrowseHubDefaults {
+  const commandersOnly = options?.commandersOnly ?? false;
+  const sort: AllCardSort = commandersOnly ? "name" : defaultCatalogSort();
   const toolbar: BrowseHubToolbarSnapshot = {
-    entity,
     query: "",
     sort,
     order: defaultCatalogOrder(sort),
@@ -44,12 +46,12 @@ export function getBrowseHubDefaults(entity: BrowseEntity = "cards"): BrowseHubD
     cmcMin: "",
     cmcMax: "",
     typeContains: "",
-    commanderLegal: false,
+    format: "",
+    commandersOnly,
     role: "",
     theme: "",
     gameChanger: false,
     reserved: false,
-    priceBand: "",
   };
 
   return {
@@ -58,10 +60,10 @@ export function getBrowseHubDefaults(entity: BrowseEntity = "cards"): BrowseHubD
     queryParams: {
       sort: toolbar.sort,
       order: toolbar.order,
-      entity,
+      entity: "cards",
       filters: {
-        commandersOnly: entity === "commanders",
-        requireSlug: entity === "commanders",
+        commandersOnly,
+        requireSlug: commandersOnly,
       },
     },
   };

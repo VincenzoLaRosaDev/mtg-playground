@@ -54,12 +54,12 @@ export function DetailHeroMeta({
   }
 
   return (
-    <ul className="mt-3 flex flex-wrap gap-2">
+    <ul className="mt-2 flex flex-wrap gap-2">
       {chips.map((chip) => (
         <li
           key={chip.label}
           title={chip.title}
-          className="rounded-md border border-border bg-muted/40 px-2.5 py-1 text-xs font-medium"
+          className="rounded-md border border-border bg-muted/40 px-3 py-1.5 text-sm font-medium"
         >
           {chip.label}
         </li>

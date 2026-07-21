@@ -14,7 +14,7 @@ import { PageListMeta } from "@/components/layout/page-list-meta";
 import { PageShell } from "@/components/layout/page-shell";
 import { useBrowseList, type BrowseListInitialData } from "@/hooks/use-browse-list";
 import type { SetsBrowseToolbarSnapshot } from "@/lib/browse/sets-defaults";
-import type { SetBrowseItem } from "@/lib/browse/sets-shared";
+import type { SetBrowseItem, SetTypeFilterOption } from "@/lib/browse/sets-shared";
 import { defaultSetBrowseOrder, getSetBrowseSortOptions } from "@/lib/browse/sets-shared";
 import { SET_BROWSE_GRID_CLASS } from "@/lib/ui/card-face";
 
@@ -22,12 +22,14 @@ type SetsBrowseClientProps = {
   initialData: BrowseListInitialData<SetBrowseItem>;
   initialToolbar: SetsBrowseToolbarSnapshot;
   initialRequestKey: string;
+  typeOptions: SetTypeFilterOption[];
 };
 
 export function SetsBrowseClient({
   initialData,
   initialToolbar,
   initialRequestKey,
+  typeOptions,
 }: SetsBrowseClientProps) {
   const [toolbar, setToolbar] = useState<SetBrowseToolbarState>(initialToolbar);
 
@@ -64,7 +66,13 @@ export function SetsBrowseClient({
     <PageShell
       title="Sets"
       description="Browse Magic sets by release date, type, and indexed card coverage."
-      toolbar={<SetBrowseToolbar state={toolbar} onChange={handleToolbarChange} />}
+      toolbar={
+        <SetBrowseToolbar
+          state={toolbar}
+          onChange={handleToolbarChange}
+          typeOptions={typeOptions}
+        />
+      }
     >
       <PageListMeta>
         Recent sets by default; filter by type, digital/paper, or indexed card lists.

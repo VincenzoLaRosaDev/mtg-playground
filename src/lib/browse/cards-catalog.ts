@@ -40,6 +40,7 @@ function mapAllRow(
     isGameChanger: row.isGameChanger,
     isReserved: row.isReserved,
     listPrice: parseCatalogListPrice(row.prices),
+    colorSort: row.colorSort,
   };
 }
 
@@ -47,6 +48,8 @@ function getAllOrderBy(sort: AllCardSort, order: BrowseOrder): Prisma.CardOrderB
   switch (sort) {
     case "cmc":
       return [{ cmc: order }, { name: "asc" }, { id: "asc" }];
+    case "color":
+      return [{ colorSort: order }, { cmc: "asc" }, { name: "asc" }, { id: "asc" }];
     case "popularity":
       return [{ popularityRank: { sort: order, nulls: "last" } }, { name: "asc" }, { id: "asc" }];
     case "price":
@@ -69,6 +72,37 @@ function buildAllCursorWhere(cursor: CardBrowseCursor): Prisma.CardWhereInput {
       OR: [
         { cmc: { [forwardPrimary]: cmc } },
         { AND: [{ cmc }, { id: { [forwardTie]: id } }] },
+      ],
+    };
+  }
+
+  if (cursor.sort === "color") {
+    const colorSort = cursor.colorSort ?? 0;
+    const cmc = cursor.cmc ?? 0;
+    return {
+      OR: [
+        { colorSort: { [forwardPrimary]: colorSort } },
+        {
+          AND: [
+            { colorSort },
+            {
+              OR: [
+                { cmc: { gt: cmc } },
+                {
+                  AND: [
+                    { cmc },
+                    {
+                      OR: [
+                        { name: { gt: cursor.name } },
+                        { AND: [{ name: cursor.name }, { id: { [forwardTie]: id } }] },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
       ],
     };
   }

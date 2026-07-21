@@ -1,12 +1,16 @@
 import Image from "next/image";
 
+import type { PrintingFinish } from "@/lib/scryfall/card-printing";
 import { CARD_DETAIL_IMAGE_MAX_CLASS } from "@/lib/ui/layout";
 import { CARD_FACE_RADIUS_CLASS, cardFacePlaceholderClassName } from "@/lib/ui/card-face";
+import { cn } from "@/lib/utils";
 
 type CardImageProps = {
   src: string;
   alt: string;
   variant?: "thumbnail" | "detail" | "grid";
+  /** Scryfall uses the same art for foil — overlay when finish is foil/etched. */
+  finish?: PrintingFinish | null;
 };
 
 const variantStyles = {
@@ -15,7 +19,38 @@ const variantStyles = {
   grid: "aspect-[488/680] w-full",
 } as const;
 
-export function CardImage({ src, alt, variant = "thumbnail" }: CardImageProps) {
+/**
+ * Scryfall serves one art URI per printing. Foil/etched are visual layers only
+ * (Archidekt-style rainbow sheen + glare).
+ */
+export function CardFinishOverlay({ finish }: { finish?: PrintingFinish | null }) {
+  if (finish !== "foil" && finish !== "etched") {
+    return null;
+  }
+
+  const etched = finish === "etched";
+
+  return (
+    <div className="pointer-events-none absolute inset-0 z-10 overflow-hidden" aria-hidden>
+      {/* Prismatic wash — color-dodge reads on dark art like Archidekt */}
+      <div
+        className={cn(
+          "absolute inset-0",
+          etched ? "card-finish-etched-wash" : "card-finish-foil-wash",
+        )}
+      />
+      {/* Moving specular glare band */}
+      <div
+        className={cn(
+          "absolute inset-y-0",
+          etched ? "card-finish-etched-glare" : "card-finish-foil-glare",
+        )}
+      />
+    </div>
+  );
+}
+
+export function CardImage({ src, alt, variant = "thumbnail", finish = null }: CardImageProps) {
   return (
     <div
       className={`relative shrink-0 overflow-hidden ${CARD_FACE_RADIUS_CLASS} ${variantStyles[variant]}`}
@@ -28,6 +63,7 @@ export function CardImage({ src, alt, variant = "thumbnail" }: CardImageProps) {
         sizes={variant === "thumbnail" ? "44px" : variant === "grid" ? "300px" : "300px"}
         unoptimized
       />
+      <CardFinishOverlay finish={finish} />
     </div>
   );
 }

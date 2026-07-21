@@ -45,6 +45,3 @@ next-env.d.ts
 
 # sync cache
 /scripts/.cache
-
-# cursor (local IDE config)
-.cursor/

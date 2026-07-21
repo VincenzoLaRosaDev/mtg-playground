@@ -66,6 +66,7 @@ function mapBrowseRow(
     isGameChanger: row.isGameChanger,
     isReserved: row.isReserved,
     listPrice: parseCatalogListPrice(row.prices),
+    colorSort: row.colorSort,
   };
 }
 

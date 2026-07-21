@@ -78,7 +78,7 @@ export function CatalogDebugPanel() {
   return (
     <aside
       aria-label="Catalog debug panel"
-      className="fixed left-4 top-4 z-50 max-w-sm"
+      className="fixed right-4 bottom-4 z-50 max-w-sm"
     >
       {expanded ? (
         <div className="rounded-lg border border-info/40 bg-card/95 p-3 text-xs text-card-foreground shadow-lg backdrop-blur">

@@ -14,9 +14,9 @@ export const metadata = createPageMetadata({
 
 const DISCOVERY_SHORTCUTS = [
   {
-    href: "/browse?entity=cards",
+    href: "/browse",
     title: "Browse cards",
-    description: "Faceted Scryfall catalog with Inclusion rank, roles, and price bands.",
+    description: "Faceted Scryfall catalog with Inclusion rank, roles, and formats.",
     emphasis: "primary" as const,
   },
   {
@@ -26,7 +26,7 @@ const DISCOVERY_SHORTCUTS = [
     emphasis: "primary" as const,
   },
   {
-    href: "/browse?entity=commanders",
+    href: "/browse?commanders_only=true",
     title: "Legal commanders",
     description: "Filter legendary cards that can be commanders — not a meta ranking.",
     emphasis: "secondary" as const,

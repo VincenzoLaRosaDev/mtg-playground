@@ -129,7 +129,7 @@ Historical sections below (1.5 / 1.6 / 1.8) remain for archive; they do **not** 
 ### Browse hub (`/browse`) — legacy
 
 - Toggle Cards \| Commanders; Popularity = Scryfall inclusion rank
-- Facets: CI, CMC, type, Role, Theme, GC, Reserved, price band
+- Facets: CI, CMC, type, Role, Theme, Format, GC, Reserved, Commander
 
 ### Naming
 
@@ -138,9 +138,9 @@ Historical sections below (1.5 / 1.6 / 1.8) remain for archive; they do **not** 
 | **Popularity** | Scryfall `edhrec_rank` — Commander **deck inclusion**, not “as commander” |
 | **Friction** | 0–3: +2 GC, +1 stax-family otag |
 
-### Detail pack (D2) — legacy commander page
+### Detail pack (D2) — commander list view on card detail
 
-Role staples / GC in CI / build skeleton / dual Card\|Commander tabs → **retire**; reuse insights in deck builder later.
+Role staples / GC in CI / build skeleton live under **As commander** on `/cards/{slug}?view=commander` when `isCommander`. Dual `/commanders/{slug}` routes stay retired. Same helpers may still feed deck-builder insights (Phase 2.2.6).
 
 ---
 

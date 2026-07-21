@@ -5,6 +5,7 @@ import {
 } from "@/lib/browse/cards-shared";
 import type { CardBrowseParams } from "@/lib/browse/cards-params";
 import type { BrowseOrder } from "@/lib/browse/types";
+import type { ScryfallBrowseFormat } from "@/lib/formats/scryfall-formats";
 
 export type CardsBrowseToolbarSnapshot = {
   query: string;
@@ -15,7 +16,7 @@ export type CardsBrowseToolbarSnapshot = {
   cmcMin: string;
   cmcMax: string;
   typeContains: string;
-  commanderLegal: boolean;
+  format: ScryfallBrowseFormat | "";
 };
 
 export type CardsBrowseDefaults = {
@@ -36,7 +37,7 @@ export function getCardsBrowseDefaults(): CardsBrowseDefaults {
     cmcMin: "",
     cmcMax: "",
     typeContains: "",
-    commanderLegal: false,
+    format: "",
   };
 
   return {

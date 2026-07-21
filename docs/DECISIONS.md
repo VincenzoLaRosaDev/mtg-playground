@@ -814,3 +814,81 @@ Defer GIN on `color_identity` / trigram on `type_line` until measured need. Next
 **Decision:** `GET /api/search` returns one `cards[]` (plus `sets[]`). Legal commanders stay in that list with `isCommander` → UI label **Legal commander**. Remove the separate `commanders[]` bucket.
 **Consequences:** One hit per oracle; search matches detail/browse honesty. Browse hub `entity=commanders` remains a legality filter, not a search taxonomy.
 **Supersedes:** dual card/commander sections in global search (Phase 1.5.5).
+
+## 2026-07-21 — Catalog default printing pre-selected + foil sheen
+**Context:** VersionPicker showed a synthetic “Catalog default” row while the hero used oracle image/faces without set/cn, so the select did not highlight the real printing. Foil/etched finishes shared Scryfall’s nonfoil art URI, so the hero looked identical.
+**Decision:** `resolveCardPrinting` with no `?set=` resolves the catalog representative via `cards.id` → `printings.id` (fallback: matching `image_uri` on the oracle) and returns that printing’s set/cn/finishes. VersionPicker drops the “Catalog default” option and selects that printing. Hero applies a CSS foil/etched sheen overlay when finish is foil or etched (Scryfall does not ship separate foil images).
+**Consequences:** Bare `/cards/{slug}` URLs stay canonical; picker always shows a concrete set/#. Finish toggle works on the default printing. Foil uses Archidekt-style prismatic color-dodge + glare (visual cue only — same Scryfall art URI).
+**Supersedes:** “Catalog default” clears params / synthetic select row in the 2026-07-20 version-picker decision (2.0.7).
+
+## 2026-07-21 — Dynamic set types + hide-empty Role/Theme
+**Context:** Sets browse used a hardcoded subset of Scryfall `set_type` values that could miss types present in `mtg_sets` or list empty ones. Role/Theme selects listed the full product enums even when no classified card used a value (zero-result clicks). Opening Role/Theme to raw Tagger tags would break the closed taxonomy Phase 3 depends on.
+**Decision:** (1) Sets type select = `DISTINCT set_type` from `mtg_sets` via `listDistinctSetTypes` + `buildSetTypeFilterOptions`. (2) Browse Role/Theme options = enum ∩ values present in `card_classifications` (`listPresentClassificationFacets` + `buildRoleFilterOptions` / `buildThemeFilterOptions`); keep current selection; fall back to full enum when classifications are empty. Price bands, colors, rarity, sort stay static. Taxonomy expansion remains a separate product change to enums + maps.
+**Consequences:** Sets filter tracks sync. Role/Theme stay a closed contract with fewer empty picks. No raw-otag facet soup.
+**Supersedes:** hardcoded `SET_BROWSE_TYPE_OPTIONS` list for sets browse.
+
+## 2026-07-21 — Card preview tilt is CSS 3D, not Three.js
+**Context:** Wanted Archidekt-style perspective tilt on card previews (detail + browse grids). Three.js / R3F was considered for “real 3D”.
+**Decision:** Implement **CSS `perspective` + `rotateX/Y`** via `CardTilt` (pointer-normalized; DOM transform refs; no React re-render per move). Wire through `CardMultifaceImage` for `detail` + `grid` only (thumbnails off). Foil glare follows `--pointer-x` while tilting; idle CSS animation otherwise. Skip touch continuous tilt and `prefers-reduced-motion`. No Three.js / `card-foil` dependency.
+**Consequences:** Typical TCG hover look without WebGL cost on 24–48 tile grids. Future detail-only “vetrina” (mesh thickness / holofoil shaders) could revisit R3F lazy on the hero only — out of scope here.
+**Supersedes:** nothing (new surface).
+
+## 2026-07-21 — Search results use browse/set grids
+**Context:** `/search` still used compact horizontal rows while `/browse` and `/sets` used face tiles / set rows — inconsistent discovery chrome.
+**Decision:** `/search` renders cards with `CardGridTile` + `CARD_FACE_GRID_CLASS` and sets with `SetBrowseRow` + `SET_BROWSE_GRID_CLASS`. Expand `GET /api/search` payloads with browse-compatible fields (faces, prices, inclusion/friction, set counts). Navbar typeahead stays compact rows.
+**Consequences:** One visual language for list discovery; search API slightly heavier selects.
+**Supersedes:** “`/search` keep compact horizontal rows” clause of the 2026-07-16 Wave 6–7 layout decision.
+
+## 2026-07-21 — Full-tile hits + cursor-pointer on controls
+**Context:** Set browse rows only linked the title; card tiles linked the image but not the footer. Filter toggles / selects often lacked a hand cursor.
+**Decision:** Wrap set browse rows (`SetBrowseRow`) in one full-surface `Link`. Card tiles keep the link on the face image only (`CardMultifaceImage` via `CardFaceTile`) — footer is not part of the hit target. Add `cursor-pointer` to shared `Button`, `Toggle`, `SelectTrigger`/`SelectItem`, and dropdown menu items.
+**Consequences:** Larger set-row hits; card tiles stay face-only for clearer separation from metrics. Nested multi-action cards (if added later) must not use full-tile links.
+**Supersedes:** nothing (UX consistency pass).
+
+## 2026-07-21 — Browse Commander is an Options filter, not a tab
+**Context:** Hub `/browse` used a **Cards \| Commanders** entity tab that felt like a second catalog mode. Users want one catalog with a filter for legal commanders.
+**Decision:** Remove the entity tab. Add a **Commander** Options pill last (after Game Changer / Reserved) that sets `commanders_only` → `isCommander` (+ `require_slug`). SSR/home/redirects use `/browse?commanders_only=true`; legacy `?entity=commanders` still maps. Toggling resets sort (Name when on, Inclusion default when off).
+**Consequences:** One browse chrome; commander list is a filter, not a parallel hub. API keeps `entity` parsing for back-compat only.
+**Supersedes:** “Cards \| Commanders toggle” / `entity=cards|commanders` hub UX in the 2026-07-20 Scryfall discovery Phase B decision.
+
+## 2026-07-21 — Format legality select (replaces Commander legal pill)
+**Context:** Multi-format decks (Phase 2.2) need catalog filtering by Scryfall legality, not only “Commander legal”. The old Options pill covered only `legalities.commander`. `isCommander` (can be your commander) stays a separate Options pill.
+**Decision:** Add a curated **Format** select (`src/lib/formats/scryfall-formats.ts`) on `/browse` and set detail. API param `format=<key>` filters `cards.legalities` JSONB path equals `"legal"` (whitelist keys only). Legacy `commander=legal` maps to `format=commander`. v1 does not expose restricted/banned. No schema change — reuse existing sync field. Shared format list is the seed for Deck.format later.
+**Consequences:** Users can browse Modern/Pioneer/etc. legal cards. Commander Options pill remains `isCommander`. Set detail drops the Commander legal pill. JSONB path filter has no dedicated index yet (acceptable for v1; revisit near 2.2.3 if slow).
+**Supersedes:** “Commander legal” Options pill as the only format-legality control (browse kit decision 2026-07-16 / hub Phase B).
+
+## 2026-07-21 — Inclusion clarity + Color & CMC default sort
+**Context:** Inclusion is Scryfall Commander deck inclusion (`edhrec_rank`). Showing it as the default sort (and on tiles) for Modern/Pioneer/etc. implies format-agnostic popularity. Arena-like browse expects color then mana value.
+**Decision:** (1) Sort label **Inclusion (Commander)**; strengthen footer tooltip; hide Inclusion on browse tiles when Format is set and not Commander **unless** sort is Inclusion. (2) Default sort = Inclusion only for Format Any/Commander; otherwise **Color & CMC** (`sort=color`). Options Commander still defaults to Name. (3) Denormalize `cards.color_sort` (WUBRG mono → multicolor bitmask → colorless) at sync + migration backfill for keyset pagination (`computeColorSortKey`).
+**Consequences:** Constructed format browse feels Arena-like; EDH signal stays honest. Requires `prisma migrate` for `color_sort` before color sort works in prod.
+**Supersedes:** unconditional Inclusion default sort for all catalog browse (Phase B popularity-as-default).
+
+## 2026-07-21 — Drop browse price band filter
+**Context:** Browse shows Scryfall oracle representative art/prices, not the cheapest or most expensive printing among versions. Filtering by Low/Mid/High on that price misleads users about real market range.
+**Decision:** Remove the **Price band** facet from `/browse` (UI, API parse, SQL band resolver). Keep per-tile **PriceChip** and optional **sort by price** (still representative EUR). Printing-aware price filters deferred until collection/deck flows need them.
+**Consequences:** No more `price_band` / legacy `budget` browse params. Honest catalog facets only.
+**Supersedes:** price band as a Phase B browse facet (2026-07-20 discovery decision).
+
+## 2026-07-21 — Card text search (name + type + oracle) via FTS
+**Context:** Browse and header search were name-only. Users expect Scryfall-like matches on type line and rules text (`destroy`, `elf`, `instant`). Raw `ILIKE` on `oracle_text` without an index would hurt browse `COUNT` + keystroke queries.
+**Decision:** Add `cards.search_document` (oracle + face texts) and DB-generated weighted `search_tsv` (name A, type_line B, document C) with GIN. Browse `q` and `GET /api/search` use the same `plainto_tsquery` helper. Sync fills `search_document` including DFC face text. Placeholders: “Search name, type, or text…”. No fuzzy/typo tolerance in v1; Type contains stays a separate filter.
+**Consequences:** `destroy` / `elf` style queries work on browse + header. Requires migration + optional re-sync for freshest face corpus (backfill covers existing rows). Closes Ops.11 for text search.
+**Supersedes:** name-only `q` matching in browse/global search; Ops.11 “defer GIN until measured” for this use case.
+
+## 2026-07-21 — Hybrid FTS: phrase for multi-word queries
+**Context:** `plainto_tsquery` AND-ed tokens anywhere (and drops stopwords like `all`), so `destroy all creature` matched “Destroy target creature”.
+**Decision:** Hybrid mode — **1 token** → `plainto_tsquery`; **≥2 tokens** → `phraseto_tsquery` (adjacent phrase after stemming). No silent fallback to bag-of-words when phrase yields zero hits. Same helper for browse + global search.
+**Consequences:** Multi-word searches behave like phrase/keyword sequences; single-word discovery stays broad. Users wanting OR/AND-anywhere must use separate single-token searches for now.
+**Supersedes:** unconditional `plainto_tsquery` for all `q` lengths in the 2026-07-21 card text search decision.
+
+## 2026-07-21 — FTS last-token prefix (partial words)
+**Context:** `phraseto_tsquery` requires complete lexemes, so `destroy all creatu` and `day of judgmen` returned zero hits while full words worked.
+**Decision:** Build queries with `to_tsquery('english', …)`: multi-word = `t1 <-> t2 <-> … <-> tN:*`; single-word = `t:*`. Prefix on the final token enables progressive typing without reopening bag-of-words AND-anywhere.
+**Consequences:** Partial last words match stems (`creatu:*` → creatures; `judgmen:*` → Judgment). Middle tokens still need to be complete enough to survive stemming/stopwords. Not character-level fuzzy inside a token.
+**Supersedes:** bare `phraseto_tsquery` / `plainto_tsquery` hybrid from the previous 2026-07-21 hybrid FTS decision.
+
+## 2026-07-21 — Card detail two-band + As card / As commander lists
+**Context:** Unified `/cards/{slug}` (2.0.4) was too slim: overview mixed with lists, and commander-oriented D2 sections were deferred entirely to the deck builder. Users still want card-first focus plus the former D2 list pack when the oracle is a legal commander — without restoring parallel `/commanders/{slug}` PDPs.
+**Decision:** (1) **Two bands** — overview (image / version / finish / price + meta / roles / themes) then lists. Sticky TOC lives in the lists band, not under the image. (2) When `isCommander`, **As card | As commander** ToggleGroup switches packs via `?view=commander` (default = card); preserve `set`/`cn`/`finish`. Non-commanders get card lists only (no toggle). (3) **As card** = Similar + Relatives. **As commander** = Role staples · GC in CI · Similar · Relatives · Build skeleton (existing `detail-pack` helpers). (4) Keep single oracle URL; `/commanders/{slug}` redirect unchanged.
+**Consequences:** Commander list insights return on the detail hub without dual routes. Phase 2.2.6 still reuses the same helpers in the deck builder.
+**Supersedes:** “Former commander-only D2 blocks stay out of detail — deferred to deck-builder only” clause of the 2026-07-20 Phase 2.0.4 decision (partial). Does **not** restore `EntityDetailTabs` / parallel commander detail routes.

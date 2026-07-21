@@ -13,8 +13,8 @@ import {
   defaultSetBrowseOrder,
   defaultSetBrowseSort,
   getSetBrowseSortOptions,
-  SET_BROWSE_TYPE_OPTIONS,
   type SetBrowseSort,
+  type SetTypeFilterOption,
 } from "@/lib/browse/sets-shared";
 
 export type SetBrowseToolbarState = {
@@ -29,9 +29,10 @@ export type SetBrowseToolbarState = {
 type SetBrowseToolbarProps = {
   state: SetBrowseToolbarState;
   onChange: (patch: Partial<SetBrowseToolbarState>) => void;
+  typeOptions: SetTypeFilterOption[];
 };
 
-export function SetBrowseToolbar({ state, onChange }: SetBrowseToolbarProps) {
+export function SetBrowseToolbar({ state, onChange, typeOptions }: SetBrowseToolbarProps) {
   const sortOptions = getSetBrowseSortOptions();
 
   return (
@@ -55,7 +56,7 @@ export function SetBrowseToolbar({ state, onChange }: SetBrowseToolbarProps) {
           label="Set type"
           value={state.setType}
           onChange={(setType) => onChange({ setType })}
-          options={SET_BROWSE_TYPE_OPTIONS}
+          options={typeOptions}
         />
 
         <BrowseSelectField

@@ -1,28 +1,28 @@
 "use client";
 
-import Image from "next/image";
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { CardFacePlaceholder, CardImage } from "@/components/discovery/card-image";
+import { CardGridTile } from "@/components/discovery/card-grid-tile";
+import { SetBrowseRow } from "@/components/discovery/set-browse-row";
 import { PageListMeta } from "@/components/layout/page-list-meta";
 import { PageShell } from "@/components/layout/page-shell";
-import { Card, CardContent } from "@/components/ui/card";
+import { parseCatalogListPrice } from "@/lib/scryfall/card-prices";
 import {
   GLOBAL_SEARCH_MIN_QUERY_LENGTH,
   type GlobalSearchResponse,
 } from "@/lib/search/types";
-import { formatSetType } from "@/lib/scryfall/sets";
-import { cn } from "@/lib/utils";
+import { CARD_FACE_GRID_CLASS, SET_BROWSE_GRID_CLASS } from "@/lib/ui/card-face";
 
 function ResultSection({
   title,
   count,
+  listClassName,
   children,
 }: {
   title: string;
   count: number;
+  listClassName: string;
   children: React.ReactNode;
 }) {
   if (count === 0) return null;
@@ -33,22 +33,8 @@ function ResultSection({
         {title}{" "}
         <span className="text-sm font-normal text-muted-foreground">({count})</span>
       </h2>
-      <ul className="mt-4 space-y-3">{children}</ul>
+      <ul className={`mt-4 ${listClassName}`}>{children}</ul>
     </section>
-  );
-}
-
-function SearchResultCard({
-  children,
-  className,
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <Card size="sm" className={cn("shadow-sm", className)}>
-      <CardContent className="flex items-center gap-4 py-3">{children}</CardContent>
-    </Card>
   );
 }
 
@@ -105,7 +91,7 @@ export default function SearchPage() {
   return (
     <PageShell
       title="Search"
-      description="Find cards and sets across the MTGPlayground catalog."
+      description="Find cards by name, type, or rules text — and sets by name or code."
     >
       {!hasQuery && (
         <PageListMeta>
@@ -129,63 +115,30 @@ export default function SearchPage() {
 
       {results && (
         <>
-          <ResultSection title="Cards" count={results.cards.length}>
+          <ResultSection
+            title="Cards"
+            count={results.cards.length}
+            listClassName={CARD_FACE_GRID_CLASS}
+          >
             {results.cards.map((card) => (
-              <li key={card.slug ?? card.name}>
-                <SearchResultCard>
-                  {card.imageUri ? (
-                    <CardImage src={card.imageUri} alt="" variant="thumbnail" />
-                  ) : (
-                    <CardFacePlaceholder />
-                  )}
-                  <div className="min-w-0 flex-1">
-                    {card.slug ? (
-                      <Link href={`/cards/${card.slug}`} className="font-medium hover:underline">
-                        {card.name}
-                      </Link>
-                    ) : (
-                      <p className="font-medium">{card.name}</p>
-                    )}
-                    <p className="text-sm text-muted-foreground">{card.typeLine}</p>
-                    <p className="text-xs text-muted-foreground">
-                      CMC {card.cmc}
-                      {card.isCommander ? " · Legal commander" : ""}
-                    </p>
-                  </div>
-                </SearchResultCard>
+              <li key={card.id} className="min-w-0">
+                <CardGridTile
+                  card={{
+                    ...card,
+                    listPrice: parseCatalogListPrice(card.prices),
+                  }}
+                />
               </li>
             ))}
           </ResultSection>
 
-          <ResultSection title="Sets" count={results.sets.length}>
+          <ResultSection
+            title="Sets"
+            count={results.sets.length}
+            listClassName={SET_BROWSE_GRID_CLASS}
+          >
             {results.sets.map((set) => (
-              <li key={set.code}>
-                <SearchResultCard>
-                  {set.iconUri ? (
-                    <div className="relative h-8 w-8 shrink-0">
-                      <Image
-                        src={set.iconUri}
-                        alt=""
-                        fill
-                        className="object-contain"
-                        unoptimized
-                      />
-                    </div>
-                  ) : (
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-muted text-xs text-muted-foreground">
-                      ?
-                    </div>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <Link href={`/sets/${set.code}`} className="font-medium hover:underline">
-                      {set.name}
-                    </Link>
-                    <p className="text-sm text-muted-foreground">
-                      {set.code.toUpperCase()} · {formatSetType(set.setType)}
-                    </p>
-                  </div>
-                </SearchResultCard>
-              </li>
+              <SetBrowseRow key={set.code} set={set} />
             ))}
           </ResultSection>
         </>

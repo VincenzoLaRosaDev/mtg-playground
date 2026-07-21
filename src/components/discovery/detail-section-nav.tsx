@@ -9,7 +9,7 @@ type DetailSectionNavProps = {
 };
 
 const linkBaseClassName =
-  "block border-l-2 py-1 pl-3 text-sm leading-snug transition-colors";
+  "block cursor-pointer border-l-2 py-1 pl-3 text-sm leading-snug transition-colors";
 
 const linkInactiveClassName =
   "border-transparent text-muted-foreground hover:border-border hover:text-foreground";

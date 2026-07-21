@@ -158,3 +158,114 @@
     @apply font-sans;
   }
 }
+
+/*
+  Scryfall serves the same image for foil and nonfoil of a printing.
+  Overlay mimics Archidekt-style prismatic color-dodge + glare.
+  When CardTilt is active, glare follows --pointer-x (0–1).
+*/
+@keyframes card-finish-glare-sweep {
+  from {
+    transform: skewX(-18deg) translateX(-55%);
+  }
+  to {
+    transform: skewX(-18deg) translateX(55%);
+  }
+}
+
+.card-finish-foil-wash {
+  background: linear-gradient(
+    125deg,
+    rgb(80 180 255 / 0.55) 0%,
+    rgb(180 90 255 / 0.35) 18%,
+    rgb(255 220 80 / 0.45) 36%,
+    rgb(80 255 200 / 0.35) 52%,
+    rgb(255 120 180 / 0.45) 70%,
+    rgb(120 160 255 / 0.4) 88%,
+    rgb(255 200 100 / 0.35) 100%
+  );
+  mix-blend-mode: color-dodge;
+  opacity: 0.72;
+}
+
+.card-finish-foil-glare {
+  left: -30%;
+  width: 55%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgb(255 255 255 / 0.15) 35%,
+    rgb(255 255 255 / 0.65) 50%,
+    rgb(180 230 255 / 0.25) 65%,
+    transparent 100%
+  );
+  mix-blend-mode: soft-light;
+  transform: skewX(-18deg);
+  animation: card-finish-glare-sweep 3.8s ease-in-out infinite alternate;
+}
+
+.card-finish-etched-wash {
+  background: linear-gradient(
+    125deg,
+    rgb(200 210 220 / 0.5) 0%,
+    rgb(240 245 255 / 0.35) 35%,
+    rgb(160 180 200 / 0.45) 65%,
+    rgb(220 230 240 / 0.4) 100%
+  );
+  mix-blend-mode: soft-light;
+  opacity: 0.85;
+}
+
+.card-finish-etched-glare {
+  left: -30%;
+  width: 55%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgb(255 255 255 / 0.4) 50%,
+    transparent 100%
+  );
+  mix-blend-mode: overlay;
+  transform: skewX(-18deg);
+  animation: card-finish-glare-sweep 5s ease-in-out infinite alternate;
+}
+
+/* CSS 3D card tilt (pointer-driven; no WebGL) */
+.card-tilt-frame {
+  perspective: 900px;
+  perspective-origin: 50% 50%;
+}
+
+.card-tilt-card {
+  --pointer-x: 0.5;
+  --pointer-y: 0.5;
+  transform-style: preserve-3d;
+  transform: rotateX(0deg) rotateY(0deg);
+  transition: filter 200ms ease;
+}
+
+.card-tilt-frame[data-tilt-active] .card-tilt-card {
+  will-change: transform;
+  filter: drop-shadow(0 12px 18px rgb(0 0 0 / 0.35));
+}
+
+.card-tilt-frame[data-tilt-active] .card-finish-foil-glare,
+.card-tilt-frame[data-tilt-active] .card-finish-etched-glare {
+  animation: none;
+  left: calc(var(--pointer-x) * 100% - 27.5%);
+  transform: skewX(-18deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card-finish-foil-glare,
+  .card-finish-etched-glare {
+    animation: none;
+    left: 22%;
+    transform: skewX(-18deg);
+  }
+
+  .card-tilt-frame[data-tilt-active] .card-tilt-card {
+    filter: none;
+    will-change: auto;
+  }
+}

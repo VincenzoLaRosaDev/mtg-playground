@@ -1,8 +1,12 @@
 import type { Prisma, PrismaClient } from "@/generated/prisma/client";
 
 import { buildColorIdentityWhere } from "@/lib/browse/color-identity-filter";
-import type { PriceBand } from "@/lib/browse/cards-shared";
 import { resolveOracleIdsForRarities } from "@/lib/browse/rarity-filter-server";
+import type { ScryfallBrowseFormat } from "@/lib/formats/scryfall-formats";
+import {
+  cardIdsTextSearchWhere,
+  listCardIdsMatchingTextSearch,
+} from "@/lib/search/card-text-search-query";
 import { playableCatalogCardWhere } from "@/lib/scryfall/catalog-filters";
 import { isFunctionalRole, isSynergyTheme } from "@/lib/classification/types";
 
@@ -12,7 +16,8 @@ export type CardBrowseFilters = {
   cmcMin?: number;
   cmcMax?: number;
   typeContains?: string;
-  commanderLegal?: boolean;
+  /** Scryfall format key — match `legalities[format] === "legal"` (whitelist only). */
+  format?: ScryfallBrowseFormat;
   commandersOnly?: boolean;
   rarities?: string[];
   /** Exclude cards without a URL slug (needed for detail links). */
@@ -21,7 +26,6 @@ export type CardBrowseFilters = {
   theme?: string;
   gameChanger?: boolean;
   reserved?: boolean;
-  priceBand?: PriceBand;
 };
 
 export const cardBrowseSelect = {
@@ -39,6 +43,7 @@ export const cardBrowseSelect = {
   frictionScore: true,
   isGameChanger: true,
   isReserved: true,
+  colorSort: true,
 } as const;
 
 export function buildCatalogCardWhere(filters: CardBrowseFilters): Prisma.CardWhereInput {
@@ -46,14 +51,7 @@ export function buildCatalogCardWhere(filters: CardBrowseFilters): Prisma.CardWh
     ...playableCatalogCardWhere,
   };
 
-  if (filters.query && filters.query.length >= 2) {
-    const searchName = filters.query.toLowerCase();
-    where.OR = [
-      { searchName: { startsWith: searchName } },
-      { searchName: { contains: searchName } },
-      { name: { contains: filters.query, mode: "insensitive" } },
-    ];
-  }
+  // Text search (`q`) is applied in `applyFacetOracleFilters` via FTS (name/type/oracle).
 
   if (filters.colors?.length) {
     where.AND = [
@@ -73,8 +71,8 @@ export function buildCatalogCardWhere(filters: CardBrowseFilters): Prisma.CardWh
     where.typeLine = { contains: filters.typeContains, mode: "insensitive" };
   }
 
-  if (filters.commanderLegal) {
-    where.legalities = { path: ["commander"], equals: "legal" };
+  if (filters.format) {
+    where.legalities = { path: [filters.format], equals: "legal" };
   }
 
   if (filters.commandersOnly) {
@@ -143,44 +141,6 @@ async function resolveOracleIdsForClassification(
   return rows.map((row) => row.oracleId);
 }
 
-async function resolveOracleIdsForPriceBand(
-  prisma: PrismaClient,
-  band: PriceBand,
-): Promise<string[]> {
-  // Catalog price bands use Scryfall EUR (Cardmarket). Cards without eur are excluded.
-  if (band === "low") {
-    const rows = await prisma.$queryRaw<Array<{ oracle_id: string }>>`
-      SELECT oracle_id
-      FROM cards
-      WHERE prices->>'eur' IS NOT NULL
-        AND prices->>'eur' <> ''
-        AND (prices->>'eur')::numeric < 1
-    `;
-    return rows.map((row) => row.oracle_id);
-  }
-
-  if (band === "mid") {
-    const rows = await prisma.$queryRaw<Array<{ oracle_id: string }>>`
-      SELECT oracle_id
-      FROM cards
-      WHERE prices->>'eur' IS NOT NULL
-        AND prices->>'eur' <> ''
-        AND (prices->>'eur')::numeric >= 1
-        AND (prices->>'eur')::numeric <= 5
-    `;
-    return rows.map((row) => row.oracle_id);
-  }
-
-  const rows = await prisma.$queryRaw<Array<{ oracle_id: string }>>`
-    SELECT oracle_id
-    FROM cards
-    WHERE prices->>'eur' IS NOT NULL
-      AND prices->>'eur' <> ''
-      AND (prices->>'eur')::numeric > 5
-  `;
-  return rows.map((row) => row.oracle_id);
-}
-
 export async function applyFacetOracleFilters(
   prisma: PrismaClient,
   where: Prisma.CardWhereInput,
@@ -196,12 +156,13 @@ export async function applyFacetOracleFilters(
     next = { AND: [next, { oracleId: { in: classificationIds } }] };
   }
 
-  if (filters.priceBand) {
-    const priceIds = await resolveOracleIdsForPriceBand(prisma, filters.priceBand);
-    if (priceIds.length === 0) {
-      return { AND: [next, { oracleId: { in: ["__no_match__"] } }] };
+  if (filters.query && filters.query.length >= 2) {
+    const textIds = await listCardIdsMatchingTextSearch(prisma, filters.query);
+    if (textIds == null) {
+      // Query sanitized to nothing useful — treat as no text filter.
+    } else {
+      next = { AND: [next, cardIdsTextSearchWhere(textIds)] };
     }
-    next = { AND: [next, { oracleId: { in: priceIds } }] };
   }
 
   return next;

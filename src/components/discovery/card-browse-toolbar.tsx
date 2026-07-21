@@ -3,9 +3,6 @@
 import {
   BrowseCatalogFilterFields,
   BrowseColorPillGroup,
-  BrowseFilterPill,
-  BrowseFilterPillRow,
-  BrowseFilterSection,
   BrowseRarityPillGroup,
   BrowseSearchField,
   BrowseSelectField,
@@ -20,6 +17,11 @@ import {
   type CardBrowseSort,
 } from "@/lib/browse/cards-shared";
 import { appendCatalogFilterParams } from "@/lib/browse/catalog-filter-params";
+import {
+  getBrowseFormatFilterOptions,
+  type ScryfallBrowseFormat,
+} from "@/lib/formats/scryfall-formats";
+import { CARD_TEXT_SEARCH_PLACEHOLDER } from "@/lib/search/card-text-search";
 
 export type CardBrowseToolbarState = {
   query: string;
@@ -30,7 +32,7 @@ export type CardBrowseToolbarState = {
   cmcMin: string;
   cmcMax: string;
   typeContains: string;
-  commanderLegal: boolean;
+  format: ScryfallBrowseFormat | "";
 };
 
 type CardBrowseToolbarProps = {
@@ -40,6 +42,7 @@ type CardBrowseToolbarProps = {
 
 export function CardBrowseToolbar({ state, onChange }: CardBrowseToolbarProps) {
   const sortOptions = getCardBrowseSortOptions();
+  const formatOptions = getBrowseFormatFilterOptions();
 
   return (
     <BrowseFilterPanel>
@@ -48,6 +51,7 @@ export function CardBrowseToolbar({ state, onChange }: CardBrowseToolbarProps) {
           label="Search in list"
           value={state.query}
           onChange={(query) => onChange({ query })}
+          placeholder={CARD_TEXT_SEARCH_PLACEHOLDER}
         />
 
         <BrowseSelectField
@@ -62,6 +66,15 @@ export function CardBrowseToolbar({ state, onChange }: CardBrowseToolbarProps) {
           onChange={(patch) => onChange(patch)}
           inline
         />
+
+        <BrowseSelectField
+          label="Format"
+          value={state.format}
+          onChange={(format) =>
+            onChange({ format: (format as ScryfallBrowseFormat | "") || "" })
+          }
+          options={[{ value: "", label: "Any format" }, ...formatOptions]}
+        />
       </div>
 
       <BrowseFilterPanelRow
@@ -73,15 +86,6 @@ export function CardBrowseToolbar({ state, onChange }: CardBrowseToolbarProps) {
             rarities={state.rarities}
             onChange={(rarities) => onChange({ rarities })}
           />
-          <BrowseFilterSection title="Options">
-            <BrowseFilterPillRow>
-              <BrowseFilterPill
-                label="Commander legal"
-                selected={state.commanderLegal}
-                onClick={() => onChange({ commanderLegal: !state.commanderLegal })}
-              />
-            </BrowseFilterPillRow>
-          </BrowseFilterSection>
         </BrowseToolbarPillGroups>
       </BrowseFilterPanelRow>
     </BrowseFilterPanel>
@@ -100,7 +104,7 @@ export function defaultCardBrowseToolbarState(): CardBrowseToolbarState {
     cmcMin: "",
     cmcMax: "",
     typeContains: "",
-    commanderLegal: false,
+    format: "",
   };
 }
 

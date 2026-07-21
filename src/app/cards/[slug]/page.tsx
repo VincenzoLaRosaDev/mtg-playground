@@ -1,18 +1,17 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
-import { ClassificationBadges } from "@/components/discovery/classification-badges";
-import { DetailCardGridSection } from "@/components/discovery/detail-card-grid-section";
-import { DetailHeroAside } from "@/components/discovery/detail-hero-aside";
-import { DetailHeroMeta } from "@/components/discovery/detail-hero-meta";
-import { DetailSectionJump } from "@/components/discovery/detail-section-jump";
-import { CardRelativesBySubtype } from "@/components/discovery/card-relatives-by-subtype";
+import { CardDetailLists } from "@/components/discovery/card-detail-lists";
+import { CardDetailOverview } from "@/components/discovery/card-detail-overview";
 import { EntityPreviewFooter } from "@/components/discovery/entity-preview-footer";
 import { VersionPicker } from "@/components/discovery/version-picker";
 import { PageShell } from "@/components/layout/page-shell";
 import { prisma } from "@/lib/db";
 import {
+  getBuildSkeleton,
   getCardClassification,
+  getGameChangersInCi,
+  getRoleStaplesInCi,
   getSimilarCards,
 } from "@/lib/discovery/detail-pack";
 import { findPlayableCardBySlug } from "@/lib/scryfall/catalog-filters";
@@ -21,20 +20,26 @@ import {
   buildCardVersionHref,
   listOraclePrintings,
   parsePrintingFinish,
+  resolveActiveFinish,
+  resolveCardDetailView,
   resolveCardPrinting,
 } from "@/lib/scryfall/card-printing";
 import {
   buildCardDetailNavItems,
-  DETAIL_SECTION_IDS,
+  buildCommanderDetailNavItems,
 } from "@/lib/ui/detail-section-nav";
-import { DETAIL_HERO_GRID_CLASS, DETAIL_MAIN_COLUMN_CLASS } from "@/lib/ui/layout";
 import { createPageMetadata } from "@/lib/seo/site";
 
 export const dynamic = "force-dynamic";
 
 type CardDetailPageProps = {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ set?: string; cn?: string; finish?: string }>;
+  searchParams: Promise<{
+    set?: string;
+    cn?: string;
+    finish?: string;
+    view?: string;
+  }>;
 };
 
 const cardSelect = {
@@ -62,6 +67,7 @@ export async function generateMetadata({
   const { set: setCode, cn, finish } = await searchParams;
 
   const card = await findPlayableCardBySlug(prisma, slug, {
+    id: true,
     oracleId: true,
     name: true,
     typeLine: true,
@@ -82,14 +88,22 @@ export async function generateMetadata({
   const printing = await resolveCardPrinting(
     prisma,
     card.oracleId,
-    { imageUri: card.imageUri, faces: card.faces, prices: card.prices },
+    {
+      catalogPrintingId: card.id,
+      imageUri: card.imageUri,
+      faces: card.faces,
+      prices: card.prices,
+    },
     { set: setCode, cn },
   );
-  const path = buildCardVersionHref(slug, {
-    set: printing.setCode,
-    cn: printing.collectorNumber,
-    finish,
-  });
+  // Keep bare `/cards/{slug}` canonical when no version was requested.
+  const path = setCode
+    ? buildCardVersionHref(slug, {
+        set: printing.setCode,
+        cn: printing.collectorNumber,
+        finish,
+      })
+    : `/cards/${slug}`;
 
   return createPageMetadata({
     title: card.name,
@@ -101,7 +115,12 @@ export async function generateMetadata({
 
 export default async function CardDetailPage({ params, searchParams }: CardDetailPageProps) {
   const { slug } = await params;
-  const { set: setCodeParam, cn: cnParam, finish: finishParam } = await searchParams;
+  const {
+    set: setCodeParam,
+    cn: cnParam,
+    finish: finishParam,
+    view: viewParam,
+  } = await searchParams;
   const selectedFinish = parsePrintingFinish(finishParam);
 
   const card = await findPlayableCardBySlug(prisma, slug, cardSelect);
@@ -110,11 +129,18 @@ export default async function CardDetailPage({ params, searchParams }: CardDetai
     notFound();
   }
 
+  const activeView = resolveCardDetailView(card.isCommander, viewParam);
+
   const [printing, printings, classification, relativesResult] = await Promise.all([
     resolveCardPrinting(
       prisma,
       card.oracleId,
-      { imageUri: card.imageUri, faces: card.faces, prices: card.prices },
+      {
+        catalogPrintingId: card.id,
+        imageUri: card.imageUri,
+        faces: card.faces,
+        prices: card.prices,
+      },
       { set: setCodeParam, cn: cnParam },
     ),
     listOraclePrintings(prisma, card.oracleId),
@@ -130,13 +156,35 @@ export default async function CardDetailPage({ params, searchParams }: CardDetai
     themes: classification?.themes ?? [],
   });
 
+  const [roleStaples, gameChangers, buildSkeleton] = card.isCommander
+    ? await Promise.all([
+        getRoleStaplesInCi(prisma, card.colorIdentity),
+        getGameChangersInCi(prisma, card.colorIdentity),
+        getBuildSkeleton(prisma, card.colorIdentity),
+      ])
+    : [[], [], []];
+
   const hasRelatives = subtypes.length > 0 && relatives.length > 0;
-  const sectionNavItems = buildCardDetailNavItems({
-    hasSimilarCards: similar.length > 0,
-    hasRelatives,
-  });
+  const roleStapleNav = roleStaples
+    .filter((group) => group.cards.length > 0)
+    .map((group) => ({ role: group.role, label: group.label }));
+
+  const sectionNavItems =
+    activeView === "commander"
+      ? buildCommanderDetailNavItems({
+          roleStaples: roleStapleNav,
+          hasGameChangers: gameChangers.length > 0,
+          hasSimilarCards: similar.length > 0,
+          hasRelatives,
+          hasBuildSkeleton: buildSkeleton.length > 0,
+        })
+      : buildCardDetailNavItems({
+          hasSimilarCards: similar.length > 0,
+          hasRelatives,
+        });
 
   const footerPrices = printing.prices ?? card.prices;
+  const activeFinish = resolveActiveFinish(printing.finishes, selectedFinish);
 
   return (
     <PageShell
@@ -147,60 +195,57 @@ export default async function CardDetailPage({ params, searchParams }: CardDetai
         { label: card.name, href: `/cards/${slug}` },
       ]}
     >
-      <section className={DETAIL_HERO_GRID_CLASS}>
-        <DetailHeroAside
-          imageUri={printing.imageUri}
-          faces={printing.faces}
-          imageAlt={card.name}
-          setName={printing.setName}
-          setCode={printing.setCode}
-          collectorNumber={printing.collectorNumber}
-          versionPicker={
-            <VersionPicker
-              slug={slug}
-              printings={printings}
-              selectedSet={printing.setCode}
-              selectedCn={printing.collectorNumber}
-              selectedFinish={selectedFinish}
-            />
-          }
-          previewFooter={
-            <EntityPreviewFooter
-              prices={footerPrices}
-              preferredFinish={selectedFinish}
-              popularityRank={card.popularityRank}
-              frictionScore={card.frictionScore}
-            />
-          }
-          sectionNavItems={sectionNavItems}
-        />
-
-        <div className={DETAIL_MAIN_COLUMN_CLASS}>
-          <DetailHeroMeta
-            popularityRank={card.popularityRank}
-            frictionScore={card.frictionScore}
-            isGameChanger={card.isGameChanger}
-            isReserved={card.isReserved}
-            isCommander={card.isCommander}
+      <CardDetailOverview
+        imageUri={printing.imageUri}
+        faces={printing.faces}
+        imageAlt={card.name}
+        finish={activeFinish}
+        setName={printing.setName}
+        setCode={printing.setCode}
+        collectorNumber={printing.collectorNumber}
+        versionPicker={
+          <VersionPicker
+            slug={slug}
+            printings={printings}
+            selectedSet={printing.setCode}
+            selectedCn={printing.collectorNumber}
+            selectedFinish={selectedFinish}
+            view={activeView}
+            layout="overview"
           />
-          <div className="mt-4">
-            <ClassificationBadges classification={classification} />
-          </div>
+        }
+        previewFooter={
+          <EntityPreviewFooter
+            prices={footerPrices}
+            preferredFinish={activeFinish}
+            showInclusionRank={false}
+            frictionScore={null}
+            className="gap-x-3 gap-y-2 text-sm"
+          />
+        }
+        popularityRank={card.popularityRank}
+        frictionScore={card.frictionScore}
+        isGameChanger={card.isGameChanger}
+        isReserved={card.isReserved}
+        isCommander={card.isCommander}
+        classification={classification}
+      />
 
-          <DetailSectionJump items={sectionNavItems} />
-
-          <div className="mt-6 space-y-6">
-            {similar.length > 0 ? (
-              <DetailCardGridSection
-                id={DETAIL_SECTION_IDS.similarCards}
-                title="Similar cards"
-                cards={similar}
-              />
-            ) : null}
-            <CardRelativesBySubtype subtypes={subtypes} relatives={relatives} />
-          </div>
-        </div>
-      </section>
+      <CardDetailLists
+        slug={slug}
+        isCommander={card.isCommander}
+        activeView={activeView}
+        setCode={printing.setCode}
+        collectorNumber={printing.collectorNumber}
+        finish={activeFinish}
+        sectionNavItems={sectionNavItems}
+        similar={similar}
+        subtypes={subtypes}
+        relatives={relatives}
+        roleStaples={roleStaples}
+        gameChangers={gameChangers}
+        buildSkeleton={buildSkeleton}
+      />
     </PageShell>
   );
 }

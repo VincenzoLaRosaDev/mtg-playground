@@ -11,6 +11,9 @@ type CardFaceTileProps = {
   footer?: ReactNode;
 };
 
+/**
+ * Browse/detail grid cell. Link hits the card face only (not the footer metrics).
+ */
 export function CardFaceTile({ href, imageUri, faces, name, footer }: CardFaceTileProps) {
   return (
     <article>

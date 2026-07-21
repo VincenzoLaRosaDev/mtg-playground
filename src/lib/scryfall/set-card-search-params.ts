@@ -15,7 +15,7 @@ export function buildSetCardSearchParams(filters: SetCardFilters): URLSearchPara
   if (rarityParam) params.set("rarity", rarityParam);
   const colorParam = colorsToParam(filters.colors ?? []);
   if (colorParam) params.set("color", colorParam);
-  if (filters.commanderLegal) params.set("commander", "legal");
+  if (filters.format) params.set("format", filters.format);
   if (filters.typeContains) params.set("type", filters.typeContains);
   if (filters.cmcMin != null) params.set("cmc_min", String(filters.cmcMin));
   if (filters.cmcMax != null) params.set("cmc_max", String(filters.cmcMax));
@@ -33,7 +33,7 @@ export function hasActiveSetCardFilters(filters: SetCardFilters): boolean {
     filters.query ||
       filters.rarities?.length ||
       filters.colors?.length ||
-      filters.commanderLegal ||
+      filters.format ||
       filters.typeContains ||
       filters.cmcMin != null ||
       filters.cmcMax != null,
@@ -47,6 +47,7 @@ export function parseSetCardFiltersFromSearchParams(
     q: searchParams.get("q") ?? undefined,
     rarity: searchParams.get("rarity") ?? undefined,
     color: searchParams.get("color") ?? undefined,
+    format: searchParams.get("format") ?? undefined,
     commander: searchParams.get("commander") ?? undefined,
     type: searchParams.get("type") ?? undefined,
     cmc_min: searchParams.get("cmc_min") ?? undefined,

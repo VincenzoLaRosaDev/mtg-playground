@@ -13,9 +13,13 @@ import {
   parsePrintingOptionValue,
   printingOptionLabel,
   printingOptionValue,
+  resolveActiveFinish,
+  type CardDetailView,
   type OraclePrintingOption,
   type PrintingFinish,
 } from "@/lib/scryfall/card-printing";
+import { DETAIL_OVERVIEW_CONTROLS_GRID_CLASS } from "@/lib/ui/layout";
+import { cn } from "@/lib/utils";
 
 type VersionPickerProps = {
   slug: string;
@@ -23,6 +27,10 @@ type VersionPickerProps = {
   selectedSet: string | null;
   selectedCn: string | null;
   selectedFinish: PrintingFinish | null;
+  /** Preserve As card / As commander list view across version changes. */
+  view?: CardDetailView | null;
+  /** Overview panel: Version + Finish share a responsive row. */
+  layout?: "stack" | "overview";
 };
 
 const FINISH_LABELS: Record<PrintingFinish, string> = {
@@ -37,21 +45,14 @@ export function VersionPicker({
   selectedSet,
   selectedCn,
   selectedFinish,
+  view = null,
+  layout = "stack",
 }: VersionPickerProps) {
   const router = useRouter();
 
   if (printings.length === 0) {
     return null;
   }
-
-  const selectedValue =
-    selectedSet && selectedCn
-      ? `${selectedSet}|${selectedCn}`
-      : selectedSet
-        ? printingOptionValue(
-            printings.find((row) => row.setCode === selectedSet) ?? printings[0]!,
-          )
-        : "default";
 
   const selectedPrinting =
     selectedSet && selectedCn
@@ -62,92 +63,107 @@ export function VersionPicker({
         ? printings.find((row) => row.setCode === selectedSet)
         : null;
 
-  const finishOptions = (selectedPrinting?.finishes ?? []).filter(
+  const activePrinting = selectedPrinting ?? printings[0]!;
+  const selectedValue = printingOptionValue(activePrinting);
+
+  const finishOptions = activePrinting.finishes.filter(
     (finish): finish is PrintingFinish =>
       finish === "nonfoil" || finish === "foil" || finish === "etched",
   );
 
-  const activeFinish: PrintingFinish =
-    selectedFinish && finishOptions.includes(selectedFinish)
-      ? selectedFinish
-      : finishOptions.includes("nonfoil")
-        ? "nonfoil"
-        : (finishOptions[0] ?? "nonfoil");
+  const activeFinish = resolveActiveFinish(activePrinting.finishes, selectedFinish);
+  const showFinish = finishOptions.length > 1;
 
   function navigate(next: {
     set?: string | null;
     cn?: string | null;
     finish?: string | null;
   }) {
-    router.push(buildCardVersionHref(slug, next));
+    router.push(
+      buildCardVersionHref(slug, {
+        ...next,
+        view: view === "commander" ? "commander" : null,
+      }),
+    );
+  }
+
+  const versionField = (
+    <BrowseSelectField
+      label="Version"
+      value={selectedValue}
+      onChange={(value) => {
+        const parsed = parsePrintingOptionValue(value);
+        if (!parsed) return;
+        const option = printings.find(
+          (row) =>
+            row.setCode === parsed.setCode &&
+            row.collectorNumber === parsed.collectorNumber,
+        );
+        const finish =
+          selectedFinish && option?.finishes.includes(selectedFinish)
+            ? selectedFinish
+            : null;
+        navigate({
+          set: parsed.setCode,
+          cn: parsed.collectorNumber,
+          finish,
+        });
+      }}
+      options={printings.map((row) => ({
+        value: printingOptionValue(row),
+        label: `${printingOptionLabel(row)} · ${row.setName}`,
+      }))}
+    />
+  );
+
+  const finishField = showFinish ? (
+    <BrowseFilterSection title="Finish">
+      <ToggleGroup
+        value={[activeFinish]}
+        onValueChange={(values) => {
+          const next = parsePrintingFinish(values[0]);
+          if (!next) return;
+          navigate({
+            set: activePrinting.setCode,
+            cn: activePrinting.collectorNumber,
+            finish: next === "nonfoil" ? null : next,
+          });
+        }}
+        variant="outline"
+        spacing={0}
+        className={cn("flex w-full", layout === "overview" && "min-h-8")}
+        aria-label="Printing finish"
+      >
+        {finishOptions.map((finish) => (
+          <ToggleGroupItem
+            key={finish}
+            value={finish}
+            className="min-w-0 flex-1 justify-center px-2 data-pressed:bg-primary data-pressed:text-primary-foreground"
+          >
+            {FINISH_LABELS[finish]}
+          </ToggleGroupItem>
+        ))}
+      </ToggleGroup>
+    </BrowseFilterSection>
+  ) : null;
+
+  if (layout === "overview") {
+    return (
+      <div
+        className={cn(
+          showFinish ? DETAIL_OVERVIEW_CONTROLS_GRID_CLASS : "grid grid-cols-1",
+        )}
+      >
+        {versionField}
+        {finishField}
+      </div>
+    );
   }
 
   return (
     <div className="space-y-3">
-      <BrowseSelectField
-        label="Version"
-        value={selectedValue}
-        onChange={(value) => {
-          if (value === "default") {
-            navigate({});
-            return;
-          }
-          const parsed = parsePrintingOptionValue(value);
-          if (!parsed) return;
-          const option = printings.find(
-            (row) =>
-              row.setCode === parsed.setCode &&
-              row.collectorNumber === parsed.collectorNumber,
-          );
-          const finish =
-            selectedFinish && option?.finishes.includes(selectedFinish)
-              ? selectedFinish
-              : null;
-          navigate({
-            set: parsed.setCode,
-            cn: parsed.collectorNumber,
-            finish,
-          });
-        }}
-        options={[
-          { value: "default", label: "Catalog default" },
-          ...printings.map((row) => ({
-            value: printingOptionValue(row),
-            label: `${printingOptionLabel(row)} · ${row.setName}`,
-          })),
-        ]}
-      />
-
-      {finishOptions.length > 1 ? (
-        <BrowseFilterSection title="Finish">
-          <ToggleGroup
-            value={[activeFinish]}
-            onValueChange={(values) => {
-              const next = parsePrintingFinish(values[0]);
-              if (!next || !selectedPrinting) return;
-              navigate({
-                set: selectedPrinting.setCode,
-                cn: selectedPrinting.collectorNumber,
-                finish: next === "nonfoil" ? null : next,
-              });
-            }}
-            variant="outline"
-            spacing={0}
-            className="flex flex-wrap"
-            aria-label="Printing finish"
-          >
-            {finishOptions.map((finish) => (
-              <ToggleGroupItem
-                key={finish}
-                value={finish}
-                className="px-3 data-pressed:bg-primary data-pressed:text-primary-foreground"
-              >
-                {FINISH_LABELS[finish]}
-              </ToggleGroupItem>
-            ))}
-          </ToggleGroup>
-        </BrowseFilterSection>
-      ) : null}
+      {versionField}
+      {finishField}
     </div>
   );
 }
