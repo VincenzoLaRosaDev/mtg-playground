@@ -21,16 +21,27 @@ import {
 import { DETAIL_OVERVIEW_CONTROLS_GRID_CLASS } from "@/lib/ui/layout";
 import { cn } from "@/lib/utils";
 
+export type PrintingSelection = {
+  set: string;
+  cn: string;
+  finish: PrintingFinish | null;
+};
+
 type VersionPickerProps = {
   slug: string;
   printings: OraclePrintingOption[];
   selectedSet: string | null;
   selectedCn: string | null;
   selectedFinish: PrintingFinish | null;
-  /** Preserve As card / As commander list view across version changes. */
+  /** Preserve As card / As commander list view across version changes (URL mode). */
   view?: CardDetailView | null;
   /** Overview panel: Version + Finish share a responsive row. */
   layout?: "stack" | "overview";
+  /**
+   * When set, selection calls this instead of navigating to `/cards/{slug}?…`.
+   * Use in deck/collection embeds; omit on the public PDP.
+   */
+  onSelectPrinting?: (selection: PrintingSelection) => void;
 };
 
 const FINISH_LABELS: Record<PrintingFinish, string> = {
@@ -47,6 +58,7 @@ export function VersionPicker({
   selectedFinish,
   view = null,
   layout = "stack",
+  onSelectPrinting,
 }: VersionPickerProps) {
   const router = useRouter();
 
@@ -74,14 +86,29 @@ export function VersionPicker({
   const activeFinish = resolveActiveFinish(activePrinting.finishes, selectedFinish);
   const showFinish = finishOptions.length > 1;
 
-  function navigate(next: {
+  function applySelection(next: {
     set?: string | null;
     cn?: string | null;
     finish?: string | null;
   }) {
+    const set = next.set?.trim() || activePrinting.setCode;
+    const cn = next.cn?.trim() || activePrinting.collectorNumber;
+    const finish = parsePrintingFinish(next.finish);
+
+    if (onSelectPrinting) {
+      onSelectPrinting({
+        set,
+        cn,
+        finish: finish && finish !== "nonfoil" ? finish : null,
+      });
+      return;
+    }
+
     router.push(
       buildCardVersionHref(slug, {
-        ...next,
+        set,
+        cn,
+        finish,
         view: view === "commander" ? "commander" : null,
       }),
     );
@@ -103,7 +130,7 @@ export function VersionPicker({
           selectedFinish && option?.finishes.includes(selectedFinish)
             ? selectedFinish
             : null;
-        navigate({
+        applySelection({
           set: parsed.setCode,
           cn: parsed.collectorNumber,
           finish,
@@ -123,7 +150,7 @@ export function VersionPicker({
         onValueChange={(values) => {
           const next = parsePrintingFinish(values[0]);
           if (!next) return;
-          navigate({
+          applySelection({
             set: activePrinting.setCode,
             cn: activePrinting.collectorNumber,
             finish: next === "nonfoil" ? null : next,

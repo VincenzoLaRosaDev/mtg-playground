@@ -12,6 +12,8 @@ export type OraclePrintingOption = {
   rarity: string;
   finishes: string[];
   imageUri: string | null;
+  faces: CardFaceImage[];
+  prices: unknown;
 };
 
 export type CardPrintingContext = {
@@ -138,6 +140,8 @@ export async function listOraclePrintings(
       rarity: true,
       finishes: true,
       imageUri: true,
+      faces: true,
+      prices: true,
       releasedAt: true,
       set: { select: { name: true } },
     },
@@ -152,6 +156,8 @@ export async function listOraclePrintings(
     rarity: row.rarity,
     finishes: row.finishes,
     imageUri: row.imageUri,
+    faces: parseCardFaces(row.faces),
+    prices: row.prices,
   }));
 }
 

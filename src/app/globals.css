@@ -240,13 +240,24 @@
   --pointer-x: 0.5;
   --pointer-y: 0.5;
   transform-style: preserve-3d;
-  transform: rotateX(0deg) rotateY(0deg);
-  transition: filter 200ms ease;
+  transform: rotateX(0deg) rotateY(0deg) translateZ(0);
+  /* Keep bitmap on its own layer; avoid filter on the rotating node (causes grain). */
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  isolation: isolate;
+  transition: box-shadow 200ms ease;
+}
+
+.card-tilt-card img {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transform: translateZ(0);
 }
 
 .card-tilt-frame[data-tilt-active] .card-tilt-card {
   will-change: transform;
-  filter: drop-shadow(0 12px 18px rgb(0 0 0 / 0.35));
+  /* box-shadow is cheaper than filter:drop-shadow during continuous 3D transforms */
+  box-shadow: 0 14px 24px rgb(0 0 0 / 0.32);
 }
 
 .card-tilt-frame[data-tilt-active] .card-finish-foil-glare,
@@ -265,7 +276,7 @@
   }
 
   .card-tilt-frame[data-tilt-active] .card-tilt-card {
-    filter: none;
+    box-shadow: none;
     will-change: auto;
   }
 }

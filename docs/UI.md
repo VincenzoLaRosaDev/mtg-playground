@@ -11,7 +11,7 @@ Living reference for layout and components. Historical Phase 1.6–1.8 discovery
 3. **Multiface** — staggered front/back stack on detail + tiles; hover the back face to bring it forward.
 4. **Honest Inclusion** — Scryfall Commander **deck inclusion** rank only; never “as commander” popularity. UI label: **Inclusion**.
 5. **Commanders browse** — legality filter (name-first); not a meta ranking hub.
-6. **Collection + decks** — owned/missing in builder (Phase 2.1–2.2).
+6. **Collection + decks** — owned/missing in builder (Phase 2.1–2.2). Workspace (deck editor) uses **contextual overlays** for search/Add and card peek; catalog keeps the full `/cards/{slug}` PDP.
 
 ## Principles (legacy EDHForge discovery)
 
@@ -168,7 +168,7 @@ Printed-card facts (CMC, colors, oracle, keywords) are **not** duplicated in the
 
 **Two bands:**
 
-1. **Overview** — image + set/cn caption | details panel filling the fluid column: **Status** (chips) → **Version / Finish** (responsive row) → **Market** (prices) → **Roles | Themes** (two columns from `sm`)
+1. **Overview** — image + set/cn caption | details panel filling the fluid column: **Status** (chips) → **Printing** (Version / Finish + **Show all versions** when multiple printings) → **Market** (prices) → **Roles | Themes** (two columns from `sm`)
 2. **Lists** — related sections; sticky **DetailSectionNav** (lg+) / **DetailSectionJump** (mobile) on the left of the lists band (not under the image)
 
 **As card / As commander:** When `isCommander`, a full-width **As card | As commander** ToggleGroup switches list packs via `?view=commander` (default = card). Non-commanders have no toggle and always show card lists. Version params (`set` / `cn` / `finish`) are preserved across view switches.
@@ -176,9 +176,13 @@ Printed-card facts (CMC, colors, oracle, keywords) are **not** duplicated in the
 | View | Sections |
 |---|---|
 | As card | Similar cards · Relatives by subtype |
-| As commander | Role staples (per role) · Game Changers in CI · Similar · Relatives · Build skeleton |
+| As commander | Role staples (per role) · Game Changers in CI · Build skeleton |
 
 **Version URL:** `/cards/{slug}?set={code}&cn={collector}&finish={foil|etched}&view=commander`. Bare `/cards/{slug}` still resolves the catalog-default printing and pre-selects it in the VersionPicker (no separate “Catalog default” option). Set pages link with `set`+`cn`. Nonfoil omits `finish`. Foil/etched add a CSS sheen on the hero image (same Scryfall art URI).
+
+**Show all versions:** Bottom Sheet (~85dvh) with browse-like `CardFaceTile` grid (art + `SET #cn · set name` + EUR prices). One tile per printing (`set`+`cn`); Finish stays on the VersionPicker. Click navigates with the same `buildCardVersionHref` contract (preserves finish when available + `view`). Trigger only when `printings.length > 1`.
+
+**Workspace overlays (Phase 2.2 building blocks):** `WorkspaceSearchOverlay` (FTS + Add / peek callbacks) and `CardPeekSheet` (compact overview + printing controls in callback mode + “Open full page”). Hosted by the deck editor when it lands — not used as a browse replacement. See `docs/DECISIONS.md` 2026-07-22.
 
 **Card tilt:** Detail + grid previews use CSS 3D pointer tilt (`CardTilt` via `CardMultifaceImage`). Thumbnails stay flat. Respects `prefers-reduced-motion`; no continuous tilt on touch.
 
@@ -189,7 +193,7 @@ Printed-card facts (CMC, colors, oracle, keywords) are **not** duplicated in the
 **Desktop (`lg+`):** overview (image | meta) scrolls; lists band uses sticky TOC + sections (`DETAIL_LISTS_GRID_CLASS`).
 
 ```
-Overview: image + set/cn | Status chips → Version/Finish → Market prices → Roles | Themes
+Overview: image + set/cn | Status → Version/Finish + Show all versions → Market → Roles | Themes
 Lists: [As card | As commander full-width]? → sticky DetailSectionNav (lg+) | sections for active view
 ```
 

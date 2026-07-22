@@ -69,8 +69,6 @@ export function buildCardDetailNavItems(input: {
 export function buildCommanderDetailNavItems(input: {
   roleStaples?: Array<{ role: string; label: string }>;
   hasGameChangers?: boolean;
-  hasSimilarCards?: boolean;
-  hasRelatives?: boolean;
   hasBuildSkeleton?: boolean;
 }): DetailSectionNavItem[] {
   const items: DetailSectionNavItem[] = [];
@@ -83,15 +81,6 @@ export function buildCommanderDetailNavItems(input: {
   }
   if (input.hasGameChangers) {
     items.push({ id: DETAIL_SECTION_IDS.gameChangers, label: "Game Changers" });
-  }
-  if (input.hasSimilarCards) {
-    items.push({ id: DETAIL_SECTION_IDS.similarCards, label: "Similar" });
-  }
-  if (input.hasRelatives) {
-    items.push({
-      id: DETAIL_SECTION_IDS.relativesBySubtype,
-      label: "Relatives by subtype",
-    });
   }
   if (input.hasBuildSkeleton) {
     items.push({ id: DETAIL_SECTION_IDS.buildSkeleton, label: "Build skeleton" });

@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
-
+import { useActiveDetailSectionId } from "@/hooks/use-active-detail-section-id";
 import type { DetailSectionNavItem } from "@/lib/ui/detail-section-nav";
 
 type DetailSectionNavProps = {
@@ -17,37 +16,7 @@ const linkInactiveClassName =
 const linkActiveClassName = "border-primary font-medium text-foreground";
 
 export function DetailSectionNav({ items }: DetailSectionNavProps) {
-  const [activeId, setActiveId] = useState<string | null>(items[0]?.id ?? null);
-
-  useEffect(() => {
-    const elements = items
-      .map((item) => document.getElementById(item.id))
-      .filter((element): element is HTMLElement => element != null);
-
-    if (elements.length === 0) {
-      return;
-    }
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visible = entries
-          .filter((entry) => entry.isIntersecting)
-          .sort((left, right) => left.boundingClientRect.top - right.boundingClientRect.top);
-
-        const nextId = visible[0]?.target.id;
-        if (nextId) {
-          setActiveId(nextId);
-        }
-      },
-      { rootMargin: "-15% 0px -70% 0px", threshold: 0 },
-    );
-
-    for (const element of elements) {
-      observer.observe(element);
-    }
-
-    return () => observer.disconnect();
-  }, [items]);
+  const [activeId, setActiveId] = useActiveDetailSectionId(items);
 
   if (items.length < 2) {
     return null;

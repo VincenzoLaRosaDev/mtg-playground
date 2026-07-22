@@ -3,8 +3,8 @@ import { notFound } from "next/navigation";
 
 import { CardDetailLists } from "@/components/discovery/card-detail-lists";
 import { CardDetailOverview } from "@/components/discovery/card-detail-overview";
+import { CardDetailPrintingControls } from "@/components/discovery/card-detail-printing-controls";
 import { EntityPreviewFooter } from "@/components/discovery/entity-preview-footer";
-import { VersionPicker } from "@/components/discovery/version-picker";
 import { PageShell } from "@/components/layout/page-shell";
 import { prisma } from "@/lib/db";
 import {
@@ -174,8 +174,6 @@ export default async function CardDetailPage({ params, searchParams }: CardDetai
       ? buildCommanderDetailNavItems({
           roleStaples: roleStapleNav,
           hasGameChangers: gameChangers.length > 0,
-          hasSimilarCards: similar.length > 0,
-          hasRelatives,
           hasBuildSkeleton: buildSkeleton.length > 0,
         })
       : buildCardDetailNavItems({
@@ -204,14 +202,13 @@ export default async function CardDetailPage({ params, searchParams }: CardDetai
         setCode={printing.setCode}
         collectorNumber={printing.collectorNumber}
         versionPicker={
-          <VersionPicker
+          <CardDetailPrintingControls
             slug={slug}
             printings={printings}
             selectedSet={printing.setCode}
             selectedCn={printing.collectorNumber}
             selectedFinish={selectedFinish}
             view={activeView}
-            layout="overview"
           />
         }
         previewFooter={

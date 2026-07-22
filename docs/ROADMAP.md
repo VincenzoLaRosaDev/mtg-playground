@@ -278,12 +278,17 @@ Wave 7 → polish
 |---|---|---|
 | 2.2.1 | Prisma: Deck, DeckCard (+ format, optional preferred printing) | ⬜ |
 | 2.2.2 | Live editor UI | ⬜ |
+| 2.2.2a | Workspace search overlay (Add) — building block ready | ✅ | 2026-07-22 |
+| 2.2.2b | CardPeek Sheet (inspect + printing callback + Open full page) — building block ready | ✅ | 2026-07-22 |
+| 2.2.2c | VersionPicker / VersionsBrowser `onSelectPrinting` callback mode | ✅ | 2026-07-22 |
 | 2.2.3 | Multi-format legality engine | ⬜ |
 | 2.2.4 | Arena paste parser | ⬜ |
 | 2.2.5 | Owned / missing vs collection (oracle aggregate) | ⬜ |
 | 2.2.6 | Builder insights (roles / GC / friction / relations — reuse detail D2 helpers) | ⬜ |
 | 2.2.7 | Deck CRUD `/my/decks` + limits | ⬜ |
 | 2.2.8 | Guest analyze (optional) | ⬜ |
+
+**UX note (2026-07-22):** Workspace uses contextual overlays; catalog keeps full PDP — see `docs/DECISIONS.md`. Wire 2.2.2a–b into the live editor when 2.2.2 ships.
 
 **Demo:** Build a Modern deck → see missing cards vs collection → save.
 

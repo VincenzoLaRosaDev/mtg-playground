@@ -99,6 +99,7 @@ PublicationRating: 1 per user per publication (power, budget, originality 1–10
 - Owned / missing vs collection (oracle aggregation)
 - Arena paste import
 - Insights from classifications (roles, GC, friction, relations) **inside builder**, not as a second detail mode
+- Card inspect / catalog search **in the editor** use contextual overlays (`CardPeekSheet`, `WorkspaceSearchOverlay`); full `/cards/{slug}` remains the public catalog hub
 
 **Community (after collection + decks work)**
 

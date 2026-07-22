@@ -67,14 +67,6 @@ export function CardDetailLists({
             cards={gameChangers}
           />
         ) : null}
-        {similar.length > 0 ? (
-          <DetailCardGridSection
-            id={DETAIL_SECTION_IDS.similarCards}
-            title="Similar"
-            cards={similar}
-          />
-        ) : null}
-        <CardRelativesBySubtype subtypes={subtypes} relatives={relatives} />
         {buildSkeleton.length > 0 ? (
           <BuildSkeletonSection rows={buildSkeleton} />
         ) : null}
@@ -92,6 +84,8 @@ export function CardDetailLists({
       </>
     );
 
+  const tocKey = sectionNavItems.map((item) => item.id).join("|");
+
   return (
     <section className="mt-10 space-y-4" aria-label="Related lists">
       {isCommander ? (
@@ -104,12 +98,14 @@ export function CardDetailLists({
         />
       ) : null}
 
-      {showToc ? <DetailSectionJump items={sectionNavItems} /> : null}
+      {showToc ? (
+        <DetailSectionJump key={`jump-${activeView}-${tocKey}`} items={sectionNavItems} />
+      ) : null}
 
       {showToc ? (
         <div className={DETAIL_LISTS_GRID_CLASS}>
           <div className={DETAIL_SECTION_NAV_STICKY_CLASS}>
-            <DetailSectionNav items={sectionNavItems} />
+            <DetailSectionNav key={`nav-${activeView}-${tocKey}`} items={sectionNavItems} />
           </div>
           <div className="min-w-0 space-y-6">{sections}</div>
         </div>

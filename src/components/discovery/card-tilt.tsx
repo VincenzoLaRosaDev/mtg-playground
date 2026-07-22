@@ -11,8 +11,8 @@ import {
 import { cn } from "@/lib/utils";
 
 const MAX_DEG = {
-  detail: 12,
-  grid: 7,
+  detail: 10,
+  grid: 6,
 } as const;
 
 /** Per-frame lerp toward target (lower = smoother / slower). */
@@ -79,7 +79,7 @@ export function CardTilt({
 
     const rotY = nx * maxDeg;
     const rotX = -ny * maxDeg;
-    card.style.transform = `rotateX(${rotX}deg) rotateY(${rotY}deg) translateZ(0)`;
+    card.style.transform = `rotateX(${rotX}deg) rotateY(${rotY}deg) translateZ(0.01px)`;
     card.style.setProperty("--pointer-x", String((nx + 1) / 2));
     card.style.setProperty("--pointer-y", String((ny + 1) / 2));
   }

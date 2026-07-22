@@ -51,6 +51,8 @@ describe("card version URLs", () => {
       rarity: "rare",
       finishes: ["nonfoil", "foil"],
       imageUri: null,
+      faces: [],
+      prices: null,
     })).toBe("mh2|240");
     expect(parsePrintingOptionValue("mh2|240")).toEqual({
       setCode: "mh2",

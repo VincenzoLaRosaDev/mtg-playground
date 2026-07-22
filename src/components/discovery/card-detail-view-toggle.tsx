@@ -40,7 +40,12 @@ export function CardDetailViewToggle({
         const next = values[0];
         if (next !== "card" && next !== "commander") return;
         if (next === activeView) return;
-        router.push(buildCardVersionHref(slug, { ...version, view: next }));
+        const href = buildCardVersionHref(slug, { ...version, view: next });
+        router.push(href);
+        // Drop leftover section hashes from the previous view (TOC anchors).
+        if (typeof window !== "undefined" && window.location.hash) {
+          window.history.replaceState(null, "", href);
+        }
       }}
       variant="outline"
       spacing={0}
