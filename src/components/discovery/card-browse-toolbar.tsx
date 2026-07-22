@@ -43,6 +43,15 @@ type CardBrowseToolbarProps = {
 export function CardBrowseToolbar({ state, onChange }: CardBrowseToolbarProps) {
   const sortOptions = getCardBrowseSortOptions();
   const formatOptions = getBrowseFormatFilterOptions();
+  const hasActiveFilters = Boolean(
+    state.query.trim() ||
+      state.colors.length ||
+      state.rarities.length ||
+      state.typeContains.trim() ||
+      state.cmcMin ||
+      state.cmcMax ||
+      state.format,
+  );
 
   return (
     <BrowseFilterPanel>
@@ -79,6 +88,19 @@ export function CardBrowseToolbar({ state, onChange }: CardBrowseToolbarProps) {
 
       <BrowseFilterPanelRow
         sortOrder={{ order: state.order, onChange: (order) => onChange({ order }) }}
+        clearFilters={{
+          visible: hasActiveFilters,
+          onClear: () =>
+            onChange({
+              query: "",
+              colors: [],
+              rarities: [],
+              cmcMin: "",
+              cmcMax: "",
+              typeContains: "",
+              format: "",
+            }),
+        }}
       >
         <BrowseToolbarPillGroups>
           <BrowseColorPillGroup colors={state.colors} onChange={(colors) => onChange({ colors })} />

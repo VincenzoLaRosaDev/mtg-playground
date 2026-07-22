@@ -1,13 +1,18 @@
 import { config } from "dotenv";
 
-import { ClassificationSource, SyncSource, SyncStatus } from "../../src/generated/prisma/client";
+import {
+  ClassificationSource,
+  Prisma,
+  SyncSource,
+  SyncStatus,
+} from "../../src/generated/prisma/client";
 import type { PrismaClient } from "../../src/generated/prisma/client";
 import {
   classifyFromOracleTags,
   classifyFromOverride,
   hasClassification,
 } from "../../src/lib/classification/compute";
-import { computeFrictionScore } from "../../src/lib/classification/friction";
+import { FRICTION_TAG_SLUGS } from "../../src/lib/classification/friction";
 import { loadCardOverrides } from "../../src/lib/classification/overrides";
 
 config({ path: ".env.local" });
@@ -115,36 +120,28 @@ async function main() {
     }
 
     console.log("Updating friction scores...");
-    // Reset to GC-only baseline, then add tag friction for tagged cards.
+    // Reset to GC-only baseline, then +1 in one pass for any friction-family tag.
     await prisma.$executeRaw`
       UPDATE cards
       SET friction_score = CASE WHEN is_game_changer THEN 2 ELSE 0 END
     `;
 
-    const cards = await prisma.card.findMany({
-      select: { id: true, oracleId: true, isGameChanger: true },
-    });
-    let frictionUpdated = 0;
-    for (let i = 0; i < cards.length; i += UPSERT_BATCH) {
-      const batch = cards.slice(i, i + UPSERT_BATCH);
-      await Promise.all(
-        batch.map(async (card) => {
-          const tagSlugs = tagSlugsByOracleId.get(card.oracleId) ?? [];
-          const score = computeFrictionScore({
-            isGameChanger: card.isGameChanger,
-            tagSlugs,
-          });
-          // Skip no-op when score matches GC-only baseline already applied.
-          const baseline = card.isGameChanger ? 2 : 0;
-          if (score === baseline) return;
-          await prisma.card.update({
-            where: { id: card.id },
-            data: { frictionScore: score },
-          });
-          frictionUpdated += 1;
-        }),
-      );
-    }
+    const frictionSlugs = [...FRICTION_TAG_SLUGS];
+    const frictionUpdated = await prisma.$executeRaw`
+      UPDATE cards c
+      SET friction_score = LEAST(
+        CASE WHEN c.is_game_changer THEN 2 ELSE 0 END + 1,
+        3
+      )
+      WHERE EXISTS (
+        SELECT 1
+        FROM card_oracle_taggings cot
+        INNER JOIN scryfall_oracle_tags sot ON sot.id = cot.tag_id
+        WHERE cot.oracle_id = c.oracle_id
+          AND cot.weight != 'weak'
+          AND sot.slug IN (${Prisma.join(frictionSlugs)})
+      )
+    `;
 
     await prisma.syncLog.update({
       where: { id: syncLog.id },

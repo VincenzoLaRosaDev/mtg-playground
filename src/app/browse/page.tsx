@@ -1,10 +1,12 @@
 import { Suspense } from "react";
 
 import { BrowseHubClient } from "@/app/browse/browse-hub-client";
+import { BrowseHubFallback } from "@/components/discovery/browse-hub-fallback";
 import { getBrowseHubDefaults } from "@/lib/browse/browse-defaults";
-import { getCachedDefaultBrowseHub } from "@/lib/browse/browse-cache";
-import { listPresentClassificationFacets } from "@/lib/classification/present-facets";
-import { prisma } from "@/lib/db";
+import {
+  getCachedDefaultBrowseHub,
+  getCachedPresentClassificationFacets,
+} from "@/lib/browse/browse-cache";
 
 export const dynamic = "force-dynamic";
 
@@ -22,24 +24,30 @@ function parseCommandersOnly(params: {
   return params.commanders_only === "true" || params.entity === "commanders";
 }
 
-export default async function BrowsePage({ searchParams }: BrowsePageProps) {
+async function BrowsePageContent({ searchParams }: BrowsePageProps) {
   const params = await searchParams;
   const commandersOnly = parseCommandersOnly(params);
   const { toolbar, requestKey } = getBrowseHubDefaults({ commandersOnly });
   const [initialData, facets] = await Promise.all([
     getCachedDefaultBrowseHub(commandersOnly),
-    listPresentClassificationFacets(prisma),
+    getCachedPresentClassificationFacets(),
   ]);
 
   return (
-    <Suspense fallback={<p className="p-6 text-sm text-muted-foreground">Loading browse…</p>}>
-      <BrowseHubClient
-        initialData={initialData}
-        initialToolbar={toolbar}
-        initialRequestKey={requestKey}
-        presentRoles={facets.roles}
-        presentThemes={facets.themes}
-      />
+    <BrowseHubClient
+      initialData={initialData}
+      initialToolbar={toolbar}
+      initialRequestKey={requestKey}
+      presentRoles={facets.roles}
+      presentThemes={facets.themes}
+    />
+  );
+}
+
+export default function BrowsePage({ searchParams }: BrowsePageProps) {
+  return (
+    <Suspense fallback={<BrowseHubFallback />}>
+      <BrowsePageContent searchParams={searchParams} />
     </Suspense>
   );
 }

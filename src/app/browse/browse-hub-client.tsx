@@ -8,6 +8,7 @@ import {
   type BrowseHubToolbarState,
 } from "@/components/discovery/browse-hub-toolbar";
 import { CardGridTile } from "@/components/discovery/card-grid-tile";
+import { CardGridSkeleton } from "@/components/discovery/loading-skeletons";
 import { LoadMoreButton } from "@/components/discovery/load-more-button";
 import { PageListMeta } from "@/components/layout/page-list-meta";
 import { PageShell } from "@/components/layout/page-shell";
@@ -20,6 +21,7 @@ import {
   getCatalogBrowseSortOptions,
 } from "@/lib/browse/cards-shared";
 import { CARD_FACE_GRID_CLASS } from "@/lib/ui/card-face";
+import { cn } from "@/lib/utils";
 
 type BrowseHubClientProps = {
   initialData: BrowseListInitialData<CardBrowseItem>;
@@ -124,20 +126,26 @@ export function BrowseHubClient({
           : ""}
       </PageListMeta>
 
-      {loading && items.length === 0 && (
-        <p className="mt-4 text-sm text-muted-foreground">Loading...</p>
-      )}
       {error && <p className="mt-4 text-sm text-destructive">{error}</p>}
 
-      <div className={`mt-6 ${CARD_FACE_GRID_CLASS}`}>
-        {items.map((card) => (
-          <CardGridTile
-            key={card.id}
-            card={card}
-            showInclusionRank={showInclusion}
-          />
-        ))}
-      </div>
+      {loading && items.length === 0 ? (
+        <div className="mt-6">
+          <CardGridSkeleton />
+        </div>
+      ) : (
+        <div
+          className={cn(`mt-6 ${CARD_FACE_GRID_CLASS}`, loading && "opacity-60")}
+          aria-busy={loading || undefined}
+        >
+          {items.map((card) => (
+            <CardGridTile
+              key={card.id}
+              card={card}
+              showInclusionRank={showInclusion}
+            />
+          ))}
+        </div>
+      )}
 
       {!loading && items.length === 0 && !error && (
         <p className="mt-6 text-sm text-muted-foreground">No results match these filters.</p>

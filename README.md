@@ -37,6 +37,8 @@ Copy `.env.example` to `.env.local` and fill in Neon connection strings (pooled 
 cp .env.example .env.local
 ```
 
+**Auth (Phase 2.1):** set `AUTH_SECRET` (`openssl rand -base64 32`). Configure any of Google / Discord OAuth and/or Resend (`AUTH_RESEND_KEY`, `AUTH_RESEND_FROM`) — providers without credentials are skipped. Without Resend, magic-link sign-in stays disabled.
+
 ### 3. Database migration
 
 ```bash
@@ -65,19 +67,20 @@ npm run sync:compute-classifications
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) — try **Browse** at `/browse`.
+Open [http://localhost:3000](http://localhost:3000) — try **Browse** at `/browse`, **Collection** at `/collection` (sign-in required).
 
 ## Scripts
 
-See `package.json` for sync and DB scripts. Browse API: `GET /api/browse`.
+See `package.json` for sync and DB scripts. Browse API: `GET /api/browse`. Auth: `GET/POST /api/auth/*` (Auth.js).
 
 ## Project phases
 
 See [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 - **Phase 0–1.8** ✅ Catalog foundation (historical EDHForge path)
-- **Phase 2.0** ⬜ MTGPlayground pivot (printings, unified detail) — **current**
-- **Phase 2.1** Collection · **2.2** Multi-format decks · **2.3** Precons
+- **Phase 2.0** ✅ MTGPlayground pivot (printings, unified detail)
+- **Phase 2.1** ✅ Auth + printing-level collection
+- **Phase 2.2** ⬜ Multi-format decks · **2.3** Precons — **current**
 - **Phase 3–5** Analysis, community, launch
 
 ## Attribution

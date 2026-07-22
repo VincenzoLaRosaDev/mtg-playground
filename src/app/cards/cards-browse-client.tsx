@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { BrowseCardResults } from "@/components/discovery/browse-card-results";
 import {
   buildCardBrowseSearchParams,
   CardBrowseToolbar,
@@ -19,7 +20,6 @@ import {
   defaultCatalogSort,
   getCatalogBrowseSortOptions,
 } from "@/lib/browse/cards-shared";
-import { CARD_FACE_GRID_CLASS } from "@/lib/ui/card-face";
 
 type CardsBrowseClientProps = {
   initialData: BrowseListInitialData<CardBrowseItem>;
@@ -76,20 +76,16 @@ export function CardsBrowseClient({
         {total > 0 ? ` Showing ${items.length.toLocaleString()} of ${total.toLocaleString()}.` : ""}
       </PageListMeta>
 
-      {loading && items.length === 0 && (
-        <p className="mt-4 text-sm text-muted-foreground">Loading...</p>
-      )}
-      {error && <p className="mt-4 text-sm text-destructive">{error}</p>}
-
-      <div className={`mt-6 ${CARD_FACE_GRID_CLASS}`}>
+      <BrowseCardResults
+        loading={loading}
+        itemCount={items.length}
+        error={error}
+        emptyMessage="No cards match these filters."
+      >
         {items.map((card) => (
           <CardGridTile key={card.id} card={card} />
         ))}
-      </div>
-
-      {!loading && items.length === 0 && !error && (
-        <p className="mt-6 text-sm text-muted-foreground">No cards match these filters.</p>
-      )}
+      </BrowseCardResults>
 
       <LoadMoreButton
         onClick={loadMore}

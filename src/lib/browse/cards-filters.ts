@@ -1,7 +1,6 @@
 import type { Prisma, PrismaClient } from "@/generated/prisma/client";
 
 import { buildColorIdentityWhere } from "@/lib/browse/color-identity-filter";
-import { resolveOracleIdsForRarities } from "@/lib/browse/rarity-filter-server";
 import type { ScryfallBrowseFormat } from "@/lib/formats/scryfall-formats";
 import {
   cardIdsTextSearchWhere,
@@ -9,6 +8,8 @@ import {
 } from "@/lib/search/card-text-search-query";
 import { playableCatalogCardWhere } from "@/lib/scryfall/catalog-filters";
 import { isFunctionalRole, isSynergyTheme } from "@/lib/classification/types";
+import { isSetRarity, RARITY_RANK } from "@/lib/mtg/rarity-rank";
+import type { SetRarity } from "@/lib/mtg/rarity-types";
 
 export type CardBrowseFilters = {
   query?: string;
@@ -30,6 +31,7 @@ export type CardBrowseFilters = {
 
 export const cardBrowseSelect = {
   id: true,
+  oracleId: true,
   name: true,
   slug: true,
   typeLine: true,
@@ -39,6 +41,7 @@ export const cardBrowseSelect = {
   faces: true,
   isCommander: true,
   prices: true,
+  listPriceEur: true,
   popularityRank: true,
   frictionScore: true,
   isGameChanger: true,
@@ -95,7 +98,7 @@ export function buildCatalogCardWhere(filters: CardBrowseFilters): Prisma.CardWh
 }
 
 export async function applyRarityOracleFilter(
-  prisma: PrismaClient,
+  _prisma: PrismaClient,
   where: Prisma.CardWhereInput,
   rarities?: string[],
 ): Promise<Prisma.CardWhereInput> {
@@ -103,13 +106,16 @@ export async function applyRarityOracleFilter(
     return where;
   }
 
-  const oracleIds = await resolveOracleIdsForRarities(prisma, rarities);
+  const ranks = rarities
+    .filter((entry): entry is SetRarity => isSetRarity(entry))
+    .map((entry) => RARITY_RANK[entry]);
 
-  if (oracleIds.length === 0) {
-    return { AND: [where, { oracleId: { in: ["__no_match__"] } }] };
+  if (ranks.length === 0) {
+    return { AND: [where, { id: { in: ["__no_match__"] } }] };
   }
 
-  return { AND: [where, { oracleId: { in: oracleIds } }] };
+  // Denormalized on cards at printings sync — no full printings GROUP BY.
+  return { AND: [where, { minRarityRank: { in: ranks } }] };
 }
 
 async function resolveOracleIdsForClassification(

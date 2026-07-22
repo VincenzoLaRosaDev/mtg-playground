@@ -15,8 +15,12 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { siteContainerClassName } from "@/lib/ui/layout";
-import { CARD_FACE_GRID_CLASS } from "@/lib/ui/card-face";
+import { siteContainerClassName, SHEET_LIST_RULE_CLASS } from "@/lib/ui/layout";
+import {
+  CARD_FACE_GRID_CLASS,
+  CARD_PRINTING_TILE_BUTTON_CLASS,
+  CARD_PRINTING_TILE_SELECTED_CLASS,
+} from "@/lib/ui/card-face";
 import {
   buildCardVersionHref,
   printingOptionLabel,
@@ -116,7 +120,13 @@ export function VersionsBrowser({
         side="bottom"
         className="max-h-[85dvh] gap-0 overflow-hidden p-0"
       >
-        <SheetHeader className={cn(siteContainerClassName, "shrink-0 border-b border-border py-4")}>
+        <SheetHeader
+          className={cn(
+            siteContainerClassName,
+            "shrink-0 py-4",
+            SHEET_LIST_RULE_CLASS,
+          )}
+        >
           <SheetTitle>All versions</SheetTitle>
           <SheetDescription>
             {printings.length.toLocaleString()} printings — pick one to open on this page.
@@ -146,8 +156,8 @@ export function VersionsBrowser({
                     type="button"
                     onClick={() => selectPrinting(option)}
                     className={cn(
-                      "w-full rounded-lg text-left transition-shadow outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                      selected && "ring-2 ring-primary ring-offset-2 ring-offset-background",
+                      CARD_PRINTING_TILE_BUTTON_CLASS,
+                      selected && CARD_PRINTING_TILE_SELECTED_CLASS,
                     )}
                     aria-current={selected ? "true" : undefined}
                     aria-label={`Select version ${label}`}

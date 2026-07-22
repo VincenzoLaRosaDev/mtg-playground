@@ -31,3 +31,12 @@ export const SET_BROWSE_GRID_CLASS =
 /** Grid tile footer — rank / stats / salt on one row, spaced apart. */
 export const CARD_FACE_TILE_FOOTER_CLASS =
   "mt-2 flex w-full min-w-0 flex-nowrap items-center justify-between gap-2";
+
+/**
+ * Clickable printing / version tile frame (collection add, versions browser).
+ * Cursor comes from base `button:enabled`; keep focus-ring language shared.
+ */
+export const CARD_PRINTING_TILE_BUTTON_CLASS =
+  "w-full cursor-pointer rounded-lg border border-transparent p-2 text-left transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
+
+export const CARD_PRINTING_TILE_SELECTED_CLASS = "border-ring ring-3 ring-ring/50";

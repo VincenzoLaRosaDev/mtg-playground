@@ -33,6 +33,13 @@ type CommanderBrowseToolbarProps = {
 
 export function CommanderBrowseToolbar({ state, onChange }: CommanderBrowseToolbarProps) {
   const sortOptions = getCommanderBrowseSortOptions();
+  const hasActiveFilters = Boolean(
+    state.query.trim() ||
+      state.colors.length ||
+      state.typeContains.trim() ||
+      state.cmcMin ||
+      state.cmcMax,
+  );
 
   return (
     <BrowseFilterPanel>
@@ -60,6 +67,17 @@ export function CommanderBrowseToolbar({ state, onChange }: CommanderBrowseToolb
 
       <BrowseFilterPanelRow
         sortOrder={{ order: state.order, onChange: (order) => onChange({ order }) }}
+        clearFilters={{
+          visible: hasActiveFilters,
+          onClear: () =>
+            onChange({
+              query: "",
+              colors: [],
+              cmcMin: "",
+              cmcMax: "",
+              typeContains: "",
+            }),
+        }}
       >
         <BrowseColorPillGroup colors={state.colors} onChange={(colors) => onChange({ colors })} />
       </BrowseFilterPanelRow>

@@ -80,7 +80,7 @@ export function buildCardSearchDocumentFromScryfall(card: {
 export function sanitizeCardTextSearchQuery(query: string): string {
   return query
     .trim()
-    .replace(/['’]/g, "")
+    .replace(/[''`´’]/g, "")
     .replace(/[^\p{L}\p{N}\s]+/gu, " ")
     .replace(/\s+/g, " ")
     .trim();

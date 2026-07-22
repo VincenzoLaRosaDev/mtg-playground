@@ -2,7 +2,7 @@
 
 Living reference for layout and components. Historical Phase 1.6–1.8 discovery chrome remains below; **product end-state** is the MTGPlayground pivot (`docs/PROJECT.md`, `docs/DECISIONS.md` 2026-07-20).
 
-> Status: Phase **2.0** complete → **Phase 2.1** Auth + Collection.
+> Status: Phase **2.1** Auth + Collection complete → **Phase 2.2** Multi-format deck builder.
 
 ## Pivot UI principles (current)
 
@@ -38,6 +38,8 @@ Living reference for layout and components. Historical Phase 1.6–1.8 discovery
 
 - Content max width: **`max-w-7xl`** (`siteContainerClassName` in `src/lib/ui/layout.ts`) — header, footer, `PageShell`
 - Page padding: `px-6`, vertical `py-10` / `lg:py-12`
+- Sheet list hairlines: **`SHEET_LIST_RULE_CLASS`** on the `siteContainer` header (or **`SITE_GUTTER_BLEED_X_CLASS`** when the rule sits inside a padded container) so search / versions / import dividers share the same width
+- **Collection list:** scope tabs All / Owned / Wish + **Sort by** (Last modified · Last added · Name · Set & collector # · CMC · Color & CMC · Price) with order toggle (`?sort=` / `?order=`) + catalog-like facets (`q`, `color`, `type`, `cmc_*`, `rarity`, `format`, `finish`, `set`) in `BrowseFilterPanel`; grid is **paginated** (48 + Load more via `/api/collection`)
 - Filter chrome: shadcn `Input`, `Select`, `Label` (dense `text-xs` labels) via `BrowseSearchField` / `BrowseSelectField` — not native `<input>` / `<select>`
 - Filter toggles: shadcn `Toggle` / `ToggleGroup` (mana, rarity, option pills); sort order uses `Button` icon
 - Sticky below header: `--site-header-height` (set by `AppHeader` ResizeObserver) + `SITE_STICKY_BELOW_HEADER_CLASS`
@@ -77,7 +79,7 @@ Hue split: surfaces ~255° (cool gray) · brand/primary ~75° (amber) · info/ch
 
 | Concern | Where |
 |---|---|
-| Site max-width / gutter | `src/lib/ui/layout.ts` (`siteContainerClassName`) |
+| Site max-width / gutter | `src/lib/ui/layout.ts` (`siteContainerClassName`, `SITE_GUTTER_BLEED_X_CLASS`, `SHEET_LIST_RULE_CLASS`) |
 | Header height / sticky offsets | `--site-header-height` + `SITE_STICKY_*` in `layout.ts` |
 | Card grid density | `src/lib/ui/card-face.ts` |
 | Browse filter grid templates | `browse-toolbar-shared.ts` |
@@ -115,7 +117,7 @@ PageShell
 | `/cards` | (redirect) | → `/browse` |
 | `/commanders` | (redirect) | → `/browse?commanders_only=true` |
 
-Full catalog browse: **`/browse`**, **global search** (`/search` — same card/set grids), and **sets** (`/sets`).
+Full catalog browse: **`/browse`**, **global search** (`/search` — same card/set grids; navbar typeahead **8** hits, View all **50**), and **sets** (`/sets`).
 
 ### Grid tile (default)
 
@@ -135,7 +137,7 @@ Compact **horizontal rows** (`Card` + thumbnail) per entity type — not `CardFa
 
 ## Browse filters (Phase 1.8)
 
-Shared **`BrowseFilterPanel`** styling on all list pages. Grid tokens live in `browse-toolbar-shared.ts`. **Browse hub** uses two field rows: primary (`browseToolbarHubPrimaryGridClassName` — search · sort · type · CMC) and secondary (`browseToolbarHubSecondaryGridClassName` — Role · Theme · Format, equal columns). Pill row uses `browseToolbarHubPillGroupsClassName` (Color + Rarity hug; Options flexes so pills stay one line). CMC min/max are one grid cell (`browseToolbarCmcPairClassName`). **Sets browse** uses `browseToolbarDenseGridClassName`; **set detail** uses `browseToolbarSetDetailGridClassName` (includes Format). Pill groups sit on a second row in **`BrowseFilterPanelRow`** with the sort-order icon on the right.
+Shared **`BrowseFilterPanel`** styling on all list pages. Grid tokens live in `browse-toolbar-shared.ts`. **Browse hub** uses two field rows: primary (`browseToolbarHubPrimaryGridClassName` — search · sort · type · CMC) and secondary (`browseToolbarHubSecondaryGridClassName` — Role · Theme · Format, equal columns). Pill row uses shared `browseToolbarPillGroupsClassName` (Color / Rarity / Options hug content with `gap-3`, same on hub, cards, set detail, collection). CMC min/max are one grid cell (`browseToolbarCmcPairClassName`). **Sets browse** uses `browseToolbarDenseGridClassName`; **set detail** uses `browseToolbarSetDetailGridClassName` (includes Format). Pill groups sit on a second row in **`BrowseFilterPanelRow`** with **Clear filters** (when active) immediately left of the sort-order icon on the right.
 
 | Control | Style | Pages |
 |---|---|---|
@@ -168,7 +170,7 @@ Printed-card facts (CMC, colors, oracle, keywords) are **not** duplicated in the
 
 **Two bands:**
 
-1. **Overview** — image + set/cn caption | details panel filling the fluid column: **Status** (chips) → **Printing** (Version / Finish + **Show all versions** when multiple printings) → **Market** (prices) → **Roles | Themes** (two columns from `sm`)
+1. **Overview** — image + set/cn caption | details panel filling the fluid column: **Status** (chips) → **Printing** (Version / Finish + **Show all versions** when multiple printings; under that **CardCollectionPanel**: Qty + Add owned / Add to wish for the active printing+finish, plus oracle rollup + linked “Your copies” list) → **Market** (prices) → **Roles | Themes** (two columns from `sm`)
 2. **Lists** — related sections; sticky **DetailSectionNav** (lg+) / **DetailSectionJump** (mobile) on the left of the lists band (not under the image)
 
 **As card / As commander:** When `isCommander`, a full-width **As card | As commander** ToggleGroup switches list packs via `?view=commander` (default = card). Non-commanders have no toggle and always show card lists. Version params (`set` / `cn` / `finish`) are preserved across view switches.
@@ -178,15 +180,15 @@ Printed-card facts (CMC, colors, oracle, keywords) are **not** duplicated in the
 | As card | Similar cards · Relatives by subtype |
 | As commander | Role staples (per role) · Game Changers in CI · Build skeleton |
 
-**Version URL:** `/cards/{slug}?set={code}&cn={collector}&finish={foil|etched}&view=commander`. Bare `/cards/{slug}` still resolves the catalog-default printing and pre-selects it in the VersionPicker (no separate “Catalog default” option). Set pages link with `set`+`cn`. Nonfoil omits `finish`. Foil/etched add a CSS sheen on the hero image (same Scryfall art URI).
+**Version URL:** `/cards/{slug}?set={code}&cn={collector}&finish={foil|etched}&view=commander`. Bare `/cards/{slug}` still resolves the catalog-default printing and pre-selects it in the VersionPicker (no separate “Catalog default” option). Set pages link with `set`+`cn`. Nonfoil omits `finish`. Foil/etched add a CSS sheen on the hero image (same Scryfall art URI). **Collection grid** passes `finish` into `CardFaceTile` (wash always; glare on hover only — no idle loop across many tiles). Foil glare **crossfades** idle sweep ↔ pointer follow (~400ms opacity) so tilt enter/leave is not a hard cut. Browse / catalog search stay non-foil.
 
 **Show all versions:** Bottom Sheet (~85dvh) with browse-like `CardFaceTile` grid (art + `SET #cn · set name` + EUR prices). One tile per printing (`set`+`cn`); Finish stays on the VersionPicker. Click navigates with the same `buildCardVersionHref` contract (preserves finish when available + `view`). Trigger only when `printings.length > 1`.
 
-**Workspace overlays (Phase 2.2 building blocks):** `WorkspaceSearchOverlay` (FTS + Add / peek callbacks) and `CardPeekSheet` (compact overview + printing controls in callback mode + “Open full page”). Hosted by the deck editor when it lands — not used as a browse replacement. See `docs/DECISIONS.md` 2026-07-22.
+**Workspace overlays (Phase 2.2 building blocks):** Bottom sheets cap at **`max-h-[85dvh]`** (page stays visible above for dismiss) — `VersionsBrowser`, `WorkspaceSearchOverlay`, collection add/import, `CardPeekSheet`. `WorkspaceSearchPanel` (FTS + card-face grid) powers search; collection add is a **single sheet** with search → printing steps (tile click to pick a card; **Back to search** link under the title + outside dismiss returns to search). Printing tiles use shadcn focus-ring selection (`border-ring` + `ring-3 ring-ring/50`) with inset padding. Finish is **not** a pre-select control (no foil preview in the grid): Add / wantlist commit immediately when the printing has one finish; if multiple finishes, a small **dropdown** asks Nonfoil / Foil / Etched at click time. Owned adds use a **Qty** input (default 1) beside the actions. Labels are generic (**Add owned** / **Add to wish**). Collection tiles are **one chip per row** (**Owned** amber or **Wish** teal) — owned and wish are separate DB rows. Owned tile: **Add to wish** / **On wish** (sibling). Wish tile: **Get** (move qty to owned). Filter tab label **Wish** (URL/filter id remains `wantlist`). Submit placement: **header** on `md` + fine pointer; **sticky footer** on mobile / coarse pointer. See `docs/DECISIONS.md` 2026-07-22.
 
 **Card tilt:** Detail + grid previews use CSS 3D pointer tilt (`CardTilt` via `CardMultifaceImage`). Thumbnails stay flat. Respects `prefers-reduced-motion`; no continuous tilt on touch.
 
-**Click targets:** Set browse rows (`SetBrowseRow`) are full-surface links (no card art). Card tiles (`CardFaceTile`) link the face image only — footer metrics stay outside the hit target. Interactive chrome (`Button`, `Toggle` / filter pills & mana/rarity, `Select`, dropdown items) uses `cursor-pointer`.
+**Click targets:** Set browse rows (`SetBrowseRow`) are full-surface links (no card art). Card tiles (`CardFaceTile`) link the face image only — footer metrics stay outside the hit target. Interactive chrome (`Button`, `Toggle` / filter pills & mana/rarity, `Select`, dropdown items, `TabsTrigger`) uses `cursor-pointer`. Native `<button>` / `[role="button"]` also get the hand cursor via a base CSS rule in `globals.css` (covers collection add tiles, workspace search pick, scope tabs, etc.).
 
 **Mobile (`< lg`):** overview (centered image max 300px → meta) → optional view toggle → sticky `DetailSectionJump` → sections.
 

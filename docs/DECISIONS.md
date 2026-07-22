@@ -845,6 +845,12 @@ Defer GIN on `color_identity` / trigram on `type_line` until measured need. Next
 **Consequences:** Larger set-row hits; card tiles stay face-only for clearer separation from metrics. Nested multi-action cards (if added later) must not use full-tile links.
 **Supersedes:** nothing (UX consistency pass).
 
+## 2026-07-22 — Cursor-pointer for native buttons (site-wide)
+**Context:** Shared `Button`/`Toggle`/`Select` already had hand cursors (2026-07-21), but raw `<button>` tiles in collection add, workspace search pick, versions browser, and All/Owned/Wish tabs still showed the default arrow.
+**Decision:** Add a `@layer base` rule so `button:enabled` and `[role="button"]` use `cursor: pointer` site-wide; keep `cursor-pointer` on primitives (`TabsTrigger` included). Shared `CARD_PRINTING_TILE_BUTTON_CLASS` for printing/version tiles.
+**Consequences:** New raw buttons inherit the hand cursor without per-call-site classes. Disabled buttons use `not-allowed`.
+**Supersedes:** nothing (extends 2026-07-21 cursor-pointer pass).
+
 ## 2026-07-21 — Browse Commander is an Options filter, not a tab
 **Context:** Hub `/browse` used a **Cards \| Commanders** entity tab that felt like a second catalog mode. Users want one catalog with a filter for legal commanders.
 **Decision:** Remove the entity tab. Add a **Commander** Options pill last (after Game Changer / Reserved) that sets `commanders_only` → `isCommander` (+ `require_slug`). SSR/home/redirects use `/browse?commanders_only=true`; legacy `?entity=commanders` still maps. Toggling resets sort (Name when on, Inclusion default when off).
@@ -904,3 +910,69 @@ Defer GIN on `color_identity` / trigram on `type_line` until measured need. Next
 **Decision:** Hybrid model. (1) **Catalog mode** keeps the full public PDP at `/cards/{slug}` (overview + lists, SEO/share). (2) **Workspace mode** (Phase 2.2 editor, later collection if needed) uses **contextual overlays** — search-with-Add and CardPeek — that mutate workspace state without leaving the page; peek includes “Open full page” escape hatch. (3) `VersionPicker` / `VersionsBrowser` support **`onSelectPrinting` callback mode** for embeds; default remains URL navigate on the PDP. (4) Prefer explicit React-controlled Sheets over Next intercepted routes for v1.
 **Consequences:** Deck building can follow Archidekt’s continuous loop without abandoning printing-first catalog hubs. Building blocks land ahead of the editor shell (`WorkspaceSearchOverlay`, `CardPeekSheet`, picker callbacks); wire when 2.2.2 lands. Do not convert browse to overlay-only.
 **Supersedes:** nothing (complements 2.0.4 single PDP; scopes how 2.2 consumes it).
+
+## 2026-07-22 — Auth.js magic link via Resend
+**Context:** Phase 2.1 needs email sign-in without running an SMTP stack; OAuth alone is insufficient for users without Google/Discord.
+**Decision:** Use Auth.js **Resend** provider for magic links (`AUTH_RESEND_KEY`, optional `AUTH_RESEND_FROM`). If the key is absent, the email provider is omitted at boot — Google/Discord remain usable when configured. OAuth: Google + Discord.
+**Consequences:** Resend account/domain setup is ops-side; local/dev can ship with OAuth only. No Neon Auth.
+**Supersedes:** nothing (implements the Phase 2 Auth.js path chosen earlier vs Neon Auth).
+
+## 2026-07-22 — CollectionItem unique grain
+**Context:** Collection must match printing-first catalog (`set` + `cn` + finish).
+**Decision:** `CollectionItem` unique on `(userId, printingId, finish)` with `quantity` Int and `wantlist` Boolean. Wantlist-only rows may have `quantity = 0`; owned = `quantity > 0`. Filters on `/collection`: **All** / **Owned** (`qty > 0` ∧ `wantlist = false`) / **Wish** (`wantlist` ∧ `qty = 0`). Rows with both flags appear under **All** only. UI copy uses **Wish**; schema/API keep `wantlist`.
+**Consequences:** Import and Add flows resolve to a concrete printing + finish; foil and nonfoil are separate rows. Tab filters are mutually exclusive inventory slices.
+**Supersedes:** nothing (locks PROJECT.md collection grain for schema).
+
+## 2026-07-22 — Owned / Wish as separate CollectionItem rows
+**Context:** Dual-flagging one row (qty > 0 + wantlist) made Owned/Wish tabs and “Add to wish” ambiguous. Product intent: owned copies and wish copies are **two instances** of the same printing+finish.
+**Decision:** Unique grain `(userId, printingId, finish, wantlist)`. Owned (`wantlist=false`) and Wish (`wantlist=true`) are separate rows, each with `quantity ≥ 1`. Tabs filter on `wantlist`. Owned tile: **Add to wish** / **On wish** create or delete the wish sibling. Wish tile: **Get** moves wish qty onto owned then deletes the wish row. **Remove** deletes only that row (`id`). Migration splits dual-flagged rows.
+**Consequences:** Same printing can appear twice under All; actions are list-scoped. Import still writes owned rows only.
+**Supersedes:** 2026-07-22 — CollectionItem unique grain (flag-on-same-row model).
+
+## 2026-07-22 — Collection Owned vs Wish visual language
+**Context:** Owned and wantlist rows were hard to tell apart in the collection grid (only a muted secondary button). “Wantlist / Wantlisted” was also unclear vs Owned.
+**Decision:** User-facing label **Wish** (filter, chips, Add to wish / On wish / Get). Visual: **Owned** = primary/amber chip; **Wish** = info/teal chip — one chip per tile (separate rows). No status rings on grid tiles. DB column and `?filter=wantlist` unchanged.
+**Consequences:** Clearer scan in All view; no migration for labels. Teal vs amber matches existing info vs primary tokens.
+**Supersedes:** nothing (UI layer on the CollectionItem grain decision).
+
+## 2026-07-22 — Collection list sort (Phase A)
+**Context:** `/collection` only ordered by `updatedAt desc`. Users need inventory sorts (last added, price, name, set) before full browse facets.
+**Decision:** URL `?sort=` + `?order=` with options **Last modified** (default), **Last added**, **Name**, **Set & collector #**, **CMC**, **Color & CMC** (Arena-like `color_sort` then CMC), **Price**. SQL `orderBy` for modified/added/name/set; **Price / CMC / Color & CMC** sorted in memory (Card join for cmc/`color_sort`; finish-aware EUR for price). Toolbar reuses browse Sort select + order toggle; scope tabs All/Owned/Wish preserved.
+**Consequences:** No schema change. Facets (Phase B) can share the same URL/toolbar pattern.
+**Supersedes:** nothing (extends 2.1 collection list).
+
+## 2026-07-22 — Collection browse facets (Phase B)
+**Context:** Inventory needed catalog-like filters after sort (Phase A). Browse is oracle-grain; collection is printing + finish.
+**Decision:** Reuse browse URL keys (`q`, `color`, `type`, `cmc_min`/`cmc_max`, `rarity`, `format`) plus collection-native `finish` and `set`. Card facets resolve via `Card` → `oracleId in (…)`; **rarity** filters `printing.rarity` (not browse min-oracle rarity); **finish** filters `CollectionItem.finish`; **set** matches set code (insensitive) or set name contains. FTS `q` reuses card text search. Toolbar mirrors set-detail `BrowseFilterPanel` (debounced text fields). Defer role/theme/GC/reserved and pagination until collections grow.
+**Consequences:** Same filter chrome as `/cards` and `/sets/[code]`; no schema change.
+**Supersedes:** nothing (completes 2.1.7 on top of Phase A sort).
+
+## 2026-07-22 — Collection grid shows foil sheen (hover glare)
+**Context:** Detail hero already applies CSS foil/etched overlay; collection rows know `finish` but previews looked identical to nonfoil. Browse/search are oracle-level (no finish); add-collection picks finish after the grid — overlay there would mislead. Idle glare animation × many foil tiles is the expensive part.
+**Decision:** Pass `finish` through `CardFaceTile` → `CardMultifaceImage` on `/collection` only. Detail keeps **animated** glare; grid/collection use **wash always + glare on hover/tilt** (`card-finish-glare-hover`). No foil overlay on browse / catalog search / add-printing grids.
+**Consequences:** Foil vs nonfoil is visible in collection at a glance without N idle CSS animations. Text footer `· foil` remains for scan/a11y.
+**Supersedes:** nothing (extends 2026-07-21 foil sheen to collection).
+
+## 2026-07-22 — FTS strips apostrophes in search_tsv
+**Context:** Query sanitize removes apostrophes (`Y'shtola` → `Yshtola:*`) but Postgres FTS on raw `name` splits on `'` (`y` + `shtola`), so names like Y'shtola / O'Maul never matched. Slug already stripped apostrophes.
+**Decision:** Recreate generated `search_tsv` with `regexp_replace` stripping apostrophe-like characters before `to_tsvector` (name / type_line / search_document). Align `normalizeSearchName` + query sanitize to the same strip set.
+**Consequences:** `Y'shtola` and `Yshtola` both hit; no Scryfall re-sync required for FTS (generated column recomputes). `search_name` updates on next sync.
+**Supersedes:** nothing (extends 2026-07-21 card text search FTS).
+
+## 2026-07-22 — Sync Wave C (bulk upsert + friction SQL + pool)
+**Context:** Oracle/printings sync used per-row Prisma `upsert` (~200 round-trips per batch). Friction recompute looped `card.update`. Script Prisma clients used unbounded `pg` pools against Neon free tier. `card_oracle_taggings` had a redundant `oracle_id`-only index beside unique `(oracle_id, tag_id)`.
+**Decision:** Batch `INSERT … ON CONFLICT` via `$executeRaw` (cards: conflict `oracle_id`, never overwrite `id`; printings: conflict `id`). Friction: GC baseline `UPDATE` then one `UPDATE … EXISTS` over taggings/tags with `FRICTION_TAG_SLUGS` (still exclude `weak`). `createScriptPrismaClient` uses `pg.Pool({ max: 5 })` + `disposeExternalPool`. Drop `card_oracle_taggings_oracle_id_idx`.
+**Consequences:** Fewer DB round-trips on full Scryfall sync; safer Neon connection use in CLI. App `prisma` singleton unchanged.
+**Supersedes:** nothing (performance layer on existing sync jobs).
+
+## 2026-07-22 — Card detail collection CTAs + oracle inventory
+**Context:** Detail only had a one-click “Add to collection” (+1 owned). Users need wish parity with the collection add sheet and a way to see which printings of this card they already own/wish.
+**Decision:** Under Printing on `/cards/{slug}`: **Qty** + **Add owned** / **Add to wish** for the **active** printing+finish (finish from VersionPicker — no finish dropdown). SSR oracle inventory: rollup Owned/Wish totals + linked list of copies (`SET #cn · finish · Owned|Wish ×n`). Sign-in callback returns to the current card URL. Detail is add + inspect; qty edit / Get / Remove stay on `/collection`. No dual-flag — separate owned/wish rows.
+**Consequences:** Collection mutations also `revalidatePath("/cards", "layout")` so the SSR summary refreshes. VersionsBrowser tiles stay badge-free for now.
+**Supersedes:** nothing (extends Phase 2.1 collection onto the PDP).
+
+## 2026-07-22 — Neon cost hygiene (Waves A–C)
+**Context:** Neon free/compute-hour billing; storage ~236 MB is fine, but hot paths and sync write patterns burned compute (unbounded collection fetch, FTS id lists, rarity `GROUP BY` printings, commander detail O(roles) classification loops, row-by-row Scryfall upserts).
+**Decision:** (A) Paginate `/collection` (48 + load-more); scope collection facets to user oracles; cap browse FTS ids at 2000 ranked; collapse detail-pack to 1+1 queries; GIN on classification roles/themes; cache present facets. (B) Denorm `cards.list_price_eur` + `min_rarity`/`min_rarity_rank`; GIN `color_identity`; printings `(oracle_id, released_at)`; lighter card `generateMetadata`. (C) Bulk sync upserts + friction SQL + script pool max 5 + drop redundant tagging index — see prior Wave C entry. Browse/collection tiles keep `faces` for multiface flip (omit-faces select reverted).
+**Consequences:** Browse without `q` still counts full catalog; FTS cap only truncates very broad text matches. Sync must refresh min rarity after printings.
+**Supersedes:** “GIN on color_identity deferred” note in older architecture; in-memory price-sort 5k path; per-request rarity full printings aggregate.

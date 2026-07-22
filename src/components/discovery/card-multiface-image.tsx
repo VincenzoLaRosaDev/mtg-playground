@@ -2,12 +2,13 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import {
   CardFacePlaceholder,
   CardFinishOverlay,
   CardImage,
+  glareMotionForVariant,
 } from "@/components/discovery/card-image";
 import { CardTilt } from "@/components/discovery/card-tilt";
 import type { PrintingFinish } from "@/lib/scryfall/card-printing";
@@ -36,21 +37,40 @@ function StackFace({
   alt,
   sizes,
   finish,
+  glareMotion,
 }: {
   src: string;
   alt: string;
   sizes: string;
   finish?: PrintingFinish | null;
+  glareMotion: ReturnType<typeof glareMotionForVariant>;
 }) {
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    setLoaded(false);
+  }, [src]);
+
   return (
     <div
       className={cn(
-        "relative h-full w-full overflow-hidden shadow-md ring-1 ring-black/25",
+        "group/finish relative h-full w-full overflow-hidden shadow-md ring-1 ring-black/25",
         CARD_FACE_RADIUS_CLASS,
       )}
     >
-      <Image src={src} alt={alt} fill className="object-cover" sizes={sizes} unoptimized />
-      <CardFinishOverlay finish={finish} />
+      {!loaded ? (
+        <div className="absolute inset-0 animate-pulse bg-muted" aria-hidden />
+      ) : null}
+      <Image
+        src={src}
+        alt={alt}
+        fill
+        className={cn("object-cover transition-opacity", loaded ? "opacity-100" : "opacity-0")}
+        sizes={sizes}
+        unoptimized
+        onLoad={() => setLoaded(true)}
+      />
+      <CardFinishOverlay finish={finish} glareMotion={glareMotion} />
     </div>
   );
 }
@@ -101,6 +121,7 @@ export function CardMultifaceImage({
   const stacked = canFlipFaces(faces) && variant !== "thumbnail";
   const [backRaised, setBackRaised] = useState(false);
   const sizes = variant === "detail" ? "300px" : "300px";
+  const glareMotion = glareMotionForVariant(variant);
 
   if (uris.length === 0) {
     const placeholder = <CardFacePlaceholder variant={variant} label={name} />;
@@ -146,7 +167,13 @@ export function CardMultifaceImage({
             onMouseEnter={() => setBackRaised(true)}
             onMouseLeave={() => setBackRaised(false)}
           >
-            <StackFace src={backUri} alt={backName} sizes={sizes} finish={finish} />
+            <StackFace
+              src={backUri}
+              alt={backName}
+              sizes={sizes}
+              finish={finish}
+              glareMotion={glareMotion}
+            />
           </div>
 
           <div
@@ -155,7 +182,13 @@ export function CardMultifaceImage({
               backRaised ? "z-0" : "z-10",
             )}
           >
-            <StackFace src={frontUri} alt={frontName} sizes={sizes} finish={finish} />
+            <StackFace
+              src={frontUri}
+              alt={frontName}
+              sizes={sizes}
+              finish={finish}
+              glareMotion={glareMotion}
+            />
           </div>
         </div>
       </div>

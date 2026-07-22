@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { EmptyState } from "@/components/discovery/empty-state";
 import { LoadMoreButton } from "@/components/discovery/load-more-button";
+import { SetBrowseGridSkeleton } from "@/components/discovery/loading-skeletons";
 import {
   buildSetBrowseSearchParams,
   SetBrowseToolbar,
@@ -17,6 +18,7 @@ import type { SetsBrowseToolbarSnapshot } from "@/lib/browse/sets-defaults";
 import type { SetBrowseItem, SetTypeFilterOption } from "@/lib/browse/sets-shared";
 import { defaultSetBrowseOrder, getSetBrowseSortOptions } from "@/lib/browse/sets-shared";
 import { SET_BROWSE_GRID_CLASS } from "@/lib/ui/card-face";
+import { cn } from "@/lib/utils";
 
 type SetsBrowseClientProps = {
   initialData: BrowseListInitialData<SetBrowseItem>;
@@ -79,16 +81,22 @@ export function SetsBrowseClient({
         {total > 0 ? ` Showing ${items.length.toLocaleString()} of ${total.toLocaleString()}.` : ""}
       </PageListMeta>
 
-      {loading && items.length === 0 && (
-        <p className="mt-4 text-sm text-muted-foreground">Loading...</p>
-      )}
       {error && <p className="mt-4 text-sm text-destructive">{error}</p>}
 
-      <ul className={`mt-6 ${SET_BROWSE_GRID_CLASS}`}>
-        {items.map((set) => (
-          <SetBrowseRow key={set.code} set={set} />
-        ))}
-      </ul>
+      {loading && items.length === 0 ? (
+        <div className="mt-6">
+          <SetBrowseGridSkeleton />
+        </div>
+      ) : (
+        <ul
+          className={cn(`mt-6 ${SET_BROWSE_GRID_CLASS}`, loading && "opacity-60")}
+          aria-busy={loading || undefined}
+        >
+          {items.map((set) => (
+            <SetBrowseRow key={set.code} set={set} />
+          ))}
+        </ul>
+      )}
 
       {!loading && items.length === 0 && !error && (
         <EmptyState

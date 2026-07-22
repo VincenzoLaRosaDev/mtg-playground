@@ -37,5 +37,8 @@ export type GlobalSearchResponse = {
 };
 
 export const GLOBAL_SEARCH_MIN_QUERY_LENGTH = 2;
+/** Dropdown / typeahead default. */
 export const GLOBAL_SEARCH_DEFAULT_LIMIT = 8;
-export const GLOBAL_SEARCH_MAX_LIMIT = 20;
+/** `/search` “View all” page size (also API hard cap). */
+export const GLOBAL_SEARCH_PAGE_LIMIT = 50;
+export const GLOBAL_SEARCH_MAX_LIMIT = GLOBAL_SEARCH_PAGE_LIMIT;

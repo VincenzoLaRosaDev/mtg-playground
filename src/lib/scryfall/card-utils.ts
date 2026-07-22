@@ -1,10 +1,15 @@
 import type { ScryfallCard } from "@/lib/scryfall/types";
 
+/**
+ * Lowercase + NFKD accent strip for search_name / search_document.
+ * Apostrophes removed (same as slug + FTS query sanitize) so Y'shtola → yshtola.
+ */
 export function normalizeSearchName(name: string): string {
   return name
     .normalize("NFKD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
+    .replace(/[''`´’]/g, "")
     .trim();
 }
 

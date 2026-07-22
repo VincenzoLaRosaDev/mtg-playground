@@ -30,6 +30,14 @@ describe("normalizeSearchName", () => {
     expect(normalizeSearchName("Adéwalé")).toBe("adewale");
     expect(normalizeSearchName("  Sol Ring  ")).toBe("sol ring");
   });
+
+  it("strips apostrophes so FTS/slug/query agree", () => {
+    expect(normalizeSearchName("Y'shtola, Night's Blessed")).toBe(
+      "yshtola, nights blessed",
+    );
+    expect(normalizeSearchName("O'Maul")).toBe("omaul");
+    expect(normalizeSearchName("Gorion's Ward")).toBe("gorions ward");
+  });
 });
 
 describe("catalog layout filters", () => {

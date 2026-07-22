@@ -101,25 +101,80 @@ function mapPrinting(card: ScryfallCard): MappedPrinting | null {
   };
 }
 
+/** SQL NULL for missing JSON; otherwise parameterized jsonb. */
+function jsonbSql(
+  value: Prisma.InputJsonValue | typeof Prisma.JsonNull | undefined | null,
+): Prisma.Sql {
+  if (value === undefined || value === null || value === Prisma.JsonNull) {
+    return Prisma.sql`NULL`;
+  }
+  return Prisma.sql`${JSON.stringify(value)}::jsonb`;
+}
+
 async function upsertBatch(prisma: PrismaClient, rows: MappedPrinting[]) {
   // Dedupe by Scryfall id within the batch (last wins).
   const byId = new Map(rows.map((row) => [row.id, row]));
   const unique = [...byId.values()];
+  if (unique.length === 0) return;
 
-  await prisma.$transaction(
-    async (tx) => {
-      for (const row of unique) {
-        const { id, ...updateFields } = row;
-        await tx.printing.upsert({
-          where: { id },
-          create: row,
-          update: updateFields,
-          select: { id: true },
-        });
-      }
-    },
-    { timeout: 120_000 },
-  );
+  // Bulk INSERT … ON CONFLICT (id): update every column except the PK.
+  await prisma.$executeRaw`
+    INSERT INTO printings (
+      id,
+      oracle_id,
+      set_code,
+      collector_number,
+      name,
+      rarity,
+      layout,
+      lang,
+      digital,
+      finishes,
+      image_uri,
+      faces,
+      prices,
+      illustration_id,
+      released_at,
+      synced_at
+    ) VALUES ${Prisma.join(
+      unique.map(
+        (row) => Prisma.sql`(
+          ${row.id},
+          ${row.oracleId},
+          ${row.setCode},
+          ${row.collectorNumber},
+          ${row.name},
+          ${row.rarity},
+          ${row.layout},
+          ${row.lang},
+          ${row.digital},
+          ${row.finishes}::text[],
+          ${row.imageUri},
+          ${jsonbSql(row.faces)},
+          ${jsonbSql(row.prices)},
+          ${row.illustrationId},
+          ${row.releasedAt},
+          ${row.syncedAt}
+        )`,
+      ),
+    )}
+    ON CONFLICT (id) DO UPDATE SET
+      oracle_id = EXCLUDED.oracle_id,
+      set_code = EXCLUDED.set_code,
+      collector_number = EXCLUDED.collector_number,
+      name = EXCLUDED.name,
+      rarity = EXCLUDED.rarity,
+      layout = EXCLUDED.layout,
+      lang = EXCLUDED.lang,
+      digital = EXCLUDED.digital,
+      finishes = EXCLUDED.finishes,
+      image_uri = EXCLUDED.image_uri,
+      faces = EXCLUDED.faces,
+      prices = EXCLUDED.prices,
+      illustration_id = EXCLUDED.illustration_id,
+      released_at = EXCLUDED.released_at,
+      synced_at = EXCLUDED.synced_at
+  `;
 }
 
 async function processBulkStream(
@@ -246,6 +301,41 @@ async function main() {
       response.body,
       knownSetCodes,
     );
+
+    console.log("Refreshing cards.min_rarity from printings...");
+    await prisma.$executeRaw`
+      UPDATE cards c
+      SET
+        min_rarity_rank = sub.min_rank,
+        min_rarity = CASE sub.min_rank
+          WHEN 0 THEN 'common'
+          WHEN 1 THEN 'uncommon'
+          WHEN 2 THEN 'rare'
+          WHEN 3 THEN 'mythic'
+          WHEN 4 THEN 'special'
+          WHEN 5 THEN 'bonus'
+          ELSE NULL
+        END
+      FROM (
+        SELECT
+          oracle_id,
+          MIN(
+            CASE rarity
+              WHEN 'common' THEN 0
+              WHEN 'uncommon' THEN 1
+              WHEN 'rare' THEN 2
+              WHEN 'mythic' THEN 3
+              WHEN 'special' THEN 4
+              WHEN 'bonus' THEN 5
+              ELSE 99
+            END
+          ) AS min_rank
+        FROM printings
+        GROUP BY oracle_id
+      ) sub
+      WHERE c.oracle_id = sub.oracle_id
+        AND sub.min_rank < 99
+    `;
 
     console.log(
       `\nDone. ${processed} printings upserted, ${skipped} skipped, ${unknownSet} unknown set, ${excluded} art_series excluded.`,

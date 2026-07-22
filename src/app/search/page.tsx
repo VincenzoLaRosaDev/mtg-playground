@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 
+import {
+  CardGridSkeleton,
+  PageListMetaSkeleton,
+} from "@/components/discovery/loading-skeletons";
 import { PageShell } from "@/components/layout/page-shell";
 import { createPageMetadata } from "@/lib/seo/site";
 
@@ -19,7 +23,10 @@ function SearchPageFallback() {
       title="Search"
       description="Find cards, commanders, and sets across the MTGPlayground catalog."
     >
-      <p className="text-sm text-muted-foreground">Loading search...</p>
+      <PageListMetaSkeleton />
+      <div className="mt-6">
+        <CardGridSkeleton count={8} />
+      </div>
     </PageShell>
   );
 }

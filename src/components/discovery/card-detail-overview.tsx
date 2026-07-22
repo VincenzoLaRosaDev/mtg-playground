@@ -21,6 +21,8 @@ type CardDetailOverviewProps = {
   setCode: string | null;
   collectorNumber: string | null;
   versionPicker: ReactNode;
+  /** Optional collection CTA under printing controls. */
+  collectionAction?: ReactNode;
   previewFooter: ReactNode;
   popularityRank: number | null;
   frictionScore: number;
@@ -42,6 +44,7 @@ export function CardDetailOverview({
   setCode,
   collectorNumber,
   versionPicker,
+  collectionAction,
   previewFooter,
   popularityRank,
   frictionScore,
@@ -81,7 +84,10 @@ export function CardDetailOverview({
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
               Printing
             </p>
-            <div className="mt-2">{versionPicker}</div>
+            <div className="mt-2 space-y-3">
+              {versionPicker}
+              {collectionAction}
+            </div>
           </div>
 
           <div>

@@ -157,12 +157,28 @@
   html {
     @apply font-sans;
   }
+  /*
+    Native <button> / role=button default to the arrow cursor in browsers.
+    Shared Button/Toggle already set cursor-pointer; this covers raw buttons
+    (collection tiles, scope tabs, workspace search pick, etc.).
+  */
+  button:enabled,
+  [role="button"]:not([aria-disabled="true"]):not([data-disabled]) {
+    cursor: pointer;
+  }
+  button:disabled {
+    cursor: not-allowed;
+  }
 }
 
 /*
   Scryfall serves the same image for foil and nonfoil of a printing.
   Overlay mimics Archidekt-style prismatic color-dodge + glare.
-  When CardTilt is active, glare follows --pointer-x (0–1).
+
+  Two glare layers crossfade:
+  - idle: CSS sweep (detail)
+  - follow: pointer-driven via --pointer-x (tilt / hover)
+  Opacity transitions avoid hard cuts when tilt engages or ends.
 */
 @keyframes card-finish-glare-sweep {
   from {
@@ -188,22 +204,6 @@
   opacity: 0.72;
 }
 
-.card-finish-foil-glare {
-  left: -30%;
-  width: 55%;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    rgb(255 255 255 / 0.15) 35%,
-    rgb(255 255 255 / 0.65) 50%,
-    rgb(180 230 255 / 0.25) 65%,
-    transparent 100%
-  );
-  mix-blend-mode: soft-light;
-  transform: skewX(-18deg);
-  animation: card-finish-glare-sweep 3.8s ease-in-out infinite alternate;
-}
-
 .card-finish-etched-wash {
   background: linear-gradient(
     125deg,
@@ -216,9 +216,30 @@
   opacity: 0.85;
 }
 
+/* Shared glare strip geometry */
+.card-finish-foil-glare,
 .card-finish-etched-glare {
-  left: -30%;
+  position: absolute;
+  inset-block: 0;
   width: 55%;
+  transform: skewX(-18deg);
+  transition: opacity 450ms ease;
+  will-change: opacity;
+}
+
+.card-finish-foil-glare {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgb(255 255 255 / 0.15) 35%,
+    rgb(255 255 255 / 0.65) 50%,
+    rgb(180 230 255 / 0.25) 65%,
+    transparent 100%
+  );
+  mix-blend-mode: soft-light;
+}
+
+.card-finish-etched-glare {
   background: linear-gradient(
     90deg,
     transparent 0%,
@@ -226,8 +247,57 @@
     transparent 100%
   );
   mix-blend-mode: overlay;
-  transform: skewX(-18deg);
-  animation: card-finish-glare-sweep 5s ease-in-out infinite alternate;
+}
+
+/*
+  Detail idle sweep.
+  On hover: fade out only (keep animating while invisible — no mid-fade transform snap).
+  On leave: CardTilt toggles data-glare-restart so animation restarts from keyframe 0.
+*/
+.card-finish-glare-idle {
+  left: -30%;
+  opacity: 1;
+  animation: card-finish-glare-sweep 3.8s ease-in-out infinite alternate;
+}
+
+.card-finish-etched-glare.card-finish-glare-idle {
+  animation-duration: 5s;
+}
+
+.card-tilt-frame:hover .card-finish-glare-idle {
+  opacity: 0;
+}
+
+.card-tilt-frame[data-glare-restart] .card-finish-glare-idle {
+  opacity: 0;
+  animation: none;
+}
+
+/*
+  Pointer follow layer — opacity tied to :hover only (not data-tilt-active),
+  so leave starts the crossfade immediately while tilt settles.
+*/
+.card-finish-glare-follow {
+  left: calc(var(--pointer-x, 0.5) * 100% - 27.5%);
+  opacity: 0;
+}
+
+.card-tilt-frame:hover .card-finish-glare-follow,
+.group\/finish:hover .card-finish-glare-follow {
+  opacity: 1;
+}
+
+/*
+  Grid / collection: no idle sweep — follow layer only
+  (default parked at center-ish until tilt sets --pointer-x).
+*/
+.card-finish-glare-hover {
+  left: 22%;
+}
+
+.card-tilt-frame:hover .card-finish-glare-hover,
+.card-tilt-frame[data-tilt-active] .card-finish-glare-hover {
+  left: calc(var(--pointer-x, 0.5) * 100% - 27.5%);
 }
 
 /* CSS 3D card tilt (pointer-driven; no WebGL) */
@@ -260,19 +330,16 @@
   box-shadow: 0 14px 24px rgb(0 0 0 / 0.32);
 }
 
-.card-tilt-frame[data-tilt-active] .card-finish-foil-glare,
-.card-tilt-frame[data-tilt-active] .card-finish-etched-glare {
-  animation: none;
-  left: calc(var(--pointer-x) * 100% - 27.5%);
-  transform: skewX(-18deg);
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .card-finish-foil-glare,
-  .card-finish-etched-glare {
+  .card-finish-glare-idle {
     animation: none;
     left: 22%;
     transform: skewX(-18deg);
+    opacity: 0.55;
+  }
+
+  .card-finish-glare-follow {
+    opacity: 0;
   }
 
   .card-tilt-frame[data-tilt-active] .card-tilt-card {

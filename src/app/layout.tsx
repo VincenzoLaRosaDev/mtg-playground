@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 
+import { auth } from "@/auth";
 import { AppFooter } from "@/components/layout/app-footer";
 import { AppHeader } from "@/components/layout/app-header";
+import { SessionProvider } from "@/components/auth/session-provider";
 import { ThemeProvider } from "@/components/layout/theme-provider";
 import { CatalogDebugPanel } from "@/components/dev/catalog-debug-panel";
 import { rootMetadata } from "@/lib/seo/site";
@@ -21,11 +23,13 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = rootMetadata;
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const session = await auth();
+
   return (
     <html
       lang="en"
@@ -34,10 +38,12 @@ export default function RootLayout({
     >
       <body className="flex min-h-full flex-col font-sans">
         <ThemeProvider>
-          <AppHeader />
-          <main className="flex-1">{children}</main>
-          <AppFooter />
-          <CatalogDebugPanel />
+          <SessionProvider session={session}>
+            <AppHeader />
+            <main className="flex-1">{children}</main>
+            <AppFooter />
+            <CatalogDebugPanel />
+          </SessionProvider>
         </ThemeProvider>
       </body>
     </html>

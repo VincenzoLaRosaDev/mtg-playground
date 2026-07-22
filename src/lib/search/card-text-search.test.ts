@@ -66,6 +66,7 @@ describe("sanitizeCardTextSearchQuery", () => {
   it("strips punctuation but keeps words", () => {
     expect(sanitizeCardTextSearchQuery("  destroy!!! target  ")).toBe("destroy target");
     expect(sanitizeCardTextSearchQuery("o'maul")).toBe("omaul");
+    expect(sanitizeCardTextSearchQuery("Y'shtola")).toBe("Yshtola");
   });
 });
 

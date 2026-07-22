@@ -4,6 +4,16 @@ export const SITE_GUTTER_CLASS = "px-6";
 
 export const siteContainerClassName = `mx-auto w-full ${SITE_MAX_WIDTH_CLASS} ${SITE_GUTTER_CLASS}`;
 
+/**
+ * Cancel `SITE_GUTTER_CLASS` so a `border-b` / `border-t` matches the outer
+ * edges of a `siteContainerClassName` ancestor (same width as headers that put
+ * the border on the container itself).
+ */
+export const SITE_GUTTER_BLEED_X_CLASS = "-mx-6 px-6";
+
+/** Hairline under sheet chrome / above list bodies. */
+export const SHEET_LIST_RULE_CLASS = "border-b border-border";
+
 /** CSS custom property set by AppHeader via ResizeObserver (includes mobile stacked search). */
 export const SITE_HEADER_HEIGHT_VAR = "--site-header-height";
 

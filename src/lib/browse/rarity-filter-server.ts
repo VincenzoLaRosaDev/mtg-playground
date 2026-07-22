@@ -1,11 +1,11 @@
-import { Prisma, type PrismaClient } from "@/generated/prisma/client";
+import type { PrismaClient } from "@/generated/prisma/client";
 
 import { isSetRarity, RARITY_RANK } from "@/lib/mtg/rarity-rank";
 import type { SetRarity } from "@/lib/mtg/rarity-types";
 
 /**
  * Oracle IDs whose **lowest** printing rarity tier is one of the selected values.
- * Avoids treating e.g. Sol Ring as mythic because of a single mythic printing.
+ * Uses denormalized `cards.min_rarity_rank` (refreshed at printings sync).
  */
 export async function resolveOracleIdsForRarities(
   prisma: PrismaClient,
@@ -23,22 +23,10 @@ export async function resolveOracleIdsForRarities(
     return [];
   }
 
-  const rows = await prisma.$queryRaw<{ oracle_id: string }[]>`
-    SELECT oracle_id
-    FROM printings
-    GROUP BY oracle_id
-    HAVING MIN(
-      CASE rarity
-        WHEN 'common' THEN 0
-        WHEN 'uncommon' THEN 1
-        WHEN 'rare' THEN 2
-        WHEN 'mythic' THEN 3
-        WHEN 'special' THEN 4
-        WHEN 'bonus' THEN 5
-        ELSE 99
-      END
-    ) IN (${Prisma.join(ranks)})
-  `;
+  const rows = await prisma.card.findMany({
+    where: { minRarityRank: { in: ranks } },
+    select: { oracleId: true },
+  });
 
-  return rows.map((row) => row.oracle_id);
+  return rows.map((row) => row.oracleId);
 }

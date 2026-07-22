@@ -95,7 +95,7 @@ export function CatalogDebugPanel() {
                 setLoading(false);
               }}
               aria-label="Collapse catalog debug panel"
-              className="rounded-md border border-border px-2 py-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+              className="cursor-pointer rounded-md border border-border px-2 py-1 text-muted-foreground hover:bg-muted hover:text-foreground"
             >
               −
             </button>
@@ -124,7 +124,7 @@ export function CatalogDebugPanel() {
           onClick={() => setExpanded(true)}
           aria-label="Expand catalog debug panel"
           aria-expanded={false}
-          className="flex h-9 w-9 items-center justify-center rounded-lg border border-info/40 bg-card/95 text-sm font-semibold text-info-foreground shadow-lg backdrop-blur hover:bg-muted"
+          className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-info/40 bg-card/95 text-sm font-semibold text-info-foreground shadow-lg backdrop-blur hover:bg-muted"
         >
           ⛭
         </button>

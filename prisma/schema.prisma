@@ -59,9 +59,16 @@ model Card {
   isCommander     Boolean  @default(false) @map("is_commander")
   /** Arena/Scryfall color order key — see `computeColorSortKey`. */
   colorSort       Int      @default(0) @map("color_sort")
+  /** EUR-first catalog list price (USD fallback) — denormalized for SQL ORDER BY. */
+  listPriceEur    Float?   @map("list_price_eur")
+  /** Lowest printing rarity tier for this oracle (common…bonus). */
+  minRarity       String?  @map("min_rarity")
+  /** Numeric rank of minRarity — see RARITY_RANK. */
+  minRarityRank   Int?     @map("min_rarity_rank")
   /**
    * Oracle/face text corpus for FTS weight C.
    * `search_tsv` is a DB-generated column (not mapped) — see migration.
+   * Apostrophes are stripped in the generated expression so index matches query sanitize.
    */
   searchDocument  String   @default("") @map("search_document") @db.Text
   syncedAt        DateTime @default(now()) @map("synced_at")
@@ -77,6 +84,8 @@ model Card {
   @@index([isReserved])
   @@index([frictionScore])
   @@index([colorSort])
+  @@index([listPriceEur])
+  @@index([minRarityRank])
   @@map("cards")
 }
 
@@ -118,13 +127,101 @@ model Printing {
   releasedAt      DateTime? @map("released_at")
   syncedAt        DateTime  @default(now()) @map("synced_at")
 
-  set MtgSet @relation(fields: [setCode], references: [code], onDelete: Cascade)
+  set             MtgSet           @relation(fields: [setCode], references: [code], onDelete: Cascade)
+  collectionItems CollectionItem[]
 
   @@unique([setCode, collectorNumber])
   @@index([oracleId])
   @@index([setCode])
   @@index([rarity])
+  @@index([oracleId, releasedAt(sort: Desc)])
   @@map("printings")
+}
+
+// --- Auth.js (NextAuth v5) + collection ---
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime? @map("email_verified")
+  image         String?
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  accounts        Account[]
+  sessions        Session[]
+  collectionItems CollectionItem[]
+
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String  @map("user_id")
+  type              String
+  provider          String
+  providerAccountId String  @map("provider_account_id")
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique @map("session_token")
+  userId       String   @map("user_id")
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+/// Personal collection row — printing + finish grain (Phase 2.1).
+model CollectionItem {
+  id         String   @id @default(cuid())
+  userId     String   @map("user_id")
+  printingId String   @map("printing_id")
+  /** nonfoil | foil | etched — must be available on the printing. */
+  finish     String
+  /**
+   * Owned row (`wantlist=false`): copies in hand.
+   * Wish row (`wantlist=true`): copies desired.
+   * Always ≥ 1; qty 0 deletes the row. Owned and wish are separate rows.
+   */
+  quantity   Int      @default(1)
+  wantlist   Boolean  @default(false)
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at")
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  printing Printing @relation(fields: [printingId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, printingId, finish, wantlist])
+  @@index([userId])
+  @@index([printingId])
+  @@index([userId, wantlist])
+  @@map("collection_items")
 }
 
 model SyncLog {
@@ -165,7 +262,6 @@ model CardOracleTagging {
   tag ScryfallOracleTag @relation(fields: [tagId], references: [id], onDelete: Cascade)
 
   @@unique([oracleId, tagId])
-  @@index([oracleId])
   @@index([tagId])
   @@map("card_oracle_taggings")
 }

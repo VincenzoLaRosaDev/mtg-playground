@@ -39,7 +39,7 @@ function mapAllRow(
     frictionScore: row.frictionScore,
     isGameChanger: row.isGameChanger,
     isReserved: row.isReserved,
-    listPrice: parseCatalogListPrice(row.prices),
+    listPrice: row.listPriceEur ?? parseCatalogListPrice(row.prices),
     colorSort: row.colorSort,
   };
 }
@@ -53,8 +53,7 @@ function getAllOrderBy(sort: AllCardSort, order: BrowseOrder): Prisma.CardOrderB
     case "popularity":
       return [{ popularityRank: { sort: order, nulls: "last" } }, { name: "asc" }, { id: "asc" }];
     case "price":
-      // Price uses raw SQL path in queryAllCardsBrowse.
-      return [{ name: order }, { id: "asc" }];
+      return [{ listPriceEur: { sort: order, nulls: "last" } }, { name: "asc" }, { id: "asc" }];
     case "name":
     default:
       return [{ name: order }, { id: "asc" }];
@@ -143,61 +142,47 @@ function buildAllCursorWhere(cursor: CardBrowseCursor): Prisma.CardWhereInput {
     };
   }
 
+  if (cursor.sort === "price") {
+    const price = cursor.listPrice;
+    if (price == null) {
+      return {
+        AND: [
+          { listPriceEur: null },
+          {
+            OR: [
+              { name: { [forwardPrimary]: cursor.name } },
+              { AND: [{ name: cursor.name }, { id: { [forwardTie]: id } }] },
+            ],
+          },
+        ],
+      };
+    }
+
+    return {
+      OR: [
+        { listPriceEur: { [forwardPrimary]: price } },
+        {
+          AND: [
+            { listPriceEur: price },
+            {
+              OR: [
+                { name: { gt: cursor.name } },
+                { AND: [{ name: cursor.name }, { id: { [forwardTie]: id } }] },
+              ],
+            },
+          ],
+        },
+        { listPriceEur: null },
+      ],
+    };
+  }
+
   return {
     OR: [
       { name: { [forwardPrimary]: cursor.name } },
       { AND: [{ name: cursor.name }, { id: { [forwardTie]: id } }] },
     ],
   };
-}
-
-async function queryPriceSortedBrowse(
-  prisma: PrismaClient,
-  params: CardBrowseParams,
-  baseWhere: Prisma.CardWhereInput,
-  sort: AllCardSort,
-  order: BrowseOrder,
-  limit: number,
-): Promise<BrowseListResponse<CardBrowseItem>> {
-  const total = await prisma.card.count({ where: baseWhere });
-  const decoded = decodeBrowseCursor<CardBrowseCursor>(params.cursor);
-  if (decoded && (decoded.sort !== sort || decoded.order !== order)) {
-    throw new Error("Cursor does not match sort/order parameters");
-  }
-
-  // Fetch a wider window and sort by parsed EUR list price in memory — acceptable for
-  // catalog browse pages until list_price is denormalized. Cursor resumes after the last
-  // seen id among the sorted stream.
-  const candidates = await prisma.card.findMany({
-    where: baseWhere,
-    select: cardBrowseSelect,
-    take: 5000,
-  });
-
-  const mapped = candidates.map(mapAllRow);
-  mapped.sort((a, b) => {
-    const aNull = a.listPrice == null;
-    const bNull = b.listPrice == null;
-    if (aNull && bNull) {
-      return a.name.localeCompare(b.name) || a.id.localeCompare(b.id);
-    }
-    if (aNull) return 1;
-    if (bNull) return -1;
-    const primary = order === "asc" ? a.listPrice! - b.listPrice! : b.listPrice! - a.listPrice!;
-    if (primary !== 0) return primary;
-    return a.name.localeCompare(b.name) || a.id.localeCompare(b.id);
-  });
-
-  let start = 0;
-  if (decoded?.id) {
-    const idx = mapped.findIndex((item) => item.id === decoded.id);
-    start = idx >= 0 ? idx + 1 : 0;
-  }
-
-  const page = mapped.slice(start, start + limit + 1);
-  return buildBrowseListResponse(page, limit, total, (item) =>
-    allCursorPayload(item, sort, order),
-  );
 }
 
 export async function queryAllCardsBrowse(
@@ -214,10 +199,6 @@ export async function queryAllCardsBrowse(
     filters,
   );
 
-  if (sort === "price") {
-    return queryPriceSortedBrowse(prisma, params, baseWhere, sort, order, limit);
-  }
-
   const decoded = decodeBrowseCursor<CardBrowseCursor>(params.cursor);
   if (decoded && (decoded.sort !== sort || decoded.order !== order)) {
     throw new Error("Cursor does not match sort/order parameters");
@@ -225,7 +206,9 @@ export async function queryAllCardsBrowse(
 
   const total = await prisma.card.count({ where: baseWhere });
   const cursorWhere = decoded ? buildAllCursorWhere(decoded) : undefined;
-  const where: Prisma.CardWhereInput = cursorWhere ? { AND: [baseWhere, cursorWhere] } : baseWhere;
+  const where: Prisma.CardWhereInput = cursorWhere
+    ? { AND: [baseWhere, cursorWhere] }
+    : baseWhere;
 
   const rows = await prisma.card.findMany({
     where,

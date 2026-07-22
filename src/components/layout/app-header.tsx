@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Suspense, useEffect, useRef } from "react";
 
 import { GlobalSearch } from "@/components/discovery/global-search";
+import { UserMenu } from "@/components/auth/user-menu";
 import { MobileNavSheet } from "@/components/layout/mobile-nav-sheet";
 import { NavLinks } from "@/components/layout/nav-links";
 import { Input } from "@/components/ui/input";
@@ -68,7 +69,10 @@ export function AppHeader() {
             </Suspense>
           </div>
 
-          <NavLinks className="hidden flex-wrap items-center gap-1 lg:flex" />
+          <div className="hidden items-center gap-3 lg:flex">
+            <NavLinks className="flex flex-wrap items-center gap-1" />
+            <UserMenu />
+          </div>
         </div>
       </div>
     </header>

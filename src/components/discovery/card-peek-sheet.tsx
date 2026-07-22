@@ -24,6 +24,7 @@ import {
   type OraclePrintingOption,
   type PrintingFinish,
 } from "@/lib/scryfall/card-printing";
+import { SHEET_LIST_RULE_CLASS } from "@/lib/ui/layout";
 import { cn } from "@/lib/utils";
 
 export type CardPeekData = {
@@ -92,11 +93,16 @@ export function CardPeekSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
-        className={cn("max-h-[90dvh] gap-0 overflow-hidden p-0", className)}
+        className={cn("max-h-[85dvh] gap-0 overflow-hidden p-0", className)}
       >
         {card ? (
           <>
-            <SheetHeader className="shrink-0 border-b border-border px-4 py-4 sm:px-6">
+            <SheetHeader
+              className={cn(
+                "shrink-0 px-4 py-4 sm:px-6",
+                SHEET_LIST_RULE_CLASS,
+              )}
+            >
               <SheetTitle>{card.name}</SheetTitle>
               <SheetDescription>{card.typeLine}</SheetDescription>
             </SheetHeader>

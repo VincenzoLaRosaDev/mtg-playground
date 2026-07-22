@@ -5,7 +5,13 @@ import { CardDetailLists } from "@/components/discovery/card-detail-lists";
 import { CardDetailOverview } from "@/components/discovery/card-detail-overview";
 import { CardDetailPrintingControls } from "@/components/discovery/card-detail-printing-controls";
 import { EntityPreviewFooter } from "@/components/discovery/entity-preview-footer";
+import { CardCollectionPanel } from "@/components/collection/card-collection-panel";
 import { PageShell } from "@/components/layout/page-shell";
+import { auth } from "@/auth";
+import {
+  listOracleCollectionSummary,
+  toOracleCollectionSnapshot,
+} from "@/lib/collection/oracle-collection";
 import { prisma } from "@/lib/db";
 import {
   getBuildSkeleton,
@@ -72,8 +78,6 @@ export async function generateMetadata({
     name: true,
     typeLine: true,
     imageUri: true,
-    faces: true,
-    prices: true,
   });
 
   if (!card) {
@@ -85,31 +89,34 @@ export async function generateMetadata({
     });
   }
 
-  const printing = await resolveCardPrinting(
-    prisma,
-    card.oracleId,
-    {
-      catalogPrintingId: card.id,
-      imageUri: card.imageUri,
-      faces: card.faces,
-      prices: card.prices,
-    },
-    { set: setCode, cn },
-  );
-  // Keep bare `/cards/{slug}` canonical when no version was requested.
-  const path = setCode
-    ? buildCardVersionHref(slug, {
-        set: printing.setCode,
-        cn: printing.collectorNumber,
-        finish,
-      })
-    : `/cards/${slug}`;
+  // Avoid full resolveCardPrinting when no version requested — catalog imageUri is enough for OG.
+  let image = card.imageUri;
+  let path = `/cards/${slug}`;
+  if (setCode) {
+    const printing = await resolveCardPrinting(
+      prisma,
+      card.oracleId,
+      {
+        catalogPrintingId: card.id,
+        imageUri: card.imageUri,
+        faces: null,
+        prices: null,
+      },
+      { set: setCode, cn },
+    );
+    image = printing.imageUri;
+    path = buildCardVersionHref(slug, {
+      set: printing.setCode,
+      cn: printing.collectorNumber,
+      finish,
+    });
+  }
 
   return createPageMetadata({
     title: card.name,
     description: `${card.name} — ${card.typeLine}. Inclusion rank, roles, and related cards from Scryfall.`,
     path,
-    image: printing.imageUri,
+    image,
   });
 }
 
@@ -131,22 +138,24 @@ export default async function CardDetailPage({ params, searchParams }: CardDetai
 
   const activeView = resolveCardDetailView(card.isCommander, viewParam);
 
-  const [printing, printings, classification, relativesResult] = await Promise.all([
-    resolveCardPrinting(
-      prisma,
-      card.oracleId,
-      {
-        catalogPrintingId: card.id,
-        imageUri: card.imageUri,
-        faces: card.faces,
-        prices: card.prices,
-      },
-      { set: setCodeParam, cn: cnParam },
-    ),
-    listOraclePrintings(prisma, card.oracleId),
-    getCardClassification(prisma, card.oracleId),
-    getCardRelativesBySubtype(card),
-  ]);
+  const [printing, printings, classification, relativesResult, session] =
+    await Promise.all([
+      resolveCardPrinting(
+        prisma,
+        card.oracleId,
+        {
+          catalogPrintingId: card.id,
+          imageUri: card.imageUri,
+          faces: card.faces,
+          prices: card.prices,
+        },
+        { set: setCodeParam, cn: cnParam },
+      ),
+      listOraclePrintings(prisma, card.oracleId),
+      getCardClassification(prisma, card.oracleId),
+      getCardRelativesBySubtype(card),
+      auth(),
+    ]);
 
   const { subtypes, relatives } = relativesResult;
 
@@ -184,6 +193,19 @@ export default async function CardDetailPage({ params, searchParams }: CardDetai
   const footerPrices = printing.prices ?? card.prices;
   const activeFinish = resolveActiveFinish(printing.finishes, selectedFinish);
 
+  const collectionSnapshot =
+    session?.user?.id != null
+      ? toOracleCollectionSnapshot(
+          await listOracleCollectionSummary(
+            prisma,
+            session.user.id,
+            card.oracleId,
+          ),
+          printing.printingId,
+          activeFinish,
+        )
+      : null;
+
   return (
     <PageShell
       title={card.name}
@@ -209,6 +231,14 @@ export default async function CardDetailPage({ params, searchParams }: CardDetai
             selectedCn={printing.collectorNumber}
             selectedFinish={selectedFinish}
             view={activeView}
+          />
+        }
+        collectionAction={
+          <CardCollectionPanel
+            slug={slug}
+            printingId={printing.printingId}
+            finish={activeFinish}
+            snapshot={collectionSnapshot}
           />
         }
         previewFooter={

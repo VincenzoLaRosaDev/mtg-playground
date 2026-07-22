@@ -38,7 +38,7 @@
 
 - **OracleCard** — identity: name, oracle text, color identity, legalities, keywords, classifications (roles/themes), friction/GC flags, popularity *inclusion* rank
 - **Printing** — concrete version: set, collector number, rarity, images (incl. faces), finishes available, prices; Scryfall printing id
-- **CollectionItem** — user + printing + finish + quantity (+ optional wantlist flag)
+- **CollectionItem** — user + printing + finish + quantity; **owned** and **wish** are separate rows (`wantlist` in the unique key)
 - **Deck / DeckCard** — format + list by **oracle** (legality); optional preferred printing for display; owned qty = sum of collection printings for that oracle
 
 ### Deck (private workspace)

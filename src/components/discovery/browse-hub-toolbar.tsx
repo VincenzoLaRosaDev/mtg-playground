@@ -13,7 +13,6 @@ import {
 } from "@/components/discovery/browse-filter-controls";
 import { BrowseFilterPanel, BrowseFilterPanelRow } from "@/components/discovery/browse-filter-panel";
 import {
-  browseToolbarHubPillGroupsClassName,
   browseToolbarHubPrimaryGridClassName,
   browseToolbarHubSecondaryGridClassName,
 } from "@/components/discovery/browse-toolbar-shared";
@@ -54,6 +53,20 @@ export function BrowseHubToolbar({
   const roleOptions = buildRoleFilterOptions(presentRoles, state.role);
   const themeOptions = buildThemeFilterOptions(presentThemes, state.theme);
   const formatOptions = getBrowseFormatFilterOptions();
+  const hasActiveFilters = Boolean(
+    state.query.trim() ||
+      state.colors.length ||
+      state.rarities.length ||
+      state.typeContains.trim() ||
+      state.cmcMin ||
+      state.cmcMax ||
+      state.format ||
+      state.commandersOnly ||
+      state.role ||
+      state.theme ||
+      state.gameChanger ||
+      state.reserved,
+  );
 
   return (
     <BrowseFilterPanel>
@@ -106,8 +119,26 @@ export function BrowseHubToolbar({
 
       <BrowseFilterPanelRow
         sortOrder={{ order: state.order, onChange: (order) => onChange({ order }) }}
+        clearFilters={{
+          visible: hasActiveFilters,
+          onClear: () =>
+            onChange({
+              query: "",
+              colors: [],
+              rarities: [],
+              cmcMin: "",
+              cmcMax: "",
+              typeContains: "",
+              format: "",
+              commandersOnly: false,
+              role: "",
+              theme: "",
+              gameChanger: false,
+              reserved: false,
+            }),
+        }}
       >
-        <BrowseToolbarPillGroups className={browseToolbarHubPillGroupsClassName}>
+        <BrowseToolbarPillGroups>
           <BrowseColorPillGroup colors={state.colors} onChange={(colors) => onChange({ colors })} />
           <BrowseRarityPillGroup
             rarities={state.rarities}

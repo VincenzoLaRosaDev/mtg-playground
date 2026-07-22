@@ -1,4 +1,12 @@
+import { Suspense } from "react";
+
 import { SetsBrowseClient } from "@/app/sets/sets-browse-client";
+import {
+  BrowseToolbarSkeleton,
+  PageListMetaSkeleton,
+  SetBrowseGridSkeleton,
+} from "@/components/discovery/loading-skeletons";
+import { PageShell } from "@/components/layout/page-shell";
 import { listDistinctSetTypes, querySetsBrowse } from "@/lib/browse/sets";
 import { getSetsBrowseDefaults } from "@/lib/browse/sets-defaults";
 import {
@@ -9,7 +17,7 @@ import { prisma } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
-export default async function SetsPage() {
+async function SetsPageContent() {
   const { toolbar, requestKey, queryParams } = getSetsBrowseDefaults();
   const [result, setTypes] = await Promise.all([
     querySetsBrowse(prisma, queryParams),
@@ -34,5 +42,28 @@ export default async function SetsPage() {
       initialRequestKey={requestKey}
       typeOptions={buildSetTypeFilterOptions(setTypes)}
     />
+  );
+}
+
+function SetsPageFallback() {
+  return (
+    <PageShell
+      title="Sets"
+      description="Browse Magic sets by release date, type, and indexed card coverage."
+      toolbar={<BrowseToolbarSkeleton variant="setDetail" />}
+    >
+      <PageListMetaSkeleton />
+      <div className="mt-6">
+        <SetBrowseGridSkeleton />
+      </div>
+    </PageShell>
+  );
+}
+
+export default function SetsPage() {
+  return (
+    <Suspense fallback={<SetsPageFallback />}>
+      <SetsPageContent />
+    </Suspense>
   );
 }

@@ -1,4 +1,5 @@
 import { PrismaPg } from "@prisma/adapter-pg";
+import { Pool } from "pg";
 import { PrismaClient } from "@/generated/prisma/client";
 
 import { normalizePgConnectionString } from "@/lib/db/connection-string";
@@ -27,6 +28,7 @@ if (process.env.NODE_ENV !== "production") {
   globalForPrisma.prisma = prisma;
 }
 
+/** Sync/CLI scripts: capped pool so Neon free-tier isn't exhausted by parallel upserts. */
 export function createScriptPrismaClient() {
   const connectionString = process.env.DATABASE_URL;
 
@@ -34,8 +36,11 @@ export function createScriptPrismaClient() {
     throw new Error("DATABASE_URL is not set");
   }
 
-  const adapter = new PrismaPg({
+  const pool = new Pool({
     connectionString: normalizePgConnectionString(connectionString),
+    max: 5,
   });
+  // PrismaPg accepts pg.Pool | PoolConfig | string; dispose pool on $disconnect.
+  const adapter = new PrismaPg(pool, { disposeExternalPool: true });
   return new PrismaClient({ adapter });
 }

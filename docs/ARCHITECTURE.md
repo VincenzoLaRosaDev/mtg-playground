@@ -1,6 +1,6 @@
 # MTGPlayground — Architecture
 
-> Last updated: 2026-07-20 · Product pivot from EDHForge; package/UI = MTGPlayground; `printings` via default_cards
+> Last updated: 2026-07-22 · Product pivot from EDHForge; package/UI = MTGPlayground; `printings` via default_cards
 
 ## Stack
 
@@ -9,7 +9,7 @@
 | Framework | Next.js 16 (App Router) + TypeScript |
 | Database | PostgreSQL on Neon (free tier, Europe Central) |
 | ORM | Prisma 7 with `@prisma/adapter-pg` |
-| Auth | Auth.js v5 — email + Google + Discord (Phase 2) |
+| Auth | Auth.js v5 — Google + Discord + Resend magic link; Prisma Adapter; JWT sessions |
 | Styling | Tailwind CSS 4 |
 | Charts | Recharts (Phase 3) |
 | Jobs | Node scripts + GitHub Actions cron |
@@ -20,6 +20,7 @@
 - Client generated to `src/generated/prisma/` (gitignored; `postinstall` runs `prisma generate`)
 - Import: `import { PrismaClient } from "@/generated/prisma/client"`
 - Runtime: must pass `{ adapter: new PrismaPg({ connectionString }) }` — empty constructor throws
+- Sync/CLI: `createScriptPrismaClient()` uses `pg.Pool({ max: 5 })` + `disposeExternalPool: true` (app runtime keeps default adapter config)
 - CLI/migrations: `prisma.config.ts` uses `DIRECT_URL` for `datasource.url`
 - App runtime: `DATABASE_URL` (pooled Neon connection)
 - Use `sslmode=verify-full` in connection URLs (app normalizes legacy `sslmode=require` at runtime to silence pg v8 warnings)
@@ -87,6 +88,8 @@ GitHub Actions (`.github/workflows/sync-*.yml`): **temporarily disabled** (`SYNC
 
 Daily Scryfall runs fetch bulk metadata only when `updated_at` matches the last successful sync (`sync_logs.errors.bulkUpdatedAt`); full download runs when Scryfall publishes a new bulk file.
 
+**Sync write path (Wave C):** oracle cards and printings upsert in batches of ~200 via parameterized `INSERT … ON CONFLICT` (`$executeRaw`) — cards conflict on `oracle_id` (keep existing `id`); printings conflict on `id`. Friction recompute after classifications is one SQL `UPDATE` joining taggings/tags (`FRICTION_TAG_SLUGS`), not per-row Prisma updates.
+
 ## SEO
 
 - `NEXT_PUBLIC_SITE_URL` — canonical base for metadata, `/sitemap.xml`, `/robots.txt`
@@ -136,7 +139,7 @@ Response: { items: T[], total: number, nextCursor: string | null }
 
 **Card enrichment columns:** `popularity_rank` (Scryfall `edhrec_rank`), `color_sort` (Arena/Scryfall color order key from `colors[]`; set at sync + migration backfill), `search_document` (oracle + face text corpus), `search_tsv` (DB-generated weighted tsvector), `is_game_changer`, `is_reserved`, `friction_score`, `mana_cost`, `power`/`toughness`/`loyalty`.
 
-**Card text search:** browse `q` and `GET /api/search` share FTS on `search_tsv` via `to_tsquery`. **Hybrid:** tokens joined with `<->` (phrase adjacency); **last token always gets `:*` prefix** so partial typing works (`destroy all creatu`, `day of judgmen`). Single-token queries are `token:*`. Not fuzzy for typos in the middle of a word. Type contains remains a separate AND filter.
+**Card text search:** browse `q` and `GET /api/search` share FTS on `search_tsv` via `to_tsquery`. **Hybrid:** tokens joined with `<->` (phrase adjacency); **last token always gets `:*` prefix** so partial typing works (`destroy all creatu`, `day of judgmen`). Single-token queries are `token:*`. Not fuzzy for typos in the middle of a word. Type contains remains a separate AND filter. Apostrophes are stripped on both query sanitize and the generated `search_tsv` (so `Y'shtola` / `Yshtola` match).
 
 **Friction:** denormalized on `cards.friction_score` — +2 if Game Changer, +1 if friction-family oracle tag; capped at 3; recomputed in `sync:compute-classifications`.
 
@@ -195,13 +198,18 @@ Tests: `npm test` (Vitest). No DB required for current unit suite.
 
 ### Implemented (Phase 0 + 1.7 + 1.8 + 2.0.5)
 
-- `cards` — Scryfall oracle card data; `slug` (`toCardSlug`) for routes; enrichment: `popularity_rank`, `is_game_changer`, `is_reserved`, `friction_score`, `mana_cost`, `power`/`toughness`/`loyalty`, **`faces` Json** (multiface)
+- `cards` — Scryfall oracle card data; `slug` (`toCardSlug`) for routes; enrichment: `popularity_rank`, `is_game_changer`, `is_reserved`, `friction_score`, `mana_cost`, `power`/`toughness`/`loyalty`, **`faces` Json** (multiface); denorm **`list_price_eur`** (browse price sort) + **`min_rarity` / `min_rarity_rank`** (oracle lowest printing tier, refreshed at printings sync)
 - `scryfall_oracle_tags` — Tagger tag metadata (slug, label)
-- `card_oracle_taggings` — raw `(oracle_id, tag_id, weight)` for catalog cards
-- `card_classifications` — derived `roles[]` + `themes[]` per oracle (override or oracle tag); also drives Friction tag +1
+- `card_oracle_taggings` — raw `(oracle_id, tag_id, weight)` for catalog cards; unique `(oracle_id, tag_id)` covers oracle lookups (no separate `oracle_id`-only index)
+- `card_classifications` — derived `roles[]` + `themes[]` per oracle (override or oracle tag); also drives Friction tag +1; GIN on `roles` / `themes`
 - `mtg_sets` — set metadata (code, name, release, type)
-- `printings` — one Scryfall printing per row (set + collector #; finishes, faces, prices); soft-join via `oracle_id`
+- `printings` — one Scryfall printing per row (set + collector #; finishes, faces, prices); soft-join via `oracle_id`; index `(oracle_id, released_at DESC)`
 - `sync_logs` — job audit trail (indexes on `(source, job_type, started_at)` and `(source, job_type, status, completed_at)`)
+
+**Auth + collection (Phase 2.1):**
+- `users`, `accounts`, `sessions`, `verification_tokens` — Auth.js (NextAuth v5) + Prisma Adapter; app sessions are **JWT** (edge-safe middleware) while users/accounts persist in Postgres
+- `collection_items` — `(user_id, printing_id, finish, wantlist)` unique; owned and wish are separate rows; `quantity` ≥ 1 per row; FK to `users` + `printings`
+- `/collection` query: paginated (`cursor` / page size 48); scope `filter` (`all` / owned / wish), sort `sort`/`order`, facets scoped to the user’s inventory oracles (not full-catalog scans)
 
 **Removed (Phase 1.7):** `edhrec_commander_profiles`, `edhrec_card_data`, `edhrec_top_entries`, `edhrec_page_variants`; column rename `edhrec_slug` → `slug`.
 
@@ -209,12 +217,15 @@ Tests: `npm test` (Vitest). No DB required for current unit suite.
 
 **Removed (2026-07-20):** `card_relations` + `CardRelationComponent` (Scryfall `all_parts` / Related parts on PDP — low value).
 
-**Hot indexes (2026-07-16 + 1.8):** `cards.cmc`, `cards.layout`, `cards.popularity_rank`, `cards.is_game_changer`, `cards.is_reserved`, `cards.friction_score`, `cards.color_sort`. **FTS:** `cards.search_tsv` GIN (generated from name A + type_line B + `search_document` C). GIN on `color_identity` / trigram deferred until measured.
+**Hot indexes:** `cards.cmc`, `cards.layout`, `cards.popularity_rank`, `cards.is_game_changer`, `cards.is_reserved`, `cards.friction_score`, `cards.color_sort`, `cards.list_price_eur`, `cards.min_rarity_rank`. **FTS:** `cards.search_tsv` GIN. **GIN arrays:** `cards.color_identity`, `card_classifications.roles` / `themes`.
 
-### Planned (Phase 2.1+)
+### Neon cost hygiene (2026-07-22)
 
-- `collection_items` — user + printing + finish + qty
-- `users`, `decks`, `deck_cards` (multi-format)
+Compute hours dominate over storage (~236 MB catalog). Mitigations: bounded FTS id lists for browse `q`; denorm price/rarity; collapsed commander detail-pack queries; collection pagination + user-scoped facets; sync bulk `INSERT … ON CONFLICT` (oracle + printings); friction via one SQL `UPDATE`; script Prisma pool `max: 5`.
+
+### Planned (Phase 2.2+)
+
+- `decks`, `deck_cards` (multi-format)
 - `deck_publications`, `publication_ratings`, ranking snapshots (Phase 4)
 
 See `docs/PROJECT.md` for entity semantics.

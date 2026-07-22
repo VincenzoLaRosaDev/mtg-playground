@@ -34,6 +34,9 @@ type SetBrowseToolbarProps = {
 
 export function SetBrowseToolbar({ state, onChange, typeOptions }: SetBrowseToolbarProps) {
   const sortOptions = getSetBrowseSortOptions();
+  const hasActiveFilters = Boolean(
+    state.query.trim() || state.setType || state.digital || state.indexedOnly,
+  );
 
   return (
     <BrowseFilterPanel>
@@ -75,6 +78,16 @@ export function SetBrowseToolbar({ state, onChange, typeOptions }: SetBrowseTool
 
       <BrowseFilterPanelRow
         sortOrder={{ order: state.order, onChange: (order) => onChange({ order }) }}
+        clearFilters={{
+          visible: hasActiveFilters,
+          onClear: () =>
+            onChange({
+              query: "",
+              setType: "",
+              digital: "",
+              indexedOnly: false,
+            }),
+        }}
       >
         <BrowseFilterSection title="Options">
           <BrowseFilterPillRow>

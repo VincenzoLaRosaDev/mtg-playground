@@ -26,6 +26,15 @@ const ROLE_STAPLE_LIMIT = 12;
 const GC_IN_CI_LIMIT = 24;
 const SIMILAR_LIMIT = 12;
 
+const DEFAULT_STAPLE_ROLES: FunctionalRole[] = [
+  "ramp",
+  "draw",
+  "removal_hard",
+  "removal_soft",
+  "counter",
+  "discard",
+];
+
 export type DetailCardLite = CardBrowseItem;
 
 export type CardClassificationSummary = {
@@ -65,7 +74,7 @@ function mapBrowseRow(
     frictionScore: row.frictionScore,
     isGameChanger: row.isGameChanger,
     isReserved: row.isReserved,
-    listPrice: parseCatalogListPrice(row.prices),
+    listPrice: row.listPriceEur ?? parseCatalogListPrice(row.prices),
     colorSort: row.colorSort,
   };
 }
@@ -100,50 +109,50 @@ export async function getCardClassification(
   };
 }
 
+/**
+ * Role staples in CI — one classification query + one card query (not O(roles)).
+ */
 export async function getRoleStaplesInCi(
   prisma: PrismaClient,
   commanderCI: string[],
-  roles: FunctionalRole[] = [
-    "ramp",
-    "draw",
-    "removal_hard",
-    "removal_soft",
-    "counter",
-    "discard",
-  ],
+  roles: FunctionalRole[] = DEFAULT_STAPLE_ROLES,
 ): Promise<RoleStapleGroup[]> {
-  const groups: RoleStapleGroup[] = [];
+  const classified = await prisma.cardClassification.findMany({
+    where: { roles: { hasSome: roles } },
+    select: { oracleId: true, roles: true },
+  });
 
-  for (const role of roles) {
-    const classified = await prisma.cardClassification.findMany({
-      where: { roles: { has: role } },
-      select: { oracleId: true },
-    });
-    if (classified.length === 0) {
-      groups.push({ role, label: role.replaceAll("_", " "), cards: [] });
-      continue;
-    }
-
-    const rows = await prisma.card.findMany({
-      where: {
-        ...playableCatalogCardWhere,
-        oracleId: { in: classified.map((row) => row.oracleId) },
-        ...colorIdentitySubsetWhere(commanderCI),
-        slug: { not: null },
-      },
-      orderBy: [{ popularityRank: { sort: "asc", nulls: "last" } }, { name: "asc" }],
-      take: ROLE_STAPLE_LIMIT,
-      select: cardBrowseSelect,
-    });
-
-    groups.push({
+  if (classified.length === 0) {
+    return roles.map((role) => ({
       role,
       label: role.replaceAll("_", " "),
-      cards: rows.map(mapBrowseRow),
-    });
+      cards: [],
+    }));
   }
 
-  return groups;
+  const rolesByOracle = new Map(
+    classified.map((row) => [row.oracleId, new Set(row.roles)]),
+  );
+
+  const rows = await prisma.card.findMany({
+    where: {
+      ...playableCatalogCardWhere,
+      oracleId: { in: [...rolesByOracle.keys()] },
+      ...colorIdentitySubsetWhere(commanderCI),
+      slug: { not: null },
+    },
+    orderBy: [{ popularityRank: { sort: "asc", nulls: "last" } }, { name: "asc" }],
+    select: cardBrowseSelect,
+  });
+
+  return roles.map((role) => ({
+    role,
+    label: role.replaceAll("_", " "),
+    cards: rows
+      .filter((row) => rolesByOracle.get(row.oracleId)?.has(role))
+      .slice(0, ROLE_STAPLE_LIMIT)
+      .map(mapBrowseRow),
+  }));
 }
 
 export async function getGameChangersInCi(
@@ -192,8 +201,9 @@ export async function getSimilarCards(
   const scored = classified
     .map((row) => ({
       oracleId: row.oracleId,
-      overlap: row.themes.filter((theme) => input.themes.includes(theme as SynergyTheme))
-        .length,
+      overlap: row.themes.filter((theme) =>
+        input.themes.includes(theme as SynergyTheme),
+      ).length,
     }))
     .sort((a, b) => b.overlap - a.overlap);
 
@@ -213,38 +223,58 @@ export async function getSimilarCards(
   return rows.map(mapBrowseRow);
 }
 
+/**
+ * Build skeleton counts — one classification query + one card query with CI filter.
+ */
 export async function getBuildSkeleton(
   prisma: PrismaClient,
   commanderCI: string[],
 ): Promise<BuildSkeletonRow[]> {
-  const rows: BuildSkeletonRow[] = [];
+  const allRoles = [
+    ...new Set(BUILD_SKELETON_TARGETS.flatMap((target) => [...target.roles])),
+  ];
 
-  for (const target of BUILD_SKELETON_TARGETS) {
-    const classified = await prisma.cardClassification.findMany({
-      where: {
-        OR: target.roles.map((role) => ({ roles: { has: role } })),
-      },
-      select: { oracleId: true },
-    });
+  const classified = await prisma.cardClassification.findMany({
+    where: { roles: { hasSome: allRoles } },
+    select: { oracleId: true, roles: true },
+  });
 
-    const availableInCi =
-      classified.length === 0
-        ? 0
-        : await prisma.card.count({
-            where: {
-              ...playableCatalogCardWhere,
-              oracleId: { in: classified.map((row) => row.oracleId) },
-              ...colorIdentitySubsetWhere(commanderCI),
-            },
-          });
+  if (classified.length === 0) {
+    return BUILD_SKELETON_TARGETS.map((target) => ({
+      key: target.key,
+      label: target.label,
+      target: target.target,
+      availableInCi: 0,
+    }));
+  }
 
-    rows.push({
+  const rolesByOracle = new Map(
+    classified.map((row) => [row.oracleId, new Set(row.roles)]),
+  );
+
+  const cardsInCi = await prisma.card.findMany({
+    where: {
+      ...playableCatalogCardWhere,
+      oracleId: { in: [...rolesByOracle.keys()] },
+      ...colorIdentitySubsetWhere(commanderCI),
+    },
+    select: { oracleId: true },
+  });
+  const inCi = new Set(cardsInCi.map((card) => card.oracleId));
+
+  return BUILD_SKELETON_TARGETS.map((target) => {
+    let availableInCi = 0;
+    for (const [oracleId, roleSet] of rolesByOracle) {
+      if (!inCi.has(oracleId)) continue;
+      if (target.roles.some((role) => roleSet.has(role))) {
+        availableInCi += 1;
+      }
+    }
+    return {
       key: target.key,
       label: target.label,
       target: target.target,
       availableInCi,
-    });
-  }
-
-  return rows;
+    };
+  });
 }

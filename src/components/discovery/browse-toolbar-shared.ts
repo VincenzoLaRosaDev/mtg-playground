@@ -21,6 +21,13 @@ export const browseToolbarSetDetailGridClassName =
   "grid grid-cols-1 gap-x-3 gap-y-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1.15fr)_auto_minmax(0,1.1fr)]";
 
 /**
+ * Collection — search · sort · set · type · CMC pair · format.
+ * sm: 2 cols; lg+: six tracks (CMC stays content-sized).
+ */
+export const browseToolbarCollectionGridClassName =
+  "grid grid-cols-1 gap-x-3 gap-y-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,0.85fr)_minmax(0,1.1fr)_auto_minmax(0,1fr)]";
+
+/**
  * Legacy list toolbars (search · sort · type · CMC) — 1 → 2×2 (sm) → one row (lg+).
  */
 export const browseToolbarListGridClassName =
@@ -40,18 +47,11 @@ export const browseToolbarHubSecondaryGridClassName =
   "grid grid-cols-1 gap-x-3 gap-y-3 sm:grid-cols-3";
 
 /**
- * Default pill groups (color / rarity / options): 1 → 2 → 3 cols.
- * Prefer hub-specific class when Options needs extra width.
+ * Color / Rarity / Finish / Options pill groups — hug content with the same
+ * `gap-3` as field grids (site-wide: hub, cards, set detail, collection).
  */
 export const browseToolbarPillGroupsClassName =
-  "grid gap-3 sm:grid-cols-2 lg:grid-cols-3";
-
-/**
- * Browse hub pills: Color + Rarity hug content; Options takes remaining space
- * so Commander / Game Changer / Reserved stay on one line at lg+.
- */
-export const browseToolbarHubPillGroupsClassName =
-  "grid gap-3 sm:grid-cols-2 lg:grid-cols-[auto_auto_minmax(12rem,1fr)]";
+  "flex flex-wrap items-start gap-x-3 gap-y-3";
 
 /** Commander detail — Theme / Budget / Bracket, equal columns from sm. */
 export const browseToolbarCommanderDetailGridClassName =

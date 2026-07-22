@@ -49,6 +49,7 @@ export function CardTilt({
   const targetRef = useRef<Vec2>({ x: 0, y: 0 });
   const rafRef = useRef<number | null>(null);
   const hoveringRef = useRef(false);
+  const glareRestartRafRef = useRef<number | null>(null);
 
   // Default true so SSR + first paint match; reduced-motion turns off after mount.
   const [allowMotion, setAllowMotion] = useState(true);
@@ -70,8 +71,38 @@ export function CardTilt({
         cancelAnimationFrame(rafRef.current);
         rafRef.current = null;
       }
+      if (glareRestartRafRef.current != null) {
+        cancelAnimationFrame(glareRestartRafRef.current);
+        glareRestartRafRef.current = null;
+      }
     };
   }, []);
+
+  function cancelGlareRestart() {
+    if (glareRestartRafRef.current != null) {
+      cancelAnimationFrame(glareRestartRafRef.current);
+      glareRestartRafRef.current = null;
+    }
+    frameRef.current?.removeAttribute("data-glare-restart");
+  }
+
+  /**
+   * Drop idle glare animation to `none` for a frame, then re-enable so the
+   * CSS sweep restarts from keyframe 0 (avoids resume mid-cycle after tilt).
+   */
+  function restartIdleGlare() {
+    const frame = frameRef.current;
+    if (!frame) return;
+
+    cancelGlareRestart();
+    frame.dataset.glareRestart = "";
+    glareRestartRafRef.current = requestAnimationFrame(() => {
+      glareRestartRafRef.current = requestAnimationFrame(() => {
+        frame.removeAttribute("data-glare-restart");
+        glareRestartRafRef.current = null;
+      });
+    });
+  }
 
   function paint(nx: number, ny: number) {
     const card = cardRef.current;
@@ -131,6 +162,7 @@ export function CardTilt({
     const ease = (v: number) => Math.sign(v) * Math.pow(Math.abs(v), 1.25);
 
     hoveringRef.current = true;
+    cancelGlareRestart();
     frame.dataset.tiltActive = "";
     targetRef.current = { x: ease(rawX), y: ease(rawY) };
     ensureTick();
@@ -141,6 +173,7 @@ export function CardTilt({
     hoveringRef.current = false;
     targetRef.current = { x: 0, y: 0 };
     ensureTick();
+    restartIdleGlare();
   }
 
   return (

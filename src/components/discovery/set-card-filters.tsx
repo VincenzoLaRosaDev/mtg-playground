@@ -6,8 +6,6 @@ import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import {
   BrowseCatalogFilterFields,
   BrowseColorPillGroup,
-  BrowseFilterPillRow,
-  BrowseFilterSection,
   BrowseRarityPillGroup,
   BrowseSearchField,
   BrowseSelectField,
@@ -15,7 +13,6 @@ import {
 } from "@/components/discovery/browse-filter-controls";
 import { BrowseFilterPanel, BrowseFilterPanelRow } from "@/components/discovery/browse-filter-panel";
 import { browseToolbarSetDetailGridClassName } from "@/components/discovery/browse-toolbar-shared";
-import { Button } from "@/components/ui/button";
 import {
   getBrowseFormatFilterOptions,
   type ScryfallBrowseFormat,
@@ -171,8 +168,8 @@ export function SetCardFilters({ setCode }: SetCardFiltersProps) {
   const sortOptions = getSetCardSortOptions();
   const formatOptions = getBrowseFormatFilterOptions();
   const showClear =
-    hasActiveSetCardFilters(urlFilters) ||
-    Boolean(draft.query || draft.typeContains || draft.cmcMin || draft.cmcMax || draft.format);
+    hasActiveSetCardFilters(toSetCardFilters(draft)) ||
+    Boolean(draft.query || draft.typeContains || draft.cmcMin || draft.cmcMax);
 
   return (
     <BrowseFilterPanel>
@@ -214,6 +211,16 @@ export function SetCardFilters({ setCode }: SetCardFiltersProps) {
 
       <BrowseFilterPanelRow
         sortOrder={{ order: draft.order, onChange: (order) => patchImmediate({ order }) }}
+        clearFilters={{
+          visible: showClear,
+          onClear: () =>
+            commit(
+              toToolbarState({
+                sort: urlFilters.sort,
+                order: urlFilters.order,
+              }),
+            ),
+        }}
       >
         <BrowseToolbarPillGroups>
           <BrowseColorPillGroup
@@ -224,28 +231,6 @@ export function SetCardFilters({ setCode }: SetCardFiltersProps) {
             rarities={draft.rarities}
             onChange={(rarities) => patchImmediate({ rarities })}
           />
-          {showClear ? (
-            <BrowseFilterSection title="Options">
-              <BrowseFilterPillRow>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="rounded-full px-2.5 text-xs"
-                  onClick={() =>
-                    commit(
-                      toToolbarState({
-                        sort: urlFilters.sort,
-                        order: urlFilters.order,
-                      }),
-                    )
-                  }
-                >
-                  Clear filters
-                </Button>
-              </BrowseFilterPillRow>
-            </BrowseFilterSection>
-          ) : null}
         </BrowseToolbarPillGroups>
       </BrowseFilterPanelRow>
     </BrowseFilterPanel>

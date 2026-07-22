@@ -10,7 +10,7 @@
 - **Repo:** https://github.com/VincenzoLaRosaDev/edhforge (folder/GitHub name may still be `edhforge` until ops rename)
 - **Language (MVP):** English only — UI, DB fields, enums
 - **Formats:** Multi-format decks (not Commander-only)
-- **Current phase:** Phase **2.1** Auth + Collection (Phase 2.0 pivot ✅)
+- **Current phase:** Phase **2.2** Multi-format deck builder (Phase 2.1 Auth + Collection ✅)
 
 ## Required reading (in order)
 
@@ -18,7 +18,7 @@
 |---|---|
 | [`docs/PROJECT.md`](docs/PROJECT.md) | Vision, entities, MVP — **MTGPlayground pivot** |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Stack, data sources, sync |
-| [`docs/ROADMAP.md`](docs/ROADMAP.md) | Phase checklist — start at **2.1** |
+| [`docs/ROADMAP.md`](docs/ROADMAP.md) | Phase checklist — start at **2.2** |
 | [`docs/DECISIONS.md`](docs/DECISIONS.md) | Decision log — append, never delete |
 | [`docs/UI.md`](docs/UI.md) | Shell / discovery UI (partially legacy; update as pivot lands) |
 
@@ -55,14 +55,14 @@ When you change **product scope**, **architecture**, **data sources**, **schema*
 ## Quick status
 
 ```
-Phase 0–1.8 ✅  Catalog foundation (historical EDHForge / Scryfall path)
-Phase 2.0 ✅  Pivot: MTGPlayground, printings, unified detail, version picker
-Phase 2.1 ⬜  Auth + printing-level collection — **current**
-Phase 2.2 ⬜  Multi-format deck builder + owned/missing
-Phase 2.3 ⬜  Precons (MTGJSON)
-Phase 3 ⬜  Analysis (platform-native)
-Phase 4 ⬜  Community publish / ratings / rankings (multi-format)
-Phase 5 ⬜  Polish & launch
+Phase 0–1.8 ✅ Catalog foundation (historical EDHForge / Scryfall path)
+Phase 2.0 ✅ Pivot: MTGPlayground, printings, unified detail, version picker
+Phase 2.1 ✅ Auth + printing-level collection
+Phase 2.2 ⬜ Multi-format deck builder + owned/missing — **current**
+Phase 2.3 ⬜ Precons (MTGJSON)
+Phase 3 ⬜ Analysis (platform-native)
+Phase 4 ⬜ Community publish / ratings / rankings (multi-format)
+Phase 5 ⬜ Polish & launch
 ```
 
 See `docs/ROADMAP.md` for detailed task lists.

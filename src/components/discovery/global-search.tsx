@@ -1,17 +1,17 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 
 import { CardFacePlaceholder, CardImage } from "@/components/discovery/card-image";
+import { SearchHitListSkeleton } from "@/components/discovery/loading-skeletons";
 import { SetIcon } from "@/components/mtg/set-icon";
 import { Input } from "@/components/ui/input";
-import { LoadingSpinner } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
 import {
+  GLOBAL_SEARCH_DEFAULT_LIMIT,
   GLOBAL_SEARCH_MIN_QUERY_LENGTH,
   type GlobalSearchResponse,
 } from "@/lib/search/types";
@@ -19,7 +19,7 @@ import { CARD_TEXT_SEARCH_PLACEHOLDER } from "@/lib/search/card-text-search";
 import { formatSetType } from "@/lib/scryfall/sets";
 
 const DEBOUNCE_MS = 250;
-const DROPDOWN_LIMIT = 5;
+const DROPDOWN_LIMIT = GLOBAL_SEARCH_DEFAULT_LIMIT;
 
 function hasResults(data: GlobalSearchResponse): boolean {
   return data.cards.length > 0 || data.sets.length > 0;
@@ -191,19 +191,18 @@ export function GlobalSearch() {
           role="listbox"
           className="absolute z-50 mt-2 max-h-[min(70vh,24rem)] w-full overflow-y-auto rounded-lg border border-border bg-popover text-popover-foreground shadow-lg"
         >
-          {loading && (
-            <p className="flex items-center gap-2 px-3 py-3 text-sm text-muted-foreground">
-              <LoadingSpinner size="sm" />
-              Searching…
-            </p>
-          )}
+          {loading && !results ? (
+            <div className="px-2 py-2">
+              <SearchHitListSkeleton count={DROPDOWN_LIMIT} />
+            </div>
+          ) : null}
 
           {!loading && results && !hasResults(results) && (
             <p className="px-3 py-3 text-sm text-muted-foreground">No results found.</p>
           )}
 
-          {!loading && results && hasResults(results) && (
-            <>
+          {results && hasResults(results) && (
+            <div className={cn(loading && "opacity-60")} aria-busy={loading || undefined}>
               {results.cards.length > 0 && (
                 <SearchSection title="Cards">
                   {results.cards.map((card) => {
@@ -277,7 +276,7 @@ export function GlobalSearch() {
                   View all results
                 </Link>
               </div>
-            </>
+            </div>
           )}
         </div>
       )}

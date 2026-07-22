@@ -250,23 +250,28 @@ Wave 7 → polish
 
 **Follow-up (2026-07-21):** Card detail two-band layout + **As card / As commander** list packs (`?view=commander`) — see `docs/DECISIONS.md`. D2 helpers remain on detail for commander view; Phase **2.2.6** still covers deck-builder reuse.
 
-**Next:** Phase 2.1 Auth + Collection.
+**Next:** Phase 2.2 Multi-format deck builder.
 
 ---
 
-## Phase 2.1 — Auth + Collection ⬜
+## Phase 2.1 — Auth + Collection ✅
 
 **Goal:** Accounts and printing-level personal collection.
 
 | # | Task | Status |
 |---|---|---|
-| 2.1.1 | Auth.js: email + Google + Discord | ⬜ |
-| 2.1.2 | Prisma: User, CollectionItem (printing + finish + qty) | ⬜ |
-| 2.1.3 | Collection CRUD UI + search add | ⬜ |
-| 2.1.4 | Collection import (CSV / paste with printing resolve) | ⬜ |
-| 2.1.5 | Wantlist flag | ⬜ |
+| 2.1.1 | Auth.js: email (Resend) + Google + Discord | ✅ | 2026-07-22 |
+| 2.1.2 | Prisma: User, CollectionItem (printing + finish + qty) | ✅ | 2026-07-22 |
+| 2.1.3 | Collection CRUD UI + search add | ✅ | 2026-07-22 |
+| 2.1.4 | Collection import (CSV / paste with printing resolve) | ✅ | 2026-07-22 |
+| 2.1.5 | Wantlist flag | ✅ | 2026-07-22 |
+| 2.1.6 | Collection sort (modified / added / name / set / cmc / color / price) | ✅ | 2026-07-22 |
+| 2.1.7 | Collection browse facets (q, colors, type, CMC, finish, rarity, format, set) | ✅ | 2026-07-22 |
+| 2.1.8 | Card detail collection CTAs + oracle inventory | ✅ | 2026-07-22 |
 
-**Demo:** Add MH2 Sol Ring foil ×1 → see it in collection.
+**Demo:** Add MH2 Sol Ring foil ×1 → see it in collection (`/collection`, or card detail Add, or import `1,MH2,240,foil`).
+
+**Next:** Phase 2.2 Multi-format deck builder.
 
 ---
 
@@ -353,6 +358,7 @@ Wave 7 → polish
 |---|---|---|
 | 5.1 | Onboarding + empty states | ⬜ |
 | 5.2 | Performance pass (printings volume) | ⬜ |
+| 5.2a | Neon cost hygiene (pagination, denorm, sync bulk, indexes) | ✅ | 2026-07-22 |
 | 5.3 | Sentry + sync health | ⬜ |
 | 5.4 | E2E (collection, deck, publish) | ⬜ |
 | 5.5 | Premium tier schema (no billing) | ⬜ |

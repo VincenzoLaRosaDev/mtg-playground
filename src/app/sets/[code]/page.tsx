@@ -4,6 +4,11 @@ import { Suspense } from "react";
 
 import { CardFaceTile } from "@/components/discovery/card-face-tile";
 import { EmptyState } from "@/components/discovery/empty-state";
+import {
+  BrowseToolbarSkeleton,
+  CardGridSkeleton,
+  PageListMetaSkeleton,
+} from "@/components/discovery/loading-skeletons";
 import { SetCardFilters } from "@/components/discovery/set-card-filters";
 import { PageListMeta } from "@/components/layout/page-list-meta";
 import { PageShell } from "@/components/layout/page-shell";
@@ -65,7 +70,7 @@ export async function generateMetadata({ params }: SetDetailPageProps): Promise<
   });
 }
 
-export default async function SetDetailPage({ params, searchParams }: SetDetailPageProps) {
+async function SetDetailContent({ params, searchParams }: SetDetailPageProps) {
   const { code } = await params;
   const setCode = code.toLowerCase();
   const filters = parseSetCardFilters(await searchParams);
@@ -148,7 +153,7 @@ export default async function SetDetailPage({ params, searchParams }: SetDetailP
         { label: mtgSet.name, href: `/sets/${mtgSet.code}` },
       ]}
       toolbar={
-        <Suspense fallback={null}>
+        <Suspense fallback={<BrowseToolbarSkeleton variant="setDetail" />}>
           <SetCardFilters setCode={mtgSet.code} />
         </Suspense>
       }
@@ -198,5 +203,30 @@ export default async function SetDetailPage({ params, searchParams }: SetDetailP
         </>
       )}
     </PageShell>
+  );
+}
+
+export default function SetDetailPage(props: SetDetailPageProps) {
+  return (
+    <Suspense
+      fallback={
+        <PageShell
+          title="…"
+          description="Loading set…"
+          breadcrumbs={[
+            { label: "Sets", href: "/sets" },
+            { label: "…", href: "#" },
+          ]}
+          toolbar={<BrowseToolbarSkeleton variant="setDetail" />}
+        >
+          <PageListMetaSkeleton />
+          <div className="mt-6">
+            <CardGridSkeleton count={12} footerLines={1} />
+          </div>
+        </PageShell>
+      }
+    >
+      <SetDetailContent {...props} />
+    </Suspense>
   );
 }

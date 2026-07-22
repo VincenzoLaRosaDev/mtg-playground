@@ -32,19 +32,34 @@ function prepareTsQueryExpression(query: string): string | null {
  * Card ids matching weighted FTS (name A / type B / oracle C).
  * Uses `to_tsquery` with last-token prefix (and phrase adjacency for multi-word).
  * Empty array = no matches. null = query too short / empty after sanitize.
+ *
+ * Capped so browse never materializes unbounded IN lists (Neon compute).
+ * Typeahead should prefer `listRankedCardIdsMatchingTextSearch`.
  */
+export const CARD_TEXT_SEARCH_BROWSE_ID_CAP = 2000;
+
 export async function listCardIdsMatchingTextSearch(
   prisma: PrismaClient,
   query: string,
+  options?: { limit?: number },
 ): Promise<string[] | null> {
   const expression = prepareTsQueryExpression(query);
   if (!expression) return null;
+
+  const limit = Math.min(
+    Math.max(1, Math.floor(options?.limit ?? CARD_TEXT_SEARCH_BROWSE_ID_CAP)),
+    CARD_TEXT_SEARCH_BROWSE_ID_CAP,
+  );
 
   const rows = await prisma.$queryRaw<SearchIdRow[]>`
     SELECT id
     FROM cards
     WHERE search_tsv @@ to_tsquery('english', ${expression})
       AND layout <> 'art_series'
+    ORDER BY
+      ts_rank(search_tsv, to_tsquery('english', ${expression})) DESC,
+      name ASC
+    LIMIT ${limit}
   `;
 
   return rows.map((row) => row.id);
