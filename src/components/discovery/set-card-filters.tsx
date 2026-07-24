@@ -97,7 +97,9 @@ export function SetCardFilters({ setCode }: SetCardFiltersProps) {
   /** Local draft so typing stays responsive while URL/SSR catch up. */
   const [draft, setDraft] = useState<ToolbarState>(urlState);
   const draftRef = useRef(draft);
-  draftRef.current = draft;
+  useEffect(() => {
+    draftRef.current = draft;
+  }, [draft]);
 
   /** Text snapshot we last asked the router to apply — avoids clobbering newer keystrokes. */
   const pendingTextKeyRef = useRef<string | null>(null);

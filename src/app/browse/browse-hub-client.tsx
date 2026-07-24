@@ -9,8 +9,8 @@ import {
 } from "@/components/discovery/browse-hub-toolbar";
 import { CardGridTile } from "@/components/discovery/card-grid-tile";
 import { CardGridSkeleton } from "@/components/discovery/loading-skeletons";
-import { LoadMoreButton } from "@/components/discovery/load-more-button";
 import { ListFilterAccess } from "@/components/layout/list-filter-access";
+import { ListLoadMoreRow } from "@/components/layout/list-load-more-row";
 import { PageListMeta } from "@/components/layout/page-list-meta";
 import { PageShell } from "@/components/layout/page-shell";
 import { useBrowseList, type BrowseListInitialData } from "@/hooks/use-browse-list";
@@ -49,11 +49,12 @@ export function BrowseHubClient({
   presentThemes,
 }: BrowseHubClientProps) {
   const [toolbar, setToolbar] = useState<BrowseHubToolbarState>(initialToolbar);
+  const requestKey = JSON.stringify(toolbar);
 
   const { items, total, nextCursor, loading, loadingMore, error, loadMore } =
     useBrowseList<CardBrowseItem>({
       path: "/api/browse",
-      requestKey: JSON.stringify(toolbar),
+      requestKey,
       initialRequestKey,
       initialData,
       searchQuery: toolbar.query,
@@ -123,7 +124,7 @@ export function BrowseHubClient({
       title="Browse"
       description={description}
       toolbar={
-        <ListFilterAccess hasActiveFilters={hasActiveFilters}>
+        <ListFilterAccess hasActiveFilters={hasActiveFilters} filtersKey={requestKey}>
           <BrowseHubToolbar
             state={toolbar}
             onChange={handleToolbarChange}
@@ -168,10 +169,8 @@ export function BrowseHubClient({
         <p className="mt-6 text-sm text-muted-foreground">No results match these filters.</p>
       )}
 
-      <LoadMoreButton
-        onClick={loadMore}
-        loading={loadingMore}
-        disabled={!nextCursor || loading}
+      <ListLoadMoreRow
+        loadMore={{ onClick: loadMore, loading: loadingMore, disabled: !nextCursor || loading }}
       />
     </PageShell>
   );

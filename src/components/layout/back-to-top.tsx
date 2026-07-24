@@ -4,22 +4,28 @@ import { ArrowUp } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { SITE_GUTTER_CLASS, SITE_MAX_WIDTH_CLASS } from "@/lib/ui/layout";
+import { scrollWindowToTop } from "@/lib/ui/scroll";
 import { cn } from "@/lib/utils";
 
 const SHOW_AFTER_SCROLL_PX = 400;
 
 type BackToTopProps = {
-  label?: string;
+  /**
+   * True once its dock point (the row it's rendered in — see
+   * `ListLoadMoreRow`) is fully visible: renders in normal flow there instead
+   * of floating, so it never drifts over the footer or other page content.
+   */
+  docked?: boolean;
 };
 
-/** Fixed FAB: always centered, same bottom offset as the catalog debug panel. */
-export function BackToTop({ label = "Back to top" }: BackToTopProps) {
+/** Floats bottom-right (within the site max-width) until `docked`. */
+export function BackToTop({ docked = false }: BackToTopProps) {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
     function update() {
       setVisible(window.scrollY > SHOW_AFTER_SCROLL_PX);
-      console.log("scrollY", window.scrollY);
     }
 
     update();
@@ -27,29 +33,36 @@ export function BackToTop({ label = "Back to top" }: BackToTopProps) {
     return () => window.removeEventListener("scroll", update);
   }, []);
 
-  function handleClick() {
-    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    window.scrollTo({ top: 0, behavior: reduceMotion ? "auto" : "smooth" });
-  }
-
-  return (
+  const button = (
     <Button
       type="button"
+      size="icon"
+      variant="outline"
       className={cn(
-        // Match CatalogDebugPanel `bottom-4`; solid site border/surface (no frosted glass).
-        "relative z-10 inline-flex h-8 shrink-0 cursor-pointer items-center gap-2 overflow-hidden px-3 text-[0.8rem] font-medium text-foreground border-border rounded-[0.625rem]",
-        "focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
-        "bg-background hover:bg-muted hover:text-foreground",
+        "z-30 size-11 rounded-lg border-border bg-card text-foreground shadow-none mb-0!",
+        "hover:bg-muted hover:text-foreground",
+        "transition-opacity duration-200 motion-reduce:transition-none",
         visible ? "opacity-100" : "pointer-events-none opacity-0",
       )}
       aria-label="Back to top"
       aria-hidden={!visible}
       tabIndex={visible ? 0 : -1}
       inert={!visible ? true : undefined}
-      onClick={handleClick}
+      onClick={scrollWindowToTop}
     >
-      <span className="relative z-10">{label}</span>
       <ArrowUp className="size-3.5" aria-hidden />
     </Button>
+  );
+
+  if (docked) {
+    return button;
+  }
+
+  return (
+    <div className="pointer-events-none fixed inset-x-0 bottom-4 z-30">
+      <div className={cn("mx-auto flex justify-end", SITE_MAX_WIDTH_CLASS, SITE_GUTTER_CLASS)}>
+        <div className="pointer-events-auto pr-2 xl:pr-3">{button}</div>
+      </div>
+    </div>
   );
 }

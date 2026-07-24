@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
 import {
   CardFacePlaceholder,
@@ -46,10 +46,11 @@ function StackFace({
   glareMotion: ReturnType<typeof glareMotionForVariant>;
 }) {
   const [loaded, setLoaded] = useState(false);
-
-  useEffect(() => {
+  const [loadedSrc, setLoadedSrc] = useState(src);
+  if (src !== loadedSrc) {
+    setLoadedSrc(src);
     setLoaded(false);
-  }, [src]);
+  }
 
   return (
     <div

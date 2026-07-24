@@ -70,7 +70,10 @@ export default async function CollectionPage({ searchParams }: CollectionPagePro
       ]}
       toolbar={
         <Suspense fallback={<div className="h-24" aria-hidden />}>
-          <ListFilterAccess hasActiveFilters={hasActiveCollectionFacets(query)}>
+          <ListFilterAccess
+            hasActiveFilters={hasActiveCollectionFacets(query)}
+            filtersKey={JSON.stringify(query)}
+          >
             <CollectionToolbar
               actions={
                 <>

@@ -5,7 +5,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 
-import { UserMenu } from "@/components/auth/user-menu";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -86,9 +85,6 @@ export function MobileNavSheet() {
               </Link>
             );
           })}
-          <div className="mt-4 border-t border-border pt-4">
-            <UserMenu onBeforeSignIn={() => setOpen(false)} />
-          </div>
         </nav>
       </SheetContent>
     </Sheet>

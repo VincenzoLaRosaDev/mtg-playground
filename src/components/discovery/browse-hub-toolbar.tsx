@@ -12,10 +12,7 @@ import {
   BrowseToolbarPillGroups,
 } from "@/components/discovery/browse-filter-controls";
 import { BrowseFilterPanel, BrowseFilterPanelRow } from "@/components/discovery/browse-filter-panel";
-import {
-  browseToolbarHubPrimaryGridClassName,
-  browseToolbarHubSecondaryGridClassName,
-} from "@/components/discovery/browse-toolbar-shared";
+import { browseToolbarHubGridClassName } from "@/components/discovery/browse-toolbar-shared";
 import type { BrowseHubToolbarSnapshot } from "@/lib/browse/browse-defaults";
 import {
   defaultCatalogOrder,
@@ -70,7 +67,7 @@ export function BrowseHubToolbar({
 
   return (
     <BrowseFilterPanel>
-      <div className={browseToolbarHubPrimaryGridClassName}>
+      <div className={browseToolbarHubGridClassName}>
         <BrowseSearchField
           label="Search in list"
           value={state.query}
@@ -90,9 +87,7 @@ export function BrowseHubToolbar({
           onChange={(patch) => onChange(patch)}
           inline
         />
-      </div>
 
-      <div className={browseToolbarHubSecondaryGridClassName}>
         <BrowseSelectField
           label="Role"
           value={state.role}

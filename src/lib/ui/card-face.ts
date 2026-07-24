@@ -18,15 +18,15 @@ export function cardFacePlaceholderClassName(variant: "thumbnail" | "detail" | "
 
 /** Browse listing grids (cards, commanders, catalog, set detail). */
 export const CARD_FACE_GRID_CLASS =
-  "grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-5";
+  "grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-5 2xl:grid-cols-6 3xl:grid-cols-7!";
 
 /** Card/commander detail section grids (slightly roomier than browse). */
 export const CARD_FACE_DETAIL_GRID_CLASS =
-  "grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4";
+  "grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 3xl:grid-cols-6!";
 
 /** Sets browse — horizontal card rows in a wide multi-column grid. */
 export const SET_BROWSE_GRID_CLASS =
-  "grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3";
+  "grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4";
 
 /** Grid tile footer — rank / stats / salt on one row, spaced apart. */
 export const CARD_FACE_TILE_FOOTER_CLASS =

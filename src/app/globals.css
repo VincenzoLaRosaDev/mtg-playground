@@ -50,6 +50,14 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+  /* Tailwind tops out at 2xl (1536px) / max-w-7xl (1280px) — one more tier
+     each for large monitors, used by the site container + card grids.
+     Custom breakpoints compile *before* the built-in 2xl block regardless
+     of pixel value, so any `3xl:` utility needs `!` to win the cascade at
+     3xl+ viewports (e.g. `3xl:grid-cols-7!` in src/lib/ui/card-face.ts) —
+     otherwise 2xl's same-specificity rule wins by source order. */
+  --breakpoint-3xl: 120rem;
+  --container-8xl: 160rem;
 }
 
 /*

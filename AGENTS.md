@@ -19,7 +19,8 @@
 | [`docs/PROJECT.md`](docs/PROJECT.md) | Vision, entities, MVP — **MTGPlayground pivot** |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Stack, data sources, sync |
 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | Phase checklist — start at **2.2** |
-| [`docs/DECISIONS.md`](docs/DECISIONS.md) | Decision log — append, never delete |
+| [`docs/DECISIONS.md`](docs/DECISIONS.md) | Decision log (MTGPlayground era, 2026-07-20 pivot onward) — append, never delete |
+| [`docs/DECISIONS-ARCHIVE.md`](docs/DECISIONS-ARCHIVE.md) | Pre-pivot decision history (EDHForge/EDHREC era) + condensed iteration chains — reference only, not required reading |
 | [`docs/UI.md`](docs/UI.md) | Shell / discovery UI (partially legacy; update as pivot lands) |
 
 ## Documentation maintenance (mandatory)

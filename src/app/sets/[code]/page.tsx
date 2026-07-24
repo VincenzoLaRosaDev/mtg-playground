@@ -11,6 +11,7 @@ import {
 } from "@/components/discovery/loading-skeletons";
 import { SetCardFilters } from "@/components/discovery/set-card-filters";
 import { ListFilterAccess } from "@/components/layout/list-filter-access";
+import { ListLoadMoreRow } from "@/components/layout/list-load-more-row";
 import { PageListMeta } from "@/components/layout/page-list-meta";
 import { PageShell } from "@/components/layout/page-shell";
 import { prisma } from "@/lib/db";
@@ -155,7 +156,10 @@ async function SetDetailContent({ params, searchParams }: SetDetailPageProps) {
       ]}
       toolbar={
         <Suspense fallback={<BrowseToolbarSkeleton variant="setDetail" />}>
-          <ListFilterAccess hasActiveFilters={hasActiveSetCardFilters(filters)}>
+          <ListFilterAccess
+            hasActiveFilters={hasActiveSetCardFilters(filters)}
+            filtersKey={JSON.stringify(filters)}
+          >
             <SetCardFilters setCode={mtgSet.code} />
           </ListFilterAccess>
         </Suspense>
@@ -203,6 +207,8 @@ async function SetDetailContent({ params, searchParams }: SetDetailPageProps) {
               );
             })}
           </ul>
+
+          <ListLoadMoreRow />
         </>
       )}
     </PageShell>

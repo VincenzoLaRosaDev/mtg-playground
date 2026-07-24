@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 
 import { CardFaceTile } from "@/components/discovery/card-face-tile";
-import { LoadMoreButton } from "@/components/discovery/load-more-button";
 import { PriceChip } from "@/components/discovery/price-chip";
+import { ListLoadMoreRow } from "@/components/layout/list-load-more-row";
 import { PageListMeta } from "@/components/layout/page-list-meta";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,11 +36,18 @@ export function CollectionGrid({ initial }: CollectionGridProps) {
   const [nextCursor, setNextCursor] = useState(initial.nextCursor);
   const [loadingMore, setLoadingMore] = useState(false);
 
-  useEffect(() => {
+  // Re-sync local state when a fresh `initial` arrives (new SSR data after
+  // router.refresh(), or a URL/requestKey change) — mirrors the previous
+  // [initial, requestKey] effect but adjusts during render, not after.
+  const [syncedInitial, setSyncedInitial] = useState(initial);
+  const [syncedKey, setSyncedKey] = useState(requestKey);
+  if (initial !== syncedInitial || requestKey !== syncedKey) {
+    setSyncedInitial(initial);
+    setSyncedKey(requestKey);
     setItems(initial.items);
     setTotal(initial.total);
     setNextCursor(initial.nextCursor);
-  }, [initial, requestKey]);
+  }
 
   async function loadMore() {
     if (!nextCursor || loadingMore) return;
@@ -77,10 +84,8 @@ export function CollectionGrid({ initial }: CollectionGridProps) {
           <CollectionItemCard key={item.id} item={item} />
         ))}
       </div>
-      <LoadMoreButton
-        onClick={() => void loadMore()}
-        loading={loadingMore}
-        disabled={!nextCursor}
+      <ListLoadMoreRow
+        loadMore={{ onClick: () => void loadMore(), loading: loadingMore, disabled: !nextCursor }}
       />
     </div>
   );
@@ -90,10 +95,11 @@ function CollectionItemCard({ item }: { item: CollectionListItem }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [qty, setQty] = useState(String(item.quantity));
-
-  useEffect(() => {
+  const [syncedQuantity, setSyncedQuantity] = useState(item.quantity);
+  if (item.quantity !== syncedQuantity) {
+    setSyncedQuantity(item.quantity);
     setQty(String(item.quantity));
-  }, [item.quantity]);
+  }
 
   const href = item.slug
     ? buildCardVersionHref(item.slug, {

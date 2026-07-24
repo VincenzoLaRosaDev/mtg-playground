@@ -19,23 +19,21 @@ export function LoadMoreButton({
   }
 
   return (
-    <div className="mt-8 flex justify-center">
-      <Button
-        type="button"
-        variant="outline"
-        size="lg"
-        onClick={onClick}
-        disabled={loading || disabled}
-      >
-        {loading ? (
-          <>
-            <LoadingSpinner size="sm" />
-            <span>Loading…</span>
-          </>
-        ) : (
-          label
-        )}
-      </Button>
-    </div>
+    <Button
+      type="button"
+      variant="outline"
+      size="lg"
+      onClick={onClick}
+      disabled={loading || disabled}
+    >
+      {loading ? (
+        <>
+          <LoadingSpinner size="sm" />
+          <span>Loading…</span>
+        </>
+      ) : (
+        label
+      )}
+    </Button>
   );
 }

@@ -13,12 +13,17 @@ export function useActiveDetailSectionId(
   items: DetailSectionNavItem[],
 ): [string | null, (id: string) => void] {
   const itemKey = useMemo(() => items.map((item) => item.id).join("|"), [items]);
+  const [trackedKey, setTrackedKey] = useState(itemKey);
   const [activeId, setActiveId] = useState<string | null>(items[0]?.id ?? null);
 
-  useEffect(() => {
-    const firstId = items[0]?.id ?? null;
-    setActiveId(firstId);
+  // Reset during render (not in an effect) when the section set changes —
+  // avoids an extra render pass and keeps activeId in sync with itemKey immediately.
+  if (itemKey !== trackedKey) {
+    setTrackedKey(itemKey);
+    setActiveId(items[0]?.id ?? null);
+  }
 
+  useEffect(() => {
     const elements = items
       .map((item) => document.getElementById(item.id))
       .filter((element): element is HTMLElement => element != null);

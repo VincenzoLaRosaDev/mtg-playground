@@ -50,7 +50,9 @@ export function useBrowseList<TItem>(
   } = options;
 
   const buildSearchParamsRef = useRef(buildSearchParams);
-  buildSearchParamsRef.current = buildSearchParams;
+  useEffect(() => {
+    buildSearchParamsRef.current = buildSearchParams;
+  }, [buildSearchParams]);
 
   const hasInitialData = initialData != null;
 
@@ -67,9 +69,14 @@ export function useBrowseList<TItem>(
   const [error, setError] = useState<string | null>(null);
 
   const nextCursorRef = useRef<string | null>(null);
-  nextCursorRef.current = nextCursor;
+  useEffect(() => {
+    nextCursorRef.current = nextCursor;
+  }, [nextCursor]);
+
   const loadingMoreRef = useRef(false);
-  loadingMoreRef.current = loadingMore;
+  useEffect(() => {
+    loadingMoreRef.current = loadingMore;
+  }, [loadingMore]);
 
   /** One-shot: skip the first effect when SSR data covers the current requestKey. */
   const skipInitialFetchRef = useRef(

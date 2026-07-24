@@ -69,7 +69,10 @@ export function AppHeader() {
                 MTGPlayground
               </Link>
 
-              <MobileNavSheet />
+              <div className="flex items-center gap-2 lg:hidden">
+                <UserMenu />
+                <MobileNavSheet />
+              </div>
             </div>
 
             <div className="w-full lg:max-w-md lg:flex-1 xl:max-w-xl">

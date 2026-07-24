@@ -60,7 +60,7 @@
 
 ## Phase 1.4 — Commander catalog sync ✅
 
-**Goal:** Pre-populate EDHREC commander profiles for the full catalog before Phase 1.5 browse/detail UX. Spec: `docs/DECISIONS.md` (2026-07-10 commander data completeness).
+**Goal:** Pre-populate EDHREC commander profiles for the full catalog before Phase 1.5 browse/detail UX. Spec: `docs/DECISIONS-ARCHIVE.md` (2026-07-10 commander data completeness — pre-pivot history).
 
 **Coverage expectation:** ~90% of catalog commanders get full EDHREC meta (COLD tier, 30d TTL). ~10% have no EDHREC commander page (`card_only` planeswalkers etc.) → browse shows badge **“No EDHREC meta”** in Phase 1.5.
 
@@ -110,7 +110,7 @@ Re-run until “All catalog commander slugs with EDHREC pages are cached.” Ful
 
 ## Phase 1.6 — Discovery parity (EDHREC-like UI) ✅
 
-**Goal:** EDHREC-like discovery density and behaviour on lists + card/commander detail. **Completed 2026-07-14** — unblocks Phase 2. Spec: `docs/PROJECT.md` § Discovery parity · decisions: `docs/DECISIONS.md` (2026-07-12).
+**Goal:** EDHREC-like discovery density and behaviour on lists + card/commander detail. **Completed 2026-07-14** — unblocks Phase 2. Spec: `docs/PROJECT.md` § Discovery parity · decisions: `docs/DECISIONS-ARCHIVE.md` (2026-07-12 — pre-pivot history).
 
 **Delivery:** single epic branch (includes uncommitted Phase 1.5 UX work).
 

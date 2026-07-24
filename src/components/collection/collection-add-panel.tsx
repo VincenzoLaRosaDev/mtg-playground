@@ -182,6 +182,7 @@ export function CollectionAddPanel() {
 
       <SheetContent
         side="bottom"
+        size="xl"
         showCloseButton={!onPrintingStep}
         className={cn(BOTTOM_SHEET_MAX_CLASS, "flex flex-col gap-0 overflow-hidden p-0")}
       >

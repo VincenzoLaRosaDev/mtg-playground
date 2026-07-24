@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import type { PrintingFinish } from "@/lib/scryfall/card-printing";
 import { CARD_DETAIL_IMAGE_MAX_CLASS } from "@/lib/ui/layout";
@@ -73,10 +73,11 @@ export function glareMotionForVariant(
 
 export function CardImage({ src, alt, variant = "thumbnail", finish = null }: CardImageProps) {
   const [loaded, setLoaded] = useState(false);
-
-  useEffect(() => {
+  const [loadedSrc, setLoadedSrc] = useState(src);
+  if (src !== loadedSrc) {
+    setLoadedSrc(src);
     setLoaded(false);
-  }, [src]);
+  }
 
   return (
     <div

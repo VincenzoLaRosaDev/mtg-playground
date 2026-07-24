@@ -3,7 +3,6 @@
 import { useState } from "react";
 
 import { EmptyState } from "@/components/discovery/empty-state";
-import { LoadMoreButton } from "@/components/discovery/load-more-button";
 import { SetBrowseGridSkeleton } from "@/components/discovery/loading-skeletons";
 import {
   buildSetBrowseSearchParams,
@@ -12,6 +11,7 @@ import {
 } from "@/components/discovery/set-browse-toolbar";
 import { SetBrowseRow } from "@/components/discovery/set-browse-row";
 import { ListFilterAccess } from "@/components/layout/list-filter-access";
+import { ListLoadMoreRow } from "@/components/layout/list-load-more-row";
 import { PageListMeta } from "@/components/layout/page-list-meta";
 import { PageShell } from "@/components/layout/page-shell";
 import { useBrowseList, type BrowseListInitialData } from "@/hooks/use-browse-list";
@@ -35,11 +35,12 @@ export function SetsBrowseClient({
   typeOptions,
 }: SetsBrowseClientProps) {
   const [toolbar, setToolbar] = useState<SetBrowseToolbarState>(initialToolbar);
+  const requestKey = JSON.stringify(toolbar);
 
   const { items, total, nextCursor, loading, loadingMore, error, loadMore } =
     useBrowseList<SetBrowseItem>({
       path: "/api/sets/search",
-      requestKey: JSON.stringify(toolbar),
+      requestKey,
       initialRequestKey,
       initialData,
       searchQuery: toolbar.query,
@@ -74,7 +75,7 @@ export function SetsBrowseClient({
       title="Sets"
       description="Browse Magic sets by release date, type, and indexed card coverage."
       toolbar={
-        <ListFilterAccess hasActiveFilters={hasActiveFilters}>
+        <ListFilterAccess hasActiveFilters={hasActiveFilters} filtersKey={requestKey}>
           <SetBrowseToolbar
             state={toolbar}
             onChange={handleToolbarChange}
@@ -119,10 +120,8 @@ export function SetsBrowseClient({
         />
       )}
 
-      <LoadMoreButton
-        onClick={loadMore}
-        loading={loadingMore}
-        disabled={!nextCursor || loading}
+      <ListLoadMoreRow
+        loadMore={{ onClick: loadMore, loading: loadingMore, disabled: !nextCursor || loading }}
       />
     </PageShell>
   );

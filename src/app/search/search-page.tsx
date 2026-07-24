@@ -47,14 +47,22 @@ export default function SearchPage() {
   const [results, setResults] = useState<GlobalSearchResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const hasQuery = query.length >= GLOBAL_SEARCH_MIN_QUERY_LENGTH;
+
+  // Below the minimum length there's nothing to fetch — clear stale results
+  // during render (pure function of `query`) instead of via an effect.
+  const [clearedForQuery, setClearedForQuery] = useState<string | null>(
+    hasQuery ? null : query,
+  );
+  if (!hasQuery && clearedForQuery !== query) {
+    setClearedForQuery(query);
+    setResults(null);
+    setError(null);
+    setLoading(false);
+  }
 
   useEffect(() => {
-    if (query.length < GLOBAL_SEARCH_MIN_QUERY_LENGTH) {
-      setResults(null);
-      setError(null);
-      setLoading(false);
-      return;
-    }
+    if (!hasQuery) return;
 
     const controller = new AbortController();
 
@@ -89,9 +97,8 @@ export default function SearchPage() {
     void runSearch();
 
     return () => controller.abort();
-  }, [query]);
+  }, [query, hasQuery]);
 
-  const hasQuery = query.length >= GLOBAL_SEARCH_MIN_QUERY_LENGTH;
   const totalResults = (results?.cards.length ?? 0) + (results?.sets.length ?? 0);
 
   return (

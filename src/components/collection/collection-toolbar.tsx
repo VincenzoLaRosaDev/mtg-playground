@@ -159,7 +159,9 @@ export function CollectionToolbar({ actions }: CollectionToolbarProps) {
 
   const [draft, setDraft] = useState<ToolbarState>(urlState);
   const draftRef = useRef(draft);
-  draftRef.current = draft;
+  useEffect(() => {
+    draftRef.current = draft;
+  }, [draft]);
   const pendingTextKeyRef = useRef<string | null>(null);
 
   useEffect(() => {

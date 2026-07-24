@@ -118,6 +118,7 @@ export function VersionsBrowser({
 
       <SheetContent
         side="bottom"
+        size="xl"
         className="max-h-[85dvh] gap-0 overflow-hidden p-0"
       >
         <SheetHeader

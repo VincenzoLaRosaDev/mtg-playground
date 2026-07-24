@@ -11,7 +11,6 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 
-import { BackToTop } from "@/components/layout/back-to-top";
 import { ListFilterDrawerContext } from "@/components/layout/list-filter-drawer-context";
 import {
   SITE_HEADER_CHROME_SLOT_ID,
@@ -21,6 +20,7 @@ import {
   SITE_GUTTER_CLASS,
   siteContainerClassName,
 } from "@/lib/ui/layout";
+import { prefersReducedMotion } from "@/lib/ui/scroll";
 import { cn } from "@/lib/utils";
 
 const CHROME_ANIM_MS = 200;
@@ -41,11 +41,18 @@ type ListFilterAccessProps = {
   /** Show a dot on the sticky tab when filters are non-default. */
   hasActiveFilters?: boolean;
   label?: string;
+  /**
+   * Opaque string that changes whenever the wrapped filters change (e.g. a
+   * serialized filter/sort state). When it changes while the toolbar is
+   * scrolled away (sticky drawer active), scrolls the list back to its own
+   * top (not the page top — the drawer stays open so filters stay reachable
+   * for further tweaks) so the user sees the new results from the start.
+   */
+  filtersKey?: string;
 };
 
-function prefersReducedMotion() {
-  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-}
+/** Coalesces rapid filter changes (e.g. keystrokes) into one scroll. */
+const FILTERS_SCROLL_DEBOUNCE_MS = 250;
 
 function headerOffsetPx() {
   const raw = getComputedStyle(document.documentElement)
@@ -74,6 +81,7 @@ export function ListFilterAccess({
   children,
   hasActiveFilters = false,
   label = "Filters",
+  filtersKey,
 }: ListFilterAccessProps) {
   const inlineShellRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -91,6 +99,53 @@ export function ListFilterAccess({
   const [panelHeight, setPanelHeight] = useState(TONGUE_HEIGHT_PX);
   /** Bumps on each open so stale rAF open sequences are ignored. */
   const openGenRef = useRef(0);
+
+  const stickyRef = useRef(false);
+  useEffect(() => {
+    stickyRef.current = scrollReady && filtersAway;
+  }, [scrollReady, filtersAway]);
+
+  const openRef = useRef(open);
+  useEffect(() => {
+    openRef.current = open;
+  }, [open]);
+
+  /**
+   * Scroll position the body-scroll-lock effect below restores on close.
+   * Set to the real `window.scrollY` when the drawer opens; the filter-change
+   * effect below may move it forward (list start) while still locked so the
+   * eventual close lands there instead of back where the drawer was opened.
+   */
+  const scrollRestoreRef = useRef(0);
+
+  /** Moves the list to its own top, keeping the sticky drawer open/reachable. */
+  const scrollToListStart = useCallback(() => {
+    const node = inlineShellRef.current;
+    if (!node) return;
+
+    const currentY = openRef.current ? scrollRestoreRef.current : window.scrollY;
+    const target = Math.max(0, currentY + node.getBoundingClientRect().bottom - headerOffsetPx());
+
+    if (openRef.current) {
+      // Locked (position: fixed) — nothing is visibly scrolling; just move
+      // where the background will land once the drawer closes.
+      scrollRestoreRef.current = target;
+      document.body.style.top = `-${target}px`;
+      return;
+    }
+
+    window.scrollTo({ top: target, behavior: prefersReducedMotion() ? "auto" : "smooth" });
+  }, []);
+
+  const filtersKeyRef = useRef(filtersKey);
+  useEffect(() => {
+    if (filtersKeyRef.current === filtersKey) return;
+    filtersKeyRef.current = filtersKey;
+    if (!stickyRef.current) return;
+
+    const timeout = window.setTimeout(scrollToListStart, FILTERS_SCROLL_DEBOUNCE_MS);
+    return () => window.clearTimeout(timeout);
+  }, [filtersKey, scrollToListStart]);
 
   const measureInline = useCallback(() => {
     const node = inlineShellRef.current;
@@ -133,7 +188,9 @@ export function ListFilterAccess({
   }, [drawerMounted, measurePanel, children]);
 
   useEffect(() => {
-    setChromeSlot(document.getElementById(SITE_HEADER_CHROME_SLOT_ID));
+    queueMicrotask(() => {
+      setChromeSlot(document.getElementById(SITE_HEADER_CHROME_SLOT_ID));
+    });
   }, []);
 
   useEffect(() => {
@@ -177,52 +234,79 @@ export function ListFilterAccess({
 
   useEffect(() => {
     const show = scrollReady && filtersAway;
-    if (show) {
-      setChromeMounted(true);
-      if (prefersReducedMotion()) {
-        setChromeShown(true);
+    let cleanup: (() => void) | undefined;
+
+    // Outer rAF only defers the *first* state write out of the effect's
+    // synchronous body (react-hooks/set-state-in-effect) — same-frame
+    // relative timing between the calls below is unchanged.
+    const setupId = requestAnimationFrame(() => {
+      if (show) {
+        setChromeMounted(true);
+        if (prefersReducedMotion()) {
+          setChromeShown(true);
+          return;
+        }
+        const id = requestAnimationFrame(() => {
+          requestAnimationFrame(() => setChromeShown(true));
+        });
+        cleanup = () => cancelAnimationFrame(id);
         return;
       }
-      const id = requestAnimationFrame(() => {
-        requestAnimationFrame(() => setChromeShown(true));
-      });
-      return () => cancelAnimationFrame(id);
-    }
 
-    setChromeShown(false);
-    setOpen(false);
-    if (prefersReducedMotion()) {
-      setChromeMounted(false);
-      return;
-    }
-    const timeout = window.setTimeout(() => setChromeMounted(false), CHROME_ANIM_MS);
-    return () => window.clearTimeout(timeout);
+      setChromeShown(false);
+      setOpen(false);
+      if (prefersReducedMotion()) {
+        setChromeMounted(false);
+        return;
+      }
+      const timeout = window.setTimeout(() => setChromeMounted(false), CHROME_ANIM_MS);
+      cleanup = () => window.clearTimeout(timeout);
+    });
+
+    return () => {
+      cancelAnimationFrame(setupId);
+      cleanup?.();
+    };
   }, [filtersAway, scrollReady]);
 
   // Mount / unmount drawer. Do not start the open slide here — wait until measured.
   useEffect(() => {
+    // Bump synchronously (not deferred below) so the open-slide effect's
+    // `gen` capture always sees this cycle, invalidating any stale in-flight
+    // rAF chain from a previous rapid toggle.
     if (open) {
       openGenRef.current += 1;
-      setDrawerMounted(true);
-      setSlideMotionOn(false);
-      setDrawerShown(false);
-      if (prefersReducedMotion()) {
-        setDrawerShown(true);
-      }
-      return;
     }
 
-    setDrawerShown(false);
-    if (prefersReducedMotion()) {
-      setDrawerMounted(false);
-      setSlideMotionOn(false);
-      return;
-    }
-    const timeout = window.setTimeout(() => {
-      setDrawerMounted(false);
-      setSlideMotionOn(false);
-    }, CHROME_ANIM_MS);
-    return () => window.clearTimeout(timeout);
+    let cleanup: (() => void) | undefined;
+    const setupId = requestAnimationFrame(() => {
+      if (open) {
+        setDrawerMounted(true);
+        setSlideMotionOn(false);
+        setDrawerShown(false);
+        if (prefersReducedMotion()) {
+          setDrawerShown(true);
+        }
+        return;
+      }
+
+      setDrawerShown(false);
+      if (prefersReducedMotion()) {
+        setDrawerMounted(false);
+        setSlideMotionOn(false);
+        return;
+      }
+      const timeout = window.setTimeout(() => {
+        setDrawerMounted(false);
+        setSlideMotionOn(false);
+      }, CHROME_ANIM_MS);
+      cleanup = () => window.clearTimeout(timeout);
+    });
+
+    return () => {
+      cancelAnimationFrame(setupId);
+      cleanup?.();
+    };
   }, [open]);
 
   // Open slide: only after panel height is known (otherwise offset is 0 → desktop snap).
@@ -231,22 +315,30 @@ export function ListFilterAccess({
     if (prefersReducedMotion()) return;
     if (panelHeight <= TONGUE_HEIGHT_PX) return;
 
+    // Capture synchronously — this cycle's identity for the staleness checks below.
     const gen = openGenRef.current;
-    setSlideMotionOn(false);
-    const id = requestAnimationFrame(() => {
-      if (gen !== openGenRef.current) return;
-      setSlideMotionOn(true);
-      requestAnimationFrame(() => {
+    let cleanup: (() => void) | undefined;
+    const setupId = requestAnimationFrame(() => {
+      setSlideMotionOn(false);
+      const id = requestAnimationFrame(() => {
         if (gen !== openGenRef.current) return;
-        setDrawerShown(true);
+        setSlideMotionOn(true);
+        requestAnimationFrame(() => {
+          if (gen !== openGenRef.current) return;
+          setDrawerShown(true);
+        });
       });
+      cleanup = () => cancelAnimationFrame(id);
     });
-    return () => cancelAnimationFrame(id);
+    return () => {
+      cancelAnimationFrame(setupId);
+      cleanup?.();
+    };
   }, [open, drawerMounted, drawerShown, panelHeight]);
 
   useEffect(() => {
     if (!open) return;
-    const scrollY = window.scrollY;
+    scrollRestoreRef.current = window.scrollY;
     const { style } = document.body;
     const previous = {
       position: style.position,
@@ -256,7 +348,7 @@ export function ListFilterAccess({
       width: style.width,
     };
     style.position = "fixed";
-    style.top = `-${scrollY}px`;
+    style.top = `-${scrollRestoreRef.current}px`;
     style.left = "0";
     style.right = "0";
     style.width = "100%";
@@ -266,7 +358,7 @@ export function ListFilterAccess({
       style.left = previous.left;
       style.right = previous.right;
       style.width = previous.width;
-      window.scrollTo(0, scrollY);
+      window.scrollTo(0, scrollRestoreRef.current);
     };
   }, [open]);
 
@@ -355,15 +447,13 @@ export function ListFilterAccess({
   const tongueRow = (
     <div
       className={cn(
-        "mx-auto flex w-full justify-between",
+        "mx-auto flex w-full justify-start",
         tongueCoversDrawerSeam && "-mt-px",
         SITE_MAX_WIDTH_CLASS,
         SITE_GUTTER_CLASS,
       )}
     >
       {tongue}
-
-      <BackToTop />
     </div>
   );
 

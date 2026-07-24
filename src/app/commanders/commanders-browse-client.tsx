@@ -87,11 +87,13 @@ export function CommandersBrowseClient({
         ))}
       </BrowseCardResults>
 
-      <LoadMoreButton
-        onClick={loadMore}
-        loading={loadingMore}
-        disabled={!nextCursor || loading}
-      />
+      <div className="mt-8 flex justify-center">
+        <LoadMoreButton
+          onClick={loadMore}
+          loading={loadingMore}
+          disabled={!nextCursor || loading}
+        />
+      </div>
     </PageShell>
   );
 }

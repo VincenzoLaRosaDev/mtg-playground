@@ -40,6 +40,11 @@ const sheetDesktopSizeClassName = {
   sm: "lg:max-w-md",
   md: "lg:max-w-2xl",
   lg: "lg:max-w-4xl",
+  /** Card-grid sheets (versions browser, add-to-collection, workspace search) —
+   *  grows past `lg` so `CARD_FACE_GRID_CLASS`'s wider column tiers have room
+   *  instead of cramming into a fixed 896px box. `3xl:` needs `!important` —
+   *  see the cascade-order note in globals.css. */
+  xl: "lg:max-w-[1536px]!",
 } as const
 
 type SheetDesktopSize = keyof typeof sheetDesktopSizeClassName
@@ -74,7 +79,7 @@ function SheetContent({
         data-slot="sheet-content"
         data-side={side}
         className={cn(
-          "fixed z-50 flex flex-col gap-4 bg-popover bg-clip-padding text-sm text-popover-foreground shadow-lg transition duration-200 ease-in-out data-ending-style:opacity-0 data-starting-style:opacity-0",
+          "min-h-[40vh] lg:min-h-auto fixed z-50 flex flex-col gap-4 bg-popover bg-clip-padding text-sm text-popover-foreground shadow-lg transition duration-200 ease-in-out data-ending-style:opacity-0 data-starting-style:opacity-0",
           sheetBottomResponsiveClassName,
           side === "bottom" && sheetDesktopSizeClassName[size],
           "data-[side=left]:inset-y-0 data-[side=left]:left-0 data-[side=left]:h-full data-[side=left]:w-3/4 data-[side=left]:border-r data-[side=left]:data-ending-style:translate-x-[-2.5rem] data-[side=left]:data-starting-style:translate-x-[-2.5rem] data-[side=right]:inset-y-0 data-[side=right]:right-0 data-[side=right]:h-full data-[side=right]:w-3/4 data-[side=right]:border-l data-[side=right]:data-ending-style:translate-x-[2.5rem] data-[side=right]:data-starting-style:translate-x-[2.5rem] data-[side=top]:inset-x-0 data-[side=top]:top-0 data-[side=top]:h-auto data-[side=top]:border-b data-[side=top]:data-ending-style:translate-y-[-2.5rem] data-[side=top]:data-starting-style:translate-y-[-2.5rem] data-[side=left]:sm:max-w-sm data-[side=right]:sm:max-w-sm",
