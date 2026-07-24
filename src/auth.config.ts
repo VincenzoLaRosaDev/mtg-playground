@@ -4,6 +4,8 @@ import Google from "next-auth/providers/google";
 import Resend from "next-auth/providers/resend";
 import type { Provider } from "next-auth/providers";
 
+import { isEmailAllowed } from "@/lib/auth/allowlist";
+
 function buildProviders(): Provider[] {
   const providers: Provider[] = [];
 
@@ -48,6 +50,18 @@ export const authConfig = {
   session: { strategy: "jwt" },
   trustHost: true,
   callbacks: {
+    /**
+     * Closed-beta gate. Runs before the Prisma adapter persists the user, so a
+     * rejected address leaves no row behind. Google's "Testing" mode is NOT a
+     * gate for `openid`/`email`/`profile` apps — see `lib/auth/allowlist`.
+     */
+    signIn({ user }) {
+      if (isEmailAllowed(user.email)) {
+        return true;
+      }
+
+      return "/signin?error=AccessDenied";
+    },
     jwt({ token, user }) {
       if (user?.id) {
         token.sub = user.id;

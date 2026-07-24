@@ -14,12 +14,12 @@ export const metadata: Metadata = createPageMetadata({
 });
 
 type SignInPageProps = {
-  searchParams: Promise<{ callbackUrl?: string }>;
+  searchParams: Promise<{ callbackUrl?: string; error?: string }>;
 };
 
 export default async function SignInPage({ searchParams }: SignInPageProps) {
   const session = await auth();
-  const { callbackUrl } = await searchParams;
+  const { callbackUrl, error } = await searchParams;
   const safeCallback =
     callbackUrl && callbackUrl.startsWith("/") && !callbackUrl.startsWith("//")
       ? callbackUrl
@@ -29,9 +29,20 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
     redirect(safeCallback);
   }
 
+  // Auth.js redirects here with `?error=AccessDenied` when `signIn` refuses.
+  const denied = error === "AccessDenied";
+
   return (
-    <PageShell title="Sign in" description="Opening the sign-in dialog…">
-      <SignInRouteBridge callbackUrl={safeCallback} />
+    <PageShell
+      title={denied ? "Account not enabled" : "Sign in"}
+      description={
+        denied
+          ? "This account can't access MTGPlayground yet."
+          : "Opening the sign-in dialog…"
+      }
+      breadcrumbs={[{ label: "Home", href: "/" }]}
+    >
+      <SignInRouteBridge callbackUrl={safeCallback} denied={denied} />
     </PageShell>
   );
 }
