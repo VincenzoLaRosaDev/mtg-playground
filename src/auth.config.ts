@@ -38,8 +38,7 @@ function buildProviders(): Provider[] {
 }
 
 /**
- * Edge-safe Auth.js config (no Prisma). Used by middleware.
- * Full Node config with adapter lives in `src/auth.ts`.
+ * Edge-safe Auth.js config (no Prisma). Full Node config with adapter lives in `src/auth.ts`.
  */
 export const authConfig = {
   providers: buildProviders(),
@@ -60,13 +59,6 @@ export const authConfig = {
         session.user.id = token.sub;
       }
       return session;
-    },
-    authorized({ auth, request }) {
-      const path = request.nextUrl.pathname;
-      if (path === "/collection" || path.startsWith("/collection/")) {
-        return !!auth?.user;
-      }
-      return true;
     },
   },
 } satisfies NextAuthConfig;

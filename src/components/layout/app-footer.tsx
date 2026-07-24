@@ -2,7 +2,7 @@ import { siteContainerClassName } from "@/lib/ui/layout";
 
 export function AppFooter() {
   return (
-    <footer className="mt-auto border-t border-border bg-muted/30">
+    <footer className="mt-auto border-t border-border bg-card">
       <div className={`${siteContainerClassName} py-6 text-xs text-muted-foreground`}>
         <p>
           Card data from{" "}

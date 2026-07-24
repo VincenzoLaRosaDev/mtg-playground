@@ -976,3 +976,76 @@ Defer GIN on `color_identity` / trigram on `type_line` until measured need. Next
 **Decision:** (A) Paginate `/collection` (48 + load-more); scope collection facets to user oracles; cap browse FTS ids at 2000 ranked; collapse detail-pack to 1+1 queries; GIN on classification roles/themes; cache present facets. (B) Denorm `cards.list_price_eur` + `min_rarity`/`min_rarity_rank`; GIN `color_identity`; printings `(oracle_id, released_at)`; lighter card `generateMetadata`. (C) Bulk sync upserts + friction SQL + script pool max 5 + drop redundant tagging index — see prior Wave C entry. Browse/collection tiles keep `faces` for multiface flip (omit-faces select reverted).
 **Consequences:** Browse without `q` still counts full catalog; FTS cap only truncates very broad text matches. Sync must refresh min rarity after printings.
 **Supersedes:** “GIN on color_identity deferred” note in older architecture; in-memory price-sort 5k path; per-request rarity full printings aggregate.
+
+## 2026-07-23 — Sign-in bottom sheet as primary UX
+**Context:** Dedicated `/signin` page has little content; mobile hamburger Sign in did not close the nav; LAN testing redirected OAuth to localhost when `AUTH_URL` pointed at localhost.
+**Decision:** Primary sign-in is an in-page bottom sheet (`SignInSheetProvider` / `useSignInSheet`) opened from header, mobile nav, and collection CTAs. Keep `/signin` as Auth.js `pages.signIn` for middleware redirects on `/collection`. Document LAN: leave `AUTH_URL` unset + register LAN callback URIs on OAuth providers.
+**Consequences:** Mobile nav closes via `onBeforeSignIn` before opening the sheet (no nested sheets). OAuth still requires correct host/provider config — the sheet does not replace that.
+**Supersedes:** nothing (refines Phase 2.1 Auth UX; does not change providers).
+
+## 2026-07-23 — Scroll: top on route change, keep on query updates
+**Context:** Soft navigations sometimes landed mid-page; filter / As card|commander / version query updates jumped to top via Next’s default `scroll: true`.
+**Decision:** (1) Pathname change → scroll to top (`ScrollToTopOnPathnameChange`), except browser back/forward (`popstate`). (2) Same-pathname query updates → `router.push/replace(..., { scroll: false })` (collection/set filters, detail view toggle, version picker/browser).
+**Consequences:** List/detail chrome stays put while filtering; entering a new route starts at the top. Browse hub filters stay client-only (no URL scroll issue).
+**Supersedes:** nothing.
+
+## 2026-07-23 — Responsive sheets: bottom mobile, centered desktop
+**Context:** All page overlays used bottom sheets even on wide viewports; a separate Dialog package would duplicate chrome/overlay.
+**Decision:** Extend `SheetContent` so `side="bottom"` stays full-bleed under `lg` and becomes a centered dialog from `lg+` (same blur overlay). Optional `size` (`sm` / `md` / `lg`) sets desktop `max-w-*` only. Call sites keep `side="bottom"`; sign-in/import `sm`, peek `md`, content sheets default `lg`.
+**Consequences:** One primitive for mobile + desktop overlays; left/right/top sides unchanged. No shadcn Dialog package.
+**Supersedes:** nothing (refines sheet chrome; does not change which surfaces open).
+
+## 2026-07-23 — No `/signin` page navigation; sheet-only gate
+**Context:** Header **Collection** hit Auth.js middleware and redirected to the full `/signin` page, while other CTAs already opened `SignInSheet`.
+**Decision:** Remove collection middleware protection. Unsigned **Collection** nav uses `RequireAuthLink` (opens sheet with `callbackUrl=/collection`). Unsigned `/collection` renders `CollectionSignInGate`. `/signin` remains Auth.js `pages.signIn` but only bridges to the sheet then `router.replace(callbackUrl)`.
+**Consequences:** Users never stay on a dedicated sign-in page for normal flows; OAuth error redirects still land on `/signin` briefly then open the sheet.
+**Supersedes:** “Keep `/signin` for middleware redirects on `/collection`” in the 2026-07-23 Sign-in bottom sheet entry.
+
+## 2026-07-23 — List scroll chrome: Back to top + sticky filter tab
+**Context:** Long filtered lists (`/browse`, `/sets`, set detail, `/collection`) bury the always-visible filter panel; users need recovery without collapsing filters by default.
+**Decision:** Keep the full inline filter panel. Add `ListFilterAccess`: when the toolbar sentinel scrolls under the header, show a Filters tongue attached to the header bottom within the site max-width container; click opens a full-width drawer (teleported toolbar, max-height, internal scroll). Add `BackToTop` FAB always centered at `bottom-4` (aligned with the catalog debug panel). Scope: the four list routes only.
+**Consequences:** Extends (does not reverse) always-visible filters — sticky tab is scroll recovery, not a default collapse. Filter URL updates keep `scroll: false`. Chrome stays inside `max-w-7xl` gutters (not viewport-edge).
+**Supersedes:** nothing (partially extends 2026-07-16 always-visible filters with recovery chrome).
+
+## 2026-07-23 — List filter chrome in sticky header slot
+**Context:** Viewport-`fixed` tongue/drawer stayed put during rubber-band overscroll while the sticky header moved, leaving a gap; open/appear felt snappy with no motion.
+**Decision:** Portal drawer + tongue into `#site-header-chrome` under the measured nav inside `AppHeader`’s sticky wrapper. Animate tongue enter (opacity/translate) and drawer open/close (`grid-template-rows` 0fr→1fr, ~200ms; respect `prefers-reduced-motion`). `--site-header-height` still measures nav only.
+**Consequences:** Chrome follows header bounce; tongue rides the drawer as it expands. Slot stays empty on pages without `ListFilterAccess`.
+**Supersedes:** fixed-under-header positioning in the prior List scroll chrome entry.
+
+## 2026-07-23 — Filter tongue: fully past nav, not below-fold
+**Context:** On mobile the filter panel is taller than the viewport; a bottom sentinel / “not intersecting” check treated the still-visible panel as away, flashing the tongue at page top. Full-width `pointer-events` on the chrome also blocked taps on iOS.
+**Decision:** Show chrome only after `toolbar.getBoundingClientRect().bottom <= --site-header-height` (entire panel scrolled above the nav). Gate on first measurement. Chrome root is `pointer-events-none`; tongue + open drawer opt into hits.
+**Consequences:** No top-of-page tongue flash; tongue opens reliably on phone. Recovery appears later (after scrolling past the whole panel).
+**Supersedes:** bottom-sentinel IntersectionObserver detail in prior list-filter chrome entries.
+
+## 2026-07-23 — Flat site header (no blur)
+**Context:** Filter tongue/drawer continuity looked weak against a frosted translucent header; blur also fought the attached-tab illusion on mobile.
+**Decision:** `AppHeader` uses solid `bg-background` + `border-border` (no `backdrop-blur` / opacity). List filter drawer skips nested `Card` via `ListFilterDrawerContext`; tongue stays right-aligned in a full-width absolute shell with bottom-only radius and no top border.
+**Consequences:** Header no longer shows content through glass. Sticky offsets unchanged.
+**Supersedes:** nothing (visual chrome only).
+
+## 2026-07-23 — Filter tongue: center + header border visible when closed
+**Context:** Closed tongue used a seam cover / tuck that hid the header `border-b`; tab also sat on the right.
+**Decision:** Center the Filters tongue. When closed, no `-mt-px` / seam cover — header border stays visible. When open, tongue tucks only into the drawer bottom border (`-mt-px` + 1px background seam).
+**Consequences:** Clearer separation from the nav when idle; attached-tab look only against the open panel.
+**Supersedes:** right-aligned + always-on seam cover in the flat-header / list-filter chrome entries.
+
+## 2026-07-23 — List filter drawer: modal dismiss (same mobile/desktop)
+**Context:** Open filter drawer locked page scroll but had no scrim. Desktop outside `pointerdown` closed the drawer and still activated underlying cards (unwanted detail navigation); mobile felt like a harder block with no reliable outside dismiss — inconsistent.
+**Decision:** Treat open recovery drawer like Sheets: body scroll lock + full-viewport scrim under the sticky header that captures outside taps (close only, no click-through). Same on mobile and desktop. Close via scrim, Filters tongue, or Escape. Do not allow free background scroll/interaction while open.
+**Consequences:** Aligns with existing overlay UX; nav/header stay usable above the scrim (`z-40` vs scrim `z-35`).
+**Supersedes:** outside-click-without-overlay behavior implied by prior list-filter chrome entries.
+
+## 2026-07-23 — List filter open/close: one height clip
+**Context:** Drawer used `grid-template-rows` `ease-out` while the tongue was a layout sibling pushed by that growth — same duration, but different motion math, so the seam looked detached mid-animation.
+**Decision:** Animate a single clip `height` (tongue-only ↔ measured panel) with drawer + tongue as one bottom-anchored block and shared `cubic-bezier(0.4, 0, 0.2, 1)`.
+**Consequences:** Tongue cannot lag the drawer edge; measure via ResizeObserver when filters mount/change.
+**Supersedes:** `grid-template-rows` open/close in the sticky-slot list-filter entry.
+
+## 2026-07-23 — List filter open/close: translate3d (not height)
+**Context:** Animating clip `height` looked fine on desktop but often produced **no** open/close motion on iOS Safari (height transitions are unreliable there). Desktop open then snapped because `drawerShown` flipped before panel measure (`translate` offset stayed 0).
+**Decision:** Keep drawer + tongue as one block; clip height jumps to the measured size while mounted; animate `translate3d` (closed offset = panel − tongue). Start the open slide only after `panelHeight > tongue` (setup frame with `slideMotionOn`). Same easing. Respect `prefers-reduced-motion`.
+**Consequences:** Mobile and desktop both get compositor-friendly motion; still one attached unit.
+**Supersedes:** height-clip animation in the prior “one height clip” entry.
+

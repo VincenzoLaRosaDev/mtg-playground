@@ -5,11 +5,16 @@ import { auth } from "@/auth";
 import { CollectionAddPanel } from "@/components/collection/collection-add-panel";
 import { CollectionGrid } from "@/components/collection/collection-grid";
 import { CollectionImportPanel } from "@/components/collection/collection-import-panel";
+import { CollectionSignInGate } from "@/components/collection/collection-sign-in-gate";
 import { CollectionToolbar } from "@/components/collection/collection-toolbar";
+import { ListFilterAccess } from "@/components/layout/list-filter-access";
 import { PageShell } from "@/components/layout/page-shell";
 import { prisma } from "@/lib/db";
 import { listCollectionItems } from "@/lib/collection/collection";
-import { parseCollectionListQuery } from "@/lib/collection/collection-filters";
+import {
+  hasActiveCollectionFacets,
+  parseCollectionListQuery,
+} from "@/lib/collection/collection-filters";
 import { createPageMetadata } from "@/lib/seo/site";
 
 export const dynamic = "force-dynamic";
@@ -34,7 +39,7 @@ export default async function CollectionPage({ searchParams }: CollectionPagePro
   const session = await auth();
   const userId = session?.user?.id;
   if (!userId) {
-    return null;
+    return <CollectionSignInGate />;
   }
 
   const params = await searchParams;
@@ -65,14 +70,16 @@ export default async function CollectionPage({ searchParams }: CollectionPagePro
       ]}
       toolbar={
         <Suspense fallback={<div className="h-24" aria-hidden />}>
-          <CollectionToolbar
-            actions={
-              <>
-                <CollectionAddPanel />
-                <CollectionImportPanel />
-              </>
-            }
-          />
+          <ListFilterAccess hasActiveFilters={hasActiveCollectionFacets(query)}>
+            <CollectionToolbar
+              actions={
+                <>
+                  <CollectionAddPanel />
+                  <CollectionImportPanel />
+                </>
+              }
+            />
+          </ListFilterAccess>
         </Suspense>
       }
     >

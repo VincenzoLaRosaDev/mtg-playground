@@ -29,20 +29,26 @@ Living reference for layout and components. Historical Phase 1.6–1.8 discovery
 | Component | Path | Role |
 |---|---|---|
 | `AppHeader` | `src/components/layout/app-header.tsx` | Logo, search, desktop nav / mobile menu |
-| `MobileNavSheet` | `src/components/layout/mobile-nav-sheet.tsx` | Hamburger → shadcn `Sheet` with `mainNav` (`lg:hidden`) |
+| `MobileNavSheet` | `src/components/layout/mobile-nav-sheet.tsx` | Hamburger → `Sheet` (`side="bottom"`) with `mainNav` + auth (`lg:hidden`) |
+| `SignInSheetProvider` | `src/components/auth/sign-in-sheet.tsx` | Primary sign-in UX — sheet (`size="sm"`); `/signin` bridges to the sheet (Auth.js `pages.signIn` only) |
 | `AppFooter` | `src/components/layout/app-footer.tsx` | Attribution |
 | `PageShell` | `src/components/layout/page-shell.tsx` | Container, breadcrumbs, H1 |
+| `ListFilterAccess` | `src/components/layout/list-filter-access.tsx` | Dual list filters: inline panel + portals tongue/drawer into sticky `#site-header-chrome`; mounts `BackToTop` |
+| `BackToTop` | `src/components/layout/back-to-top.tsx` | Fixed FAB — always centered, `bottom-4` (same as catalog debug); appears after ~400px scroll |
 | `mainNav` | `src/lib/navigation.ts` | Header links |
 
 ### Width & spacing
 
 - Content max width: **`max-w-7xl`** (`siteContainerClassName` in `src/lib/ui/layout.ts`) — header, footer, `PageShell`
 - Page padding: `px-6`, vertical `py-10` / `lg:py-12`
+- **Sheets (`SheetContent`, `side="bottom"`):** below `lg` = full-bleed bottom sheet; `lg+` = centered dialog (`rounded-xl` + border, shared blur overlay). Optional `size`: `sm` (`max-w-md`) · `md` (`max-w-2xl`) · `lg` (`max-w-4xl`, default). Sign-in / import → `sm`; card peek → `md`; add / versions / workspace search → default `lg`
 - Sheet list hairlines: **`SHEET_LIST_RULE_CLASS`** on the `siteContainer` header (or **`SITE_GUTTER_BLEED_X_CLASS`** when the rule sits inside a padded container) so search / versions / import dividers share the same width
 - **Collection list:** scope tabs All / Owned / Wish + **Sort by** (Last modified · Last added · Name · Set & collector # · CMC · Color & CMC · Price) with order toggle (`?sort=` / `?order=`) + catalog-like facets (`q`, `color`, `type`, `cmc_*`, `rarity`, `format`, `finish`, `set`) in `BrowseFilterPanel`; grid is **paginated** (48 + Load more via `/api/collection`)
 - Filter chrome: shadcn `Input`, `Select`, `Label` (dense `text-xs` labels) via `BrowseSearchField` / `BrowseSelectField` — not native `<input>` / `<select>`
 - Filter toggles: shadcn `Toggle` / `ToggleGroup` (mana, rarity, option pills); sort order uses `Button` icon
 - Sticky below header: `--site-header-height` (set by `AppHeader` ResizeObserver) + `SITE_STICKY_BELOW_HEADER_CLASS`
+- **AppHeader:** solid `bg-background` + `border-b` (no backdrop blur / translucency)
+- **List scroll chrome** (`/browse`, `/sets`, `/sets/[code]`, `/collection`): full filter panel stays inline at the top. Tongue/drawer appear only after the **entire** inline toolbar has scrolled above the sticky nav. They portal into `#site-header-chrome` as **absolute** children of an `h-0 w-full` slot (sticky height stays nav-only). Drawer mounts only while open; chrome is **full-bleed** (`border-b` edge-to-edge); inner filters use `siteContainerClassName` + `py-3` so content matches the in-page max-width. `BrowseFilterPanel` skips Card chrome via `ListFilterDrawerContext`. Tongue is **centered** in site gutters, bottom-only radius; when closed it sits below the header border (does not cover it) with a solid fill; when open, `-mt-px` + 1px background seam cover tuck into the drawer `border-b`; idle fill is solid `background`, hover is `bg-gradient-to-t from-muted to-background` (hover color at bottom → bg at top). Open/close: one `translate3d` block (drawer + tongue); clip height is instant (iOS skips `height` transitions); `cubic-bezier(0.4, 0, 0.2, 1)`. While open (mobile + desktop): body scroll locked; sheet-like scrim (`z-35`, under sticky header `z-40`) captures outside taps — dismiss only, no click-through to cards; Escape / tongue / scrim close. **Back to top** FAB (`z-30`): always centered, `bottom-4`; hidden near page top. Not used on `/search` or card detail.
 - Notices: shadcn `Alert` (`StaleCacheBanner`, `EdhrecSyncNotice`, `FilterUnavailableNotice`)
 - Card grids: browse `CARD_FACE_GRID_CLASS` (`2 / md:3 / xl:5`); detail sections `CARD_FACE_DETAIL_GRID_CLASS` (`2 / md:3 / xl:4`)
 - **Desktop-dense:** tighter gaps on meta lines; card grids stay roomier than EDHREC max density
@@ -182,9 +188,9 @@ Printed-card facts (CMC, colors, oracle, keywords) are **not** duplicated in the
 
 **Version URL:** `/cards/{slug}?set={code}&cn={collector}&finish={foil|etched}&view=commander`. Bare `/cards/{slug}` still resolves the catalog-default printing and pre-selects it in the VersionPicker (no separate “Catalog default” option). Set pages link with `set`+`cn`. Nonfoil omits `finish`. Foil/etched add a CSS sheen on the hero image (same Scryfall art URI). **Collection grid** passes `finish` into `CardFaceTile` (wash always; glare on hover only — no idle loop across many tiles). Foil glare **crossfades** idle sweep ↔ pointer follow (~400ms opacity) so tilt enter/leave is not a hard cut. Browse / catalog search stay non-foil.
 
-**Show all versions:** Bottom Sheet (~85dvh) with browse-like `CardFaceTile` grid (art + `SET #cn · set name` + EUR prices). One tile per printing (`set`+`cn`); Finish stays on the VersionPicker. Click navigates with the same `buildCardVersionHref` contract (preserves finish when available + `view`). Trigger only when `printings.length > 1`.
+**Show all versions:** Sheet (~85dvh; centered dialog on `lg+`) with browse-like `CardFaceTile` grid (art + `SET #cn · set name` + EUR prices). One tile per printing (`set`+`cn`); Finish stays on the VersionPicker. Click navigates with the same `buildCardVersionHref` contract (preserves finish when available + `view`). Trigger only when `printings.length > 1`.
 
-**Workspace overlays (Phase 2.2 building blocks):** Bottom sheets cap at **`max-h-[85dvh]`** (page stays visible above for dismiss) — `VersionsBrowser`, `WorkspaceSearchOverlay`, collection add/import, `CardPeekSheet`. `WorkspaceSearchPanel` (FTS + card-face grid) powers search; collection add is a **single sheet** with search → printing steps (tile click to pick a card; **Back to search** link under the title + outside dismiss returns to search). Printing tiles use shadcn focus-ring selection (`border-ring` + `ring-3 ring-ring/50`) with inset padding. Finish is **not** a pre-select control (no foil preview in the grid): Add / wantlist commit immediately when the printing has one finish; if multiple finishes, a small **dropdown** asks Nonfoil / Foil / Etched at click time. Owned adds use a **Qty** input (default 1) beside the actions. Labels are generic (**Add owned** / **Add to wish**). Collection tiles are **one chip per row** (**Owned** amber or **Wish** teal) — owned and wish are separate DB rows. Owned tile: **Add to wish** / **On wish** (sibling). Wish tile: **Get** (move qty to owned). Filter tab label **Wish** (URL/filter id remains `wantlist`). Submit placement: **header** on `md` + fine pointer; **sticky footer** on mobile / coarse pointer. See `docs/DECISIONS.md` 2026-07-22.
+**Workspace overlays (Phase 2.2 building blocks):** Sheets cap at **`max-h-[85dvh]`** (bottom sheet `< lg`, centered dialog `lg+`) — `VersionsBrowser`, `WorkspaceSearchOverlay`, collection add/import, `CardPeekSheet`. `WorkspaceSearchPanel` (FTS + card-face grid) powers search; collection add is a **single sheet** with search → printing steps (tile click to pick a card; **Back to search** link under the title + outside dismiss returns to search). Printing tiles use shadcn focus-ring selection (`border-ring` + `ring-3 ring-ring/50`) with inset padding. Finish is **not** a pre-select control (no foil preview in the grid): Add / wantlist commit immediately when the printing has one finish; if multiple finishes, a small **dropdown** asks Nonfoil / Foil / Etched at click time. Owned adds use a **Qty** input (default 1) beside the actions. Labels are generic (**Add owned** / **Add to wish**). Collection tiles are **one chip per row** (**Owned** amber or **Wish** teal) — owned and wish are separate DB rows. Owned tile: **Add to wish** / **On wish** (sibling). Wish tile: **Get** (move qty to owned). Filter tab label **Wish** (URL/filter id remains `wantlist`). Submit placement: **header** on `md` + fine pointer; **sticky footer** on mobile / coarse pointer. See `docs/DECISIONS.md` 2026-07-22.
 
 **Card tilt:** Detail + grid previews use CSS 3D pointer tilt (`CardTilt` via `CardMultifaceImage`). Thumbnails stay flat. Respects `prefers-reduced-motion`; no continuous tilt on touch.
 
@@ -240,7 +246,7 @@ Folder: `src/components/discovery/`
 | `DetailSectionJump` | mobile-first | Sticky section jump dropdown (`lg:hidden`, below header) |
 | `DetailSectionPanel` | 1.7.1 | Shared panel wrapper for detail sections |
 | `DetailHeroAside` | 1.7.x | Image + `previewFooter` (not sticky); hosts sticky TOC at `lg+` |
-| `MobileNavSheet` | mobile-first | Header hamburger menu |
+| `MobileNavSheet` | mobile-first | Header hamburger → sheet (bottom `< lg`; trigger `lg:hidden`) |
 | `ManaSymbol` / `ColorIdentity` | 1.6.20 | MTG mana icons (browse filters + list rows) |
 | `RarityIcon` | 1.6.20 | Rarity gems (filter + set grid) |
 | `BrowseSortOrderToggle` | 1.6.20 | Asc/desc icon in `BrowseFilterPanelRow` |

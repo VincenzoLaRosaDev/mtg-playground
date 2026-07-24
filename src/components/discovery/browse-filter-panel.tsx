@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 
 import { BrowseSortOrderToggle } from "@/components/discovery/browse-sort-order-toggle";
 import { browseToolbarPanelClassName } from "@/components/discovery/browse-toolbar-shared";
+import { useListFilterDrawer } from "@/components/layout/list-filter-drawer-context";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import type { BrowseOrder } from "@/lib/browse/types";
@@ -13,6 +14,18 @@ type BrowseFilterPanelProps = {
 };
 
 export function BrowseFilterPanel({ children, className }: BrowseFilterPanelProps) {
+  const inDrawer = useListFilterDrawer();
+
+  // Drawer supplies square chrome — skip Card rounded-xl / ring.
+  // Keep CardContent horizontal padding (px-3) so fields align with the in-page panel.
+  if (inDrawer) {
+    return (
+      <div className={cn(browseToolbarPanelClassName, "px-3", className)}>
+        {children}
+      </div>
+    );
+  }
+
   return (
     <Card size="sm" className={cn("shadow-sm", className)}>
       <CardContent className={cn(browseToolbarPanelClassName, "px-3 pt-1")}>{children}</CardContent>

@@ -93,7 +93,7 @@ export function VersionsBrowser({
       finish,
       view: view === "commander" ? "commander" : null,
     });
-    router.push(href);
+    router.push(href, { scroll: false });
     if (typeof window !== "undefined" && window.location.hash) {
       window.history.replaceState(null, "", href);
     }

@@ -190,7 +190,7 @@ export function CollectionToolbar({ actions }: CollectionToolbarProps) {
     const params = buildCollectionSearchParams(toListQuery(next));
     const query = params.toString();
     startTransition(() => {
-      router.replace(query ? `${pathname}?${query}` : pathname);
+      router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
     });
   }
 

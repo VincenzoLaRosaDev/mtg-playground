@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useState, useTransition } from "react";
 import { useSession } from "next-auth/react";
 
+import { useSignInSheet } from "@/components/auth/sign-in-sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { addOwnedCopies, addWishCopies } from "@/lib/collection/actions";
@@ -36,6 +37,7 @@ export function CardCollectionPanel({
   snapshot,
 }: CardCollectionPanelProps) {
   const { data: session, status } = useSession();
+  const { openSignIn } = useSignInSheet();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -47,7 +49,6 @@ export function CardCollectionPanel({
 
   const callbackQuery = searchParams.toString();
   const callbackUrl = callbackQuery ? `${pathname}?${callbackQuery}` : pathname;
-  const signInHref = `/signin?callbackUrl=${encodeURIComponent(callbackUrl)}`;
 
   if (status === "loading") {
     return (
@@ -65,10 +66,10 @@ export function CardCollectionPanel({
   if (!session?.user) {
     return (
       <Button
-        render={<Link href={signInHref} />}
-        nativeButton={false}
+        type="button"
         variant="outline"
         size="sm"
+        onClick={() => openSignIn({ callbackUrl })}
       >
         Sign in to collect
       </Button>
@@ -209,7 +210,7 @@ export function CardCollectionPanel({
                     <span>· {finishLabel(row.finish)}</span>
                     <span
                       className={cn(
-                        "rounded-md border px-1.5 py-0.5 text-[10px] font-semibold tracking-wide uppercase",
+                        "inline-flex h-5 items-center rounded-md border px-1.5 text-[10px] font-semibold leading-none tracking-wide uppercase",
                         row.wantlist
                           ? "border-info/55 bg-info/20 text-info-foreground"
                           : "border-primary/45 bg-primary/15 text-primary",

@@ -11,6 +11,7 @@ import {
   type SetBrowseToolbarState,
 } from "@/components/discovery/set-browse-toolbar";
 import { SetBrowseRow } from "@/components/discovery/set-browse-row";
+import { ListFilterAccess } from "@/components/layout/list-filter-access";
 import { PageListMeta } from "@/components/layout/page-list-meta";
 import { PageShell } from "@/components/layout/page-shell";
 import { useBrowseList, type BrowseListInitialData } from "@/hooks/use-browse-list";
@@ -64,16 +65,22 @@ export function SetsBrowseClient({
     });
   }
 
+  const hasActiveFilters = Boolean(
+    toolbar.query.trim() || toolbar.setType || toolbar.digital || toolbar.indexedOnly,
+  );
+
   return (
     <PageShell
       title="Sets"
       description="Browse Magic sets by release date, type, and indexed card coverage."
       toolbar={
-        <SetBrowseToolbar
-          state={toolbar}
-          onChange={handleToolbarChange}
-          typeOptions={typeOptions}
-        />
+        <ListFilterAccess hasActiveFilters={hasActiveFilters}>
+          <SetBrowseToolbar
+            state={toolbar}
+            onChange={handleToolbarChange}
+            typeOptions={typeOptions}
+          />
+        </ListFilterAccess>
       }
     >
       <PageListMeta>

@@ -10,6 +10,7 @@ import {
   PageListMetaSkeleton,
 } from "@/components/discovery/loading-skeletons";
 import { SetCardFilters } from "@/components/discovery/set-card-filters";
+import { ListFilterAccess } from "@/components/layout/list-filter-access";
 import { PageListMeta } from "@/components/layout/page-list-meta";
 import { PageShell } from "@/components/layout/page-shell";
 import { prisma } from "@/lib/db";
@@ -154,7 +155,9 @@ async function SetDetailContent({ params, searchParams }: SetDetailPageProps) {
       ]}
       toolbar={
         <Suspense fallback={<BrowseToolbarSkeleton variant="setDetail" />}>
-          <SetCardFilters setCode={mtgSet.code} />
+          <ListFilterAccess hasActiveFilters={hasActiveSetCardFilters(filters)}>
+            <SetCardFilters setCode={mtgSet.code} />
+          </ListFilterAccess>
         </Suspense>
       }
     >

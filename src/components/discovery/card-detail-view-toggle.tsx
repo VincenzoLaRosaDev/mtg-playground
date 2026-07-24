@@ -41,7 +41,7 @@ export function CardDetailViewToggle({
         if (next !== "card" && next !== "commander") return;
         if (next === activeView) return;
         const href = buildCardVersionHref(slug, { ...version, view: next });
-        router.push(href);
+        router.push(href, { scroll: false });
         // Drop leftover section hashes from the previous view (TOC anchors).
         if (typeof window !== "undefined" && window.location.hash) {
           window.history.replaceState(null, "", href);

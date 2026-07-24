@@ -111,6 +111,7 @@ export function VersionPicker({
         finish,
         view: view === "commander" ? "commander" : null,
       }),
+      { scroll: false },
     );
   }
 

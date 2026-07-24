@@ -10,6 +10,7 @@ import {
 import { CardGridTile } from "@/components/discovery/card-grid-tile";
 import { CardGridSkeleton } from "@/components/discovery/loading-skeletons";
 import { LoadMoreButton } from "@/components/discovery/load-more-button";
+import { ListFilterAccess } from "@/components/layout/list-filter-access";
 import { PageListMeta } from "@/components/layout/page-list-meta";
 import { PageShell } from "@/components/layout/page-shell";
 import { useBrowseList, type BrowseListInitialData } from "@/hooks/use-browse-list";
@@ -98,6 +99,20 @@ export function BrowseHubClient({
   }
 
   const showInclusion = shouldShowBrowseInclusionRank(toolbar);
+  const hasActiveFilters = Boolean(
+    toolbar.query.trim() ||
+      toolbar.colors.length ||
+      toolbar.rarities.length ||
+      toolbar.typeContains.trim() ||
+      toolbar.cmcMin ||
+      toolbar.cmcMax ||
+      toolbar.format ||
+      toolbar.commandersOnly ||
+      toolbar.role ||
+      toolbar.theme ||
+      toolbar.gameChanger ||
+      toolbar.reserved,
+  );
 
   const description = toolbar.commandersOnly
     ? "Legendary cards that can be your commander — catalog filter, not a popularity ranking."
@@ -108,12 +123,14 @@ export function BrowseHubClient({
       title="Browse"
       description={description}
       toolbar={
-        <BrowseHubToolbar
-          state={toolbar}
-          onChange={handleToolbarChange}
-          presentRoles={presentRoles}
-          presentThemes={presentThemes}
-        />
+        <ListFilterAccess hasActiveFilters={hasActiveFilters}>
+          <BrowseHubToolbar
+            state={toolbar}
+            onChange={handleToolbarChange}
+            presentRoles={presentRoles}
+            presentThemes={presentThemes}
+          />
+        </ListFilterAccess>
       }
     >
       <PageListMeta>

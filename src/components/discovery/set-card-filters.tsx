@@ -132,7 +132,9 @@ export function SetCardFilters({ setCode }: SetCardFiltersProps) {
     const params = buildSetCardSearchParams(toSetCardFilters(next));
     const query = params.toString();
     startTransition(() => {
-      router.replace(query ? `/sets/${setCode}?${query}` : `/sets/${setCode}`);
+      router.replace(query ? `/sets/${setCode}?${query}` : `/sets/${setCode}`, {
+        scroll: false,
+      });
     });
   }
 

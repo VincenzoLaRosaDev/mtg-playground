@@ -10,7 +10,7 @@ export function cardFacePlaceholderClassName(variant: "thumbnail" | "detail" | "
     variant === "thumbnail"
       ? "h-[62px] w-[44px]"
       : variant === "detail"
-        ? `aspect-[488/680] w-full ${CARD_DETAIL_IMAGE_MAX_CLASS}`
+        ? `aspect-[488/680] mx-auto w-full ${CARD_DETAIL_IMAGE_MAX_CLASS}`
         : "aspect-[488/680] w-full";
 
   return `flex shrink-0 items-center justify-center bg-muted text-muted-foreground ${CARD_FACE_RADIUS_CLASS} ${size}`;

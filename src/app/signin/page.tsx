@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
-import { SignInForm } from "@/components/auth/sign-in-form";
+import { SignInRouteBridge } from "@/components/auth/sign-in-route-bridge";
 import { PageShell } from "@/components/layout/page-shell";
 import { createPageMetadata } from "@/lib/seo/site";
 
@@ -29,21 +29,9 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
     redirect(safeCallback);
   }
 
-  const hasGoogle = Boolean(process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET);
-  const hasDiscord = Boolean(process.env.AUTH_DISCORD_ID && process.env.AUTH_DISCORD_SECRET);
-  const hasEmail = Boolean(process.env.AUTH_RESEND_KEY);
-
   return (
-    <PageShell
-      title="Sign in"
-      description="Use Google, Discord, or a magic link to access your collection."
-    >
-      <SignInForm
-        callbackUrl={safeCallback}
-        hasGoogle={hasGoogle}
-        hasDiscord={hasDiscord}
-        hasEmail={hasEmail}
-      />
+    <PageShell title="Sign in" description="Opening the sign-in dialog…">
+      <SignInRouteBridge callbackUrl={safeCallback} />
     </PageShell>
   );
 }

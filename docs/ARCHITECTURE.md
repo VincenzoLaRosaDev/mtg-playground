@@ -9,7 +9,7 @@
 | Framework | Next.js 16 (App Router) + TypeScript |
 | Database | PostgreSQL on Neon (free tier, Europe Central) |
 | ORM | Prisma 7 with `@prisma/adapter-pg` |
-| Auth | Auth.js v5 — Google + Discord + Resend magic link; Prisma Adapter; JWT sessions |
+| Auth | Auth.js v5 — Google + Discord + Resend magic link; Prisma Adapter; JWT sessions; primary UX = `SignInSheet`; `/signin` bridges to the sheet (Auth.js `pages.signIn`) |
 | Styling | Tailwind CSS 4 |
 | Charts | Recharts (Phase 3) |
 | Jobs | Node scripts + GitHub Actions cron |
@@ -207,7 +207,8 @@ Tests: `npm test` (Vitest). No DB required for current unit suite.
 - `sync_logs` — job audit trail (indexes on `(source, job_type, started_at)` and `(source, job_type, status, completed_at)`)
 
 **Auth + collection (Phase 2.1):**
-- `users`, `accounts`, `sessions`, `verification_tokens` — Auth.js (NextAuth v5) + Prisma Adapter; app sessions are **JWT** (edge-safe middleware) while users/accounts persist in Postgres
+- `users`, `accounts`, `sessions`, `verification_tokens` — Auth.js (NextAuth v5) + Prisma Adapter; app sessions are **JWT** (edge-safe `auth.config`) while users/accounts persist in Postgres
+- Sign-in UX: in-page sheet (`SignInSheetProvider` / `useSignInSheet`); nav **Collection** uses `RequireAuthLink` when signed out; `/collection` shows `CollectionSignInGate` (no middleware redirect). `/signin` is Auth.js `pages.signIn` only and bridges to the sheet
 - `collection_items` — `(user_id, printing_id, finish, wantlist)` unique; owned and wish are separate rows; `quantity` ≥ 1 per row; FK to `users` + `printings`
 - `/collection` query: paginated (`cursor` / page size 48); scope `filter` (`all` / owned / wish), sort `sort`/`order`, facets scoped to the user’s inventory oracles (not full-catalog scans)
 

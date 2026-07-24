@@ -69,6 +69,14 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) — try **Browse** at `/browse`, **Collection** at `/collection` (sign-in required).
 
+**Phone on LAN:** open `http://<your-lan-ip>:3000`. Next 16 blocks cross-origin dev assets by default — add the host to `allowedDevOrigins` in `next.config.ts` (the blocked IP is printed in the terminal) and restart `npm run dev`, or clicks/HMR will appear broken on the device.
+
+**Auth on phone:** Google (and most OAuth consoles) **reject private IPs** like `192.168.x.x` as redirect URIs — only `http://localhost:…` and public domains are allowed. Options:
+
+1. Test Google/Discord OAuth on the Mac at `http://localhost:3000` (already registered).
+2. For real-device OAuth, expose the app with a public tunnel and register that HTTPS origin, e.g. `cloudflared tunnel --url http://localhost:3000`, then set `AUTH_URL` to the tunnel URL and add `https://<tunnel>/api/auth/callback/google` in Google Cloud + the tunnel host to `allowedDevOrigins`.
+3. UI/layout checks on the phone via LAN IP still work without completing OAuth on-device.
+
 ## Scripts
 
 See `package.json` for sync and DB scripts. Browse API: `GET /api/browse`. Auth: `GET/POST /api/auth/*` (Auth.js).

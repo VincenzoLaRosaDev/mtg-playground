@@ -8,7 +8,10 @@ import {
 } from "@/lib/ui/card-face";
 import {
   CARD_DETAIL_IMAGE_MAX_CLASS,
+  DETAIL_HERO_GRID_CLASS,
   DETAIL_LISTS_GRID_CLASS,
+  DETAIL_MAIN_COLUMN_CLASS,
+  DETAIL_OVERVIEW_PANEL_CLASS,
 } from "@/lib/ui/layout";
 import { cn } from "@/lib/utils";
 
@@ -50,7 +53,8 @@ export function CardFaceSkeleton({
       ? cn(
           CARD_FACE_ASPECT_CLASS,
           CARD_FACE_RADIUS_CLASS,
-          "w-full bg-muted",
+          // Match DetailHeroAside / CardImage: cap width and center when the parent is wider.
+          "mx-auto w-full bg-muted",
           CARD_DETAIL_IMAGE_MAX_CLASS,
         )
       : cn(CARD_FACE_ASPECT_CLASS, CARD_FACE_RADIUS_CLASS, "w-full bg-muted");
@@ -59,9 +63,9 @@ export function CardFaceSkeleton({
     <div className={cn("animate-pulse", className)} aria-hidden>
       <div className={faceClass} />
       {showFooter ? (
-        <div className="mt-2 space-y-2">
-          <div className="mx-auto h-3 w-[70%] rounded bg-muted" />
-          {footerLines > 1 ? <div className="mx-auto h-3 w-[40%] rounded bg-muted" /> : null}
+        <div className="mt-2 w-full min-w-0 space-y-2">
+          <div className="h-3 w-[70%] rounded bg-muted" />
+          {footerLines > 1 ? <div className="h-3 w-[40%] rounded bg-muted" /> : null}
         </div>
       ) : null}
     </div>
@@ -300,28 +304,34 @@ export function PrintingListSkeleton({ count = 6 }: { count?: number }) {
 /** Detail PDP hero: image column + overview panel blocks. */
 export function CardDetailHeroSkeleton() {
   return (
-    <div
-      className="grid gap-8 lg:grid-cols-[300px_minmax(0,1fr)] lg:items-start lg:gap-10"
-      aria-hidden
-    >
-      <div className="mx-auto w-full animate-pulse space-y-3 lg:mx-0">
+    <div className={DETAIL_HERO_GRID_CLASS} aria-hidden>
+      {/* Mirror DetailHeroAside: max-w + mx-auto on mobile, fixed 300px from lg. */}
+      <div
+        className={cn(
+          "relative mx-auto w-full shrink-0 animate-pulse space-y-3",
+          CARD_DETAIL_IMAGE_MAX_CLASS,
+          "lg:mx-0 lg:w-[300px] lg:max-w-none",
+        )}
+      >
         <CardFaceSkeleton variant="detail" showFooter={false} />
         <div className="h-4 w-40 rounded bg-muted" />
       </div>
-      <div className="animate-pulse space-y-5">
-        <div className="space-y-2">
-          <div className="h-3 w-16 rounded bg-muted" />
-          <div className="h-4 w-40 rounded bg-muted" />
-        </div>
-        <div className="space-y-2">
-          <div className="h-3 w-20 rounded bg-muted" />
-          <div className="h-8 w-full rounded-lg bg-muted" />
-          <div className="h-8 w-1/2 rounded-lg bg-muted" />
-          <div className="h-7 w-36 rounded-lg bg-muted" />
-        </div>
-        <div className="space-y-2">
-          <div className="h-3 w-16 rounded bg-muted" />
-          <div className="h-4 w-28 rounded bg-muted" />
+      <div className={cn(DETAIL_MAIN_COLUMN_CLASS, "animate-pulse")}>
+        <div className={DETAIL_OVERVIEW_PANEL_CLASS}>
+          <div className="space-y-2">
+            <div className="h-3 w-16 rounded bg-muted" />
+            <div className="h-4 w-40 rounded bg-muted" />
+          </div>
+          <div className="space-y-2">
+            <div className="h-3 w-20 rounded bg-muted" />
+            <div className="h-8 w-full rounded-lg bg-muted" />
+            <div className="h-8 w-1/2 rounded-lg bg-muted" />
+            <div className="h-7 w-36 rounded-lg bg-muted" />
+          </div>
+          <div className="space-y-2">
+            <div className="h-3 w-16 rounded bg-muted" />
+            <div className="h-4 w-28 rounded bg-muted" />
+          </div>
         </div>
       </div>
     </div>

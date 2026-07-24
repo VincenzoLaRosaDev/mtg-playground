@@ -93,6 +93,7 @@ export function CardPeekSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
+        size="md"
         className={cn("max-h-[85dvh] gap-0 overflow-hidden p-0", className)}
       >
         {card ? (

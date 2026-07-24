@@ -17,6 +17,15 @@ export const SHEET_LIST_RULE_CLASS = "border-b border-border";
 /** CSS custom property set by AppHeader via ResizeObserver (includes mobile stacked search). */
 export const SITE_HEADER_HEIGHT_VAR = "--site-header-height";
 
+/**
+ * Portal target under the measured nav, inside the sticky header wrapper.
+ * List filter tongue/drawer mounts here so overscroll bounce keeps them attached.
+ */
+export const SITE_HEADER_CHROME_SLOT_ID = "site-header-chrome";
+
+/** Measured nav element inside the sticky header wrapper (`AppHeader`). */
+export const SITE_HEADER_NAV_ID = "site-header-nav";
+
 /** Sticky offset just below the site header (`--site-header-height` set in globals + AppHeader). */
 export const SITE_STICKY_BELOW_HEADER_CLASS = "top-[var(--site-header-height)]";
 

@@ -116,11 +116,11 @@ function CollectionItemCard({ item }: { item: CollectionListItem }) {
         <div className="space-y-2 text-sm">
           <div className="flex flex-wrap gap-1">
             {isWish ? (
-              <span className="inline-flex h-5 items-center rounded-md border border-info/55 bg-info/20 px-1.5 text-[10px] font-semibold tracking-wide text-info-foreground uppercase">
+              <span className="inline-flex h-5 items-center rounded-md border border-info/55 bg-info/20 px-1.5 text-[10px] font-semibold leading-none tracking-wide text-info-foreground uppercase">
                 Wish
               </span>
             ) : (
-              <span className="inline-flex h-5 items-center rounded-md border border-primary/45 bg-primary/15 px-1.5 text-[10px] font-semibold tracking-wide text-primary uppercase">
+              <span className="inline-flex h-5 items-center rounded-md border border-primary/45 bg-primary/15 px-1.5 text-[10px] font-semibold leading-none tracking-wide text-primary uppercase">
                 Owned
               </span>
             )}

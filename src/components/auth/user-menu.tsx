@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { signOut, useSession } from "next-auth/react";
 
+import { useSignInSheet } from "@/components/auth/sign-in-sheet";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -22,8 +23,14 @@ function accountInitial(name: string | null | undefined, email: string | null | 
   return source.charAt(0).toUpperCase();
 }
 
-export function UserMenu() {
+type UserMenuProps = {
+  /** e.g. close the mobile nav sheet before opening sign-in. */
+  onBeforeSignIn?: () => void;
+};
+
+export function UserMenu({ onBeforeSignIn }: UserMenuProps) {
   const { data: session, status } = useSession();
+  const { openSignIn } = useSignInSheet();
 
   if (status === "loading") {
     return (
@@ -39,11 +46,15 @@ export function UserMenu() {
     return (
       <div className={AUTH_SLOT_CLASS}>
         <Button
-          render={<Link href="/signin" />}
-          nativeButton={false}
+          type="button"
           variant="outline"
           size="sm"
           className="min-w-[5.75rem]"
+          onClick={() => {
+            onBeforeSignIn?.();
+            // Defer so the mobile nav sheet can close before this sheet opens.
+            queueMicrotask(() => openSignIn());
+          }}
         >
           Sign in
         </Button>
