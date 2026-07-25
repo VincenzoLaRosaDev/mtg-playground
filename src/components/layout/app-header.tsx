@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { Suspense, useEffect, useRef } from "react";
 
@@ -62,11 +63,16 @@ export function AppHeader() {
         <div className={cn(siteContainerClassName, "py-3 lg:py-4")}>
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between lg:gap-6">
             <div className="flex items-center justify-between gap-4">
-              <Link
-                href="/"
-                className="font-heading text-lg font-semibold tracking-tight text-foreground"
-              >
-                MTGPlayground
+              <Link href="/" className="shrink-0" aria-label="MTGPlayground home">
+                <Image
+                  src="/mtgplayground-mark.svg"
+                  alt="MTGPlayground"
+                  width={240}
+                  height={240}
+                  unoptimized
+                  className="h-8 w-8"
+                  priority
+                />
               </Link>
 
               <div className="flex items-center gap-2 lg:hidden">

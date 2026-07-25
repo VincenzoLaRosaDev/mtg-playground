@@ -10,8 +10,8 @@ type RequireAuthLinkProps = {
   href: string;
   children: ReactNode;
   className?: string;
-  /** Close another overlay (e.g. mobile nav) before opening sign-in. */
-  onBeforeOpenSignIn?: () => void;
+  /** Close another overlay (e.g. mobile nav) before navigating or opening sign-in. */
+  onBeforeNavigate?: () => void;
 } & Omit<ComponentProps<typeof Link>, "href" | "onClick" | "children">;
 
 /**
@@ -22,17 +22,17 @@ export function RequireAuthLink({
   href,
   children,
   className,
-  onBeforeOpenSignIn,
+  onBeforeNavigate,
   ...props
 }: RequireAuthLinkProps) {
   const { status } = useSession();
   const { openSignIn } = useSignInSheet();
 
   function handleClick(event: MouseEvent<HTMLAnchorElement>) {
+    onBeforeNavigate?.();
     // While session is resolving, allow navigation — `/collection` gates server-side.
     if (status === "authenticated" || status === "loading") return;
     event.preventDefault();
-    onBeforeOpenSignIn?.();
     // Defer so a parent sheet (mobile nav) can close first.
     queueMicrotask(() => openSignIn({ callbackUrl: href }));
   }

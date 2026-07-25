@@ -79,7 +79,12 @@ function finishLabel(finish: PrintingFinish): string {
   return "Etched";
 }
 
-export function CollectionAddPanel() {
+type CollectionAddPanelProps = {
+  /** Smaller trigger — matches the sticky Filters tongue's text size. */
+  compact?: boolean;
+};
+
+export function CollectionAddPanel({ compact = false }: CollectionAddPanelProps) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
@@ -175,8 +180,20 @@ export function CollectionAddPanel() {
 
   return (
     <Sheet open={open} onOpenChange={handleOpenChange}>
-      <SheetTrigger render={<Button type="button" variant="outline" className="gap-2" />}>
-        <Search className="size-4" aria-hidden />
+      <SheetTrigger
+        render={
+          <Button
+            type="button"
+            variant="outline"
+            size="default"
+            className={cn(
+              "gap-2",
+              compact ? "bg-background hover:bg-muted text-foreground border-border" : "",
+            )}
+          />
+        }
+      >
+        <Search className={compact ? "size-3.5" : "size-4"} aria-hidden />
         Add cards
       </SheetTrigger>
 

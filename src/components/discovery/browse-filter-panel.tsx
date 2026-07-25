@@ -58,10 +58,15 @@ export function BrowseFilterPanelRow({
   const showActions = showClear || Boolean(sortOrder);
 
   return (
-    <div className={cn("flex items-end justify-between gap-3", className)}>
+    <div
+      className={cn(
+        "flex flex-col items-stretch gap-3 sm:flex-row sm:items-end sm:justify-between",
+        className,
+      )}
+    >
       <div className="min-w-0 flex-1">{children}</div>
       {showActions ? (
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex shrink-0 items-center justify-end gap-2 border-t border-border pt-3 sm:border-t-0 sm:pt-0">
           {showClear && clearFilters ? (
             <Button
               type="button"

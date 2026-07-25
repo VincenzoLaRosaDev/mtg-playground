@@ -4,6 +4,7 @@ import * as React from "react"
 import { Dialog as SheetPrimitive } from "@base-ui/react/dialog"
 
 import { cn } from "@/lib/utils"
+import { lockBodyScroll } from "@/lib/ui/scroll"
 import { Button } from "@/components/ui/button"
 import { XIcon } from "lucide-react"
 
@@ -59,6 +60,18 @@ const sheetBottomResponsiveClassName =
   // Desktop centered dialog
   "lg:data-[side=bottom]:inset-0 lg:data-[side=bottom]:m-auto lg:data-[side=bottom]:h-fit lg:data-[side=bottom]:max-h-[85dvh] lg:data-[side=bottom]:w-[calc(100%-3rem)] lg:data-[side=bottom]:rounded-xl lg:data-[side=bottom]:border lg:data-[side=bottom]:border-border lg:data-[side=bottom]:data-starting-style:translate-y-0 lg:data-[side=bottom]:data-starting-style:scale-95 lg:data-[side=bottom]:data-ending-style:translate-y-0 lg:data-[side=bottom]:data-ending-style:scale-95"
 
+/**
+ * Locks body scroll only while actually mounted inside the dialog portal
+ * (which itself unmounts on close — see base-ui's `DialogPortal`
+ * `shouldRender = mounted || keepMounted`). Placing this at the top of
+ * `SheetContent` instead would run it as soon as a `<Sheet>` exists in the
+ * tree — which is always, since triggers live permanently in the header.
+ */
+function SheetScrollLock() {
+  React.useEffect(() => lockBodyScroll(), [])
+  return null
+}
+
 function SheetContent({
   className,
   children,
@@ -87,6 +100,7 @@ function SheetContent({
         )}
         {...props}
       >
+        <SheetScrollLock />
         {children}
         {showCloseButton && (
           <SheetPrimitive.Close
