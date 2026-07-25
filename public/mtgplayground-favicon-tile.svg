@@ -1,0 +1,20 @@
+<svg width="128" height="128" viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg">
+  <rect x="0" y="0" width="240" height="240" rx="44" fill="#0f1721"></rect>
+  
+  <defs>
+    <linearGradient id="g3" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#efa831"></stop>
+      <stop offset="100%" stop-color="#a96b00"></stop>
+    </linearGradient>
+    <clipPath id="g3-clip"><rect x="-35" y="-48" width="70" height="96" rx="12"></rect></clipPath>
+  </defs>
+  <circle cx="120" cy="120" r="90" fill="none" stroke="#efa831" stroke-width="9" stroke-linecap="round" stroke-dasharray="48 30" transform="rotate(-18 120 120)"></circle>
+  <g transform="translate(120,120) rotate(-20)">
+    <rect x="-35" y="-48" width="70" height="96" rx="12" fill="#3c2a0e" stroke="#efa831" stroke-width="1.5" opacity="0.9"></rect>
+    <rect x="-13" y="-26" width="26" height="26" rx="5" fill="#efa831" opacity="0.4" transform="rotate(45)"></rect>
+  </g>
+  <g transform="translate(120,120) rotate(14)">
+    <rect x="-35" y="-48" width="70" height="96" rx="12" fill="url(#g3)"></rect>
+    <path d="M 10,-48 L 35,-48 L 35,-11 Z" fill="#fdeacb" opacity="0.55" clip-path="url(#g3-clip)"></path>
+  </g>
+</svg>

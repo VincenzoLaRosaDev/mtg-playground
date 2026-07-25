@@ -73,6 +73,7 @@ export default async function CollectionPage({ searchParams }: CollectionPagePro
           <ListFilterAccess
             hasActiveFilters={hasActiveCollectionFacets(query)}
             filtersKey={JSON.stringify(query)}
+            stickyActions={<CollectionAddPanel compact />}
           >
             <CollectionToolbar
               actions={

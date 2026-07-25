@@ -65,6 +65,11 @@ export const rootMetadata: Metadata = {
     template: `%s | ${SITE_NAME}`,
   },
   description: DEFAULT_DESCRIPTION,
+  icons: {
+    icon: "/mtgplayground-favicon-tile.svg",
+    shortcut: "/mtgplayground-favicon-tile.svg",
+    apple: "/mtgplayground-favicon-tile.svg",
+  },
   openGraph: {
     siteName: SITE_NAME,
     locale: "en_US",

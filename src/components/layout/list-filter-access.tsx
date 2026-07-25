@@ -22,6 +22,7 @@ import {
 } from "@/lib/ui/layout";
 import { prefersReducedMotion } from "@/lib/ui/scroll";
 import { cn } from "@/lib/utils";
+import { Button } from "../ui/button";
 
 const CHROME_ANIM_MS = 200;
 /** Matches `h-8` on the Filters tongue — closed clip height. */
@@ -41,6 +42,13 @@ type ListFilterAccessProps = {
   /** Show a dot on the sticky tab when filters are non-default. */
   hasActiveFilters?: boolean;
   label?: string;
+  /**
+   * Extra trigger(s) shown next to the Filters tongue once it's sticky (e.g.
+   * Collection's "Add cards") — right-aligned, same row, same show/hide
+   * timing. Not shown at the drawer-bottom copy of the tongue (the open
+   * drawer already re-renders `children`, which includes these).
+   */
+  stickyActions?: ReactNode;
   /**
    * Opaque string that changes whenever the wrapped filters change (e.g. a
    * serialized filter/sort state). When it changes while the toolbar is
@@ -82,6 +90,7 @@ export function ListFilterAccess({
   hasActiveFilters = false,
   label = "Filters",
   filtersKey,
+  stickyActions,
 }: ListFilterAccessProps) {
   const inlineShellRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -399,7 +408,7 @@ export function ListFilterAccess({
   const tongueCoversDrawerSeam = drawerMounted;
 
   const tongue = (
-    <button
+    <Button
       type="button"
       aria-expanded={open}
       aria-controls="list-filter-drawer"
@@ -415,7 +424,7 @@ export function ListFilterAccess({
         boxShadow: tongueCoversDrawerSeam ? TONGUE_DRAWER_SEAM_COVER : undefined,
       }}
       className={cn(
-        "relative z-10 inline-flex h-8 shrink-0 cursor-pointer items-center gap-2 overflow-hidden px-3 text-[0.8rem] font-medium text-foreground",
+        "pt-1 relative z-10 inline-flex h-9 shrink-0 cursor-pointer items-center gap-2 overflow-hidden px-3 text-sm font-medium text-foreground",
         "focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
         // Open: solid bg idle; hover = muted→background bottom→top. Closed: solid hover.
         tongueCoversDrawerSeam
@@ -441,7 +450,7 @@ export function ListFilterAccess({
         style={{ transitionTimingFunction: PANEL_EASE }}
         aria-hidden
       />
-    </button>
+    </Button>
   );
 
   const tongueRow = (
@@ -455,6 +464,25 @@ export function ListFilterAccess({
     >
       {tongue}
     </div>
+  );
+
+  // Closed only — open drawer already re-renders `children` (stickyActions'
+  // full-size counterpart included), so it skips this row to avoid a duplicate.
+  // A little top padding detaches it from the header's bottom edge — the
+  // plain tongueRow (no stickyActions) sits flush, which is fine on its own.
+  const closedTongueRow = stickyActions ? (
+    <div
+      className={cn(
+        "mx-auto flex w-full items-end gap-2",
+        SITE_MAX_WIDTH_CLASS,
+        SITE_GUTTER_CLASS,
+      )}
+    >
+      {tongue}
+      <div className={cn(!chromeShown && "pointer-events-none")}>{stickyActions}</div>
+    </div>
+  ) : (
+    tongueRow
   );
 
   // Sheet-like scrim: below sticky header (z-40), above page + BackToTop (z-30).
@@ -525,7 +553,7 @@ export function ListFilterAccess({
                 </div>
               </div>
             ) : (
-              tongueRow
+              closedTongueRow
             )}
           </div>,
           chromeSlot,

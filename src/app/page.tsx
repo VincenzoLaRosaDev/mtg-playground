@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -43,7 +44,17 @@ export default function Home() {
   return (
     <div className={`${siteContainerClassName} flex flex-col justify-center py-16 lg:py-20`}>
       <p className="text-sm font-medium tracking-wide text-primary">Catalog & decks</p>
-      <h1 className="mt-2 font-heading text-4xl font-bold tracking-tight">MTGPlayground</h1>
+      <h1 className="mt-4">
+        <Image
+          src="/mtgplayground-lockup-horizontal.svg"
+          alt="MTGPlayground"
+          width={560}
+          height={160}
+          unoptimized
+          priority
+          className="h-18 w-auto sm:h-20"
+        />
+      </h1>
       <p className="mt-4 max-w-2xl text-lg text-muted-foreground">
         Browse Magic cards from Scryfall, manage printings in your collection, and build decks across
         formats as the platform grows.

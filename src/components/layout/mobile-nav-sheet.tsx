@@ -66,7 +66,7 @@ export function MobileNavSheet() {
                   href={item.href}
                   className={linkClass}
                   aria-current={isActive ? "page" : undefined}
-                  onBeforeOpenSignIn={() => setOpen(false)}
+                  onBeforeNavigate={() => setOpen(false)}
                 >
                   {item.label}
                 </RequireAuthLink>

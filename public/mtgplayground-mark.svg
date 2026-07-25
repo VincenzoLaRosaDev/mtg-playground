@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   width="189.04372"
+   height="187.87929"
+   viewBox="0 0 189.04372 187.87929"
+   version="1.1"
+   id="svg5"
+   sodipodi:docname="mtgplayground-mark.svg"
+   inkscape:version="1.4.3 (0d15f75, 2025-12-25)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview5"
+     pagecolor="#505050"
+     bordercolor="#eeeeee"
+     borderopacity="1"
+     inkscape:showpageshadow="0"
+     inkscape:pageopacity="0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#505050"
+     inkscape:zoom="0.83670258"
+     inkscape:cx="215.72779"
+     inkscape:cy="91.430338"
+     inkscape:window-width="1231"
+     inkscape:window-height="730"
+     inkscape:window-x="0"
+     inkscape:window-y="33"
+     inkscape:window-maximized="0"
+     inkscape:current-layer="svg5" />
+  <defs
+     id="defs2">
+    <linearGradient
+       id="g1"
+       x1="-40.987803"
+       y1="-40.987803"
+       x2="40.987803"
+       y2="40.987803"
+       gradientTransform="scale(0.85391256,1.1710801)"
+       gradientUnits="userSpaceOnUse">
+      <stop
+         offset="0%"
+         stop-color="#efa831"
+         id="stop1" />
+      <stop
+         offset="100%"
+         stop-color="#a96b00"
+         id="stop2" />
+    </linearGradient>
+    <clipPath
+       id="g1-clip">
+      <rect
+         x="-35"
+         y="-48"
+         width="70"
+         height="96"
+         rx="12"
+         id="rect2" />
+    </clipPath>
+  </defs>
+  <circle
+     cx="61.044811"
+     cy="117.99393"
+     r="90"
+     fill="none"
+     stroke="#efa831"
+     stroke-width="9"
+     stroke-linecap="round"
+     stroke-dasharray="48, 30"
+     transform="rotate(-18)"
+     id="circle2" />
+  <g
+     transform="rotate(-20,311.98088,-221.34499)"
+     id="g4">
+    <rect
+       x="-35"
+       y="-48"
+       width="70"
+       height="96"
+       rx="12"
+       fill="#3c2a0e"
+       stroke="#efa831"
+       stroke-width="1.5"
+       opacity="0.9"
+       id="rect3" />
+    <rect
+       x="-13"
+       y="-26"
+       width="26"
+       height="26"
+       rx="5"
+       fill="#efa831"
+       opacity="0.4"
+       transform="rotate(45)"
+       id="rect4" />
+  </g>
+  <g
+     transform="rotate(14,-332.89817,431.57604)"
+     id="g5">
+    <rect
+       x="-35"
+       y="-48"
+       width="70"
+       height="96"
+       rx="12"
+       fill="url(#g1)"
+       id="rect5"
+       style="fill:url(#g1)" />
+    <path
+       d="m 10,-48 h 25 v 37 z"
+       fill="#fdeacb"
+       opacity="0.55"
+       clip-path="url(#g1-clip)"
+       id="path5" />
+  </g>
+</svg>
