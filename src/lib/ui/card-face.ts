@@ -1,5 +1,3 @@
-import { CARD_DETAIL_IMAGE_MAX_CLASS } from "@/lib/ui/layout";
-
 /** Proportional corner radius matching MTG card art (~4.5% of width). */
 export const CARD_FACE_RADIUS_CLASS = "rounded-[4.5%]";
 
@@ -9,20 +7,32 @@ export function cardFacePlaceholderClassName(variant: "thumbnail" | "detail" | "
   const size =
     variant === "thumbnail"
       ? "h-[62px] w-[44px]"
-      : variant === "detail"
-        ? `aspect-[488/680] mx-auto w-full ${CARD_DETAIL_IMAGE_MAX_CLASS}`
-        : "aspect-[488/680] w-full";
+      : "aspect-[488/680] w-full";
 
   return `flex shrink-0 items-center justify-center bg-muted text-muted-foreground ${CARD_FACE_RADIUS_CLASS} ${size}`;
 }
 
 /** Browse listing grids (cards, commanders, catalog, set detail). */
 export const CARD_FACE_GRID_CLASS =
-  "grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-5 2xl:grid-cols-6 3xl:grid-cols-7!";
+  "grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 3xl:grid-cols-7!";
 
-/** Card/commander detail section grids (slightly roomier than browse). */
+/**
+ * Card/commander detail section grids (slightly roomier than browse).
+ * Use beside sticky `DetailSectionNav` (`lg+`).
+ */
 export const CARD_FACE_DETAIL_GRID_CLASS =
   "grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 3xl:grid-cols-6!";
+
+/**
+ * Same as `CARD_FACE_DETAIL_GRID_CLASS` but +1 column from `lg` up — when the
+ * lists band has no lateral TOC and would otherwise stretch tiles too wide.
+ */
+export const CARD_FACE_DETAIL_GRID_WIDE_CLASS =
+  "grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 3xl:grid-cols-7!";
+
+export function cardFaceDetailGridClass(wide = false): string {
+  return wide ? CARD_FACE_DETAIL_GRID_WIDE_CLASS : CARD_FACE_DETAIL_GRID_CLASS;
+}
 
 /** Sets browse — horizontal card rows in a wide multi-column grid. */
 export const SET_BROWSE_GRID_CLASS =

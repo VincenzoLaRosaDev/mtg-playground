@@ -4,7 +4,6 @@ import Image from "next/image";
 import { useState } from "react";
 
 import type { PrintingFinish } from "@/lib/scryfall/card-printing";
-import { CARD_DETAIL_IMAGE_MAX_CLASS } from "@/lib/ui/layout";
 import { CARD_FACE_RADIUS_CLASS, cardFacePlaceholderClassName } from "@/lib/ui/card-face";
 import { cn } from "@/lib/utils";
 
@@ -14,6 +13,8 @@ type CardImageProps = {
   variant?: "thumbnail" | "detail" | "grid";
   /** Scryfall uses the same art for foil — overlay when finish is foil/etched. */
   finish?: PrintingFinish | null;
+  /** LCP / hero — eager fetch (Next `priority` + fetchPriority high). */
+  priority?: boolean;
 };
 
 /** `animate` = detail idle loop; `hover` = grid/collection (no idle animation). */
@@ -21,7 +22,7 @@ export type FinishGlareMotion = "animate" | "hover";
 
 const variantStyles = {
   thumbnail: "h-[62px] w-[44px]",
-  detail: `aspect-[488/680] w-full ${CARD_DETAIL_IMAGE_MAX_CLASS}`,
+  detail: "aspect-[488/680] w-full",
   grid: "aspect-[488/680] w-full",
 } as const;
 
@@ -71,7 +72,13 @@ export function glareMotionForVariant(
   return variant === "detail" ? "animate" : "hover";
 }
 
-export function CardImage({ src, alt, variant = "thumbnail", finish = null }: CardImageProps) {
+export function CardImage({
+  src,
+  alt,
+  variant = "thumbnail",
+  finish = null,
+  priority = false,
+}: CardImageProps) {
   const [loaded, setLoaded] = useState(false);
   const [loadedSrc, setLoadedSrc] = useState(src);
   if (src !== loadedSrc) {
@@ -95,11 +102,21 @@ export function CardImage({ src, alt, variant = "thumbnail", finish = null }: Ca
         alt={alt}
         fill
         className={cn("object-cover transition-opacity", loaded ? "opacity-100" : "opacity-0")}
-        sizes={variant === "thumbnail" ? "44px" : "300px"}
+        sizes={
+          variant === "thumbnail"
+            ? "44px"
+            : variant === "detail"
+              ? "(max-width: 639px) 100vw, 300px"
+              : "300px"
+        }
+        priority={priority}
+        fetchPriority={priority ? "high" : undefined}
         unoptimized
         onLoad={() => setLoaded(true)}
       />
-      <CardFinishOverlay finish={finish} glareMotion={glareMotionForVariant(variant)} />
+      {loaded ? (
+        <CardFinishOverlay finish={finish} glareMotion={glareMotionForVariant(variant)} />
+      ) : null}
     </div>
   );
 }

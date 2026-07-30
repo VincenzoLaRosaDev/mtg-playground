@@ -1,9 +1,9 @@
-import { PriceChip } from "@/components/discovery/price-chip";
 import {
   formatInclusionRank,
   INCLUSION_RANK_SHORT_LABEL,
   INCLUSION_RANK_TITLE,
 } from "@/lib/display/inclusion-rank";
+import { PriceChip } from "@/components/discovery/price-chip";
 import type { PrintingFinish } from "@/lib/scryfall/card-printing";
 import { cn } from "@/lib/utils";
 
@@ -13,24 +13,21 @@ type EntityPreviewFooterProps = {
   popularityRank?: number | null;
   /** When false, omit inclusion rank. */
   showInclusionRank?: boolean;
-  frictionScore?: number | null;
   className?: string;
 };
 
-/** Compact footer under card faces — Price + Inclusion + Friction. */
+/** Compact footer under card faces — Price + EDH Inclusion. */
 export function EntityPreviewFooter({
   prices,
   preferredFinish,
   popularityRank,
   showInclusionRank = true,
-  frictionScore,
   className,
 }: EntityPreviewFooterProps) {
   const inclusion = showInclusionRank ? formatInclusionRank(popularityRank) : null;
-  const showFriction = frictionScore != null && frictionScore > 0;
   const hasPrice = prices != null;
 
-  if (!hasPrice && !inclusion && !showFriction) {
+  if (!hasPrice && !inclusion) {
     return null;
   }
 
@@ -51,11 +48,6 @@ export function EntityPreviewFooter({
       {inclusion ? (
         <span title={INCLUSION_RANK_TITLE} className="shrink-0">
           {INCLUSION_RANK_SHORT_LABEL} {inclusion}
-        </span>
-      ) : null}
-      {showFriction ? (
-        <span title="Friction score (Game Changer / stax-family tags)" className="shrink-0">
-          Friction {frictionScore}
         </span>
       ) : null}
     </div>

@@ -10,6 +10,7 @@ import {
 } from "@/components/discovery/card-browse-toolbar";
 import { CardGridTile } from "@/components/discovery/card-grid-tile";
 import { LoadMoreButton } from "@/components/discovery/load-more-button";
+import { ListFilterAccess } from "@/components/layout/list-filter-access";
 import { PageListMeta } from "@/components/layout/page-list-meta";
 import { PageShell } from "@/components/layout/page-shell";
 import { useBrowseList, type BrowseListInitialData } from "@/hooks/use-browse-list";
@@ -34,10 +35,12 @@ export function CardsBrowseClient({
 }: CardsBrowseClientProps) {
   const [toolbar, setToolbar] = useState<CardBrowseToolbarState>(initialToolbar);
 
+  const requestKey = JSON.stringify(toolbar);
+
   const { items, total, nextCursor, loading, loadingMore, error, loadMore } =
     useBrowseList<CardBrowseItem>({
       path: "/api/cards/browse",
-      requestKey: JSON.stringify(toolbar),
+      requestKey,
       initialRequestKey,
       initialData,
       searchQuery: toolbar.query,
@@ -69,7 +72,22 @@ export function CardsBrowseClient({
     <PageShell
       title="Cards"
       description="Browse the Commander-legal card catalog from Scryfall."
-      toolbar={<CardBrowseToolbar state={toolbar} onChange={handleToolbarChange} />}
+      toolbar={
+        <ListFilterAccess
+          hasActiveFilters={Boolean(
+            toolbar.query.trim() ||
+              toolbar.colors.length ||
+              toolbar.rarities.length ||
+              toolbar.typeContains.trim() ||
+              toolbar.cmcMin ||
+              toolbar.cmcMax ||
+              toolbar.format,
+          )}
+          filtersKey={requestKey}
+        >
+          <CardBrowseToolbar state={toolbar} onChange={handleToolbarChange} />
+        </ListFilterAccess>
+      }
     >
       <PageListMeta>
         Scryfall catalog.

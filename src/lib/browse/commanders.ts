@@ -97,7 +97,6 @@ export async function queryCommandersBrowse(
       typeLine: card.typeLine,
       prices: card.prices,
       popularityRank: card.popularityRank,
-      frictionScore: card.frictionScore,
     })),
   };
 }

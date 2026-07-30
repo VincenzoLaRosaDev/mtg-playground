@@ -5,6 +5,10 @@ import { useSession } from "next-auth/react";
 import type { ComponentProps, MouseEvent, ReactNode } from "react";
 
 import { useSignInSheet } from "@/components/auth/sign-in-sheet";
+import {
+  NAV_PROGRESS_SKIP_ATTR,
+  NAV_PROGRESS_SKIP_VALUE,
+} from "@/lib/ui/navigation-progress";
 
 type RequireAuthLinkProps = {
   href: string;
@@ -37,8 +41,18 @@ export function RequireAuthLink({
     queueMicrotask(() => openSignIn({ callbackUrl: href }));
   }
 
+  const skipNavProgress = status === "unauthenticated";
+
   return (
-    <Link href={href} className={className} onClick={handleClick} {...props}>
+    <Link
+      href={href}
+      className={className}
+      onClick={handleClick}
+      {...props}
+      {...(skipNavProgress
+        ? { [NAV_PROGRESS_SKIP_ATTR]: NAV_PROGRESS_SKIP_VALUE }
+        : null)}
+    >
       {children}
     </Link>
   );

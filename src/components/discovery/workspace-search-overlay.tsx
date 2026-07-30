@@ -3,10 +3,7 @@
 import { Search } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
-import {
-  WorkspaceSearchPanel,
-  type WorkspaceSearchPickMode,
-} from "@/components/discovery/workspace-search-panel";
+import { WorkspaceSearchPanel } from "@/components/discovery/workspace-search-panel";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -21,13 +18,12 @@ import { siteContainerClassName } from "@/lib/ui/layout";
 import { cn } from "@/lib/utils";
 
 type WorkspaceSearchOverlayProps = {
-  /** Called when the user adds a card from results (deck / collection host). */
+  /** Called when the user picks a card from results (deck / collection host). */
   onAddCard: (card: GlobalSearchCardResult) => void;
-  /** Optional: open CardPeek for the hit. */
+  /** Optional secondary action under each hit. */
   onPeekCard?: (card: GlobalSearchCardResult) => void;
   /** Extra actions under each hit (e.g. qty). */
   renderCardActions?: (card: GlobalSearchCardResult) => ReactNode;
-  pickMode?: WorkspaceSearchPickMode;
   /** When false, keep the sheet open after pick (host shows next step). */
   closeOnSelect?: boolean;
   title?: string;
@@ -38,17 +34,18 @@ type WorkspaceSearchOverlayProps = {
   onOpenChange?: (open: boolean) => void;
   /** Hide the built-in trigger (host provides one). */
   hideTrigger?: boolean;
+  /** Smaller trigger — matches the sticky Filters tongue row (collection Add). */
+  compact?: boolean;
 };
 
 /**
  * Contextual catalog search for workspaces (deck editor, collection).
- * Reuses `/api/search` FTS; does not navigate away — host handles Add / peek.
+ * Shared tile-click list via WorkspaceSearchPanel; host handles the pick.
  */
 export function WorkspaceSearchOverlay({
   onAddCard,
   onPeekCard,
   renderCardActions,
-  pickMode = "button",
   closeOnSelect = true,
   title = "Add cards",
   description = "Search the catalog and add cards without leaving this page.",
@@ -57,6 +54,7 @@ export function WorkspaceSearchOverlay({
   open: openProp,
   onOpenChange,
   hideTrigger = false,
+  compact = false,
 }: WorkspaceSearchOverlayProps) {
   const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
   const controlled = openProp !== undefined;
@@ -73,10 +71,21 @@ export function WorkspaceSearchOverlay({
       {!hideTrigger ? (
         <SheetTrigger
           render={
-            <Button type="button" variant="outline" className={cn("gap-2", className)} />
+            <Button
+              type="button"
+              variant="outline"
+              size="default"
+              className={cn(
+                "gap-2",
+                compact
+                  ? "border-border bg-background text-foreground hover:bg-muted"
+                  : null,
+                className,
+              )}
+            />
           }
         >
-          <Search className="size-4" aria-hidden />
+          <Search className={compact ? "size-3.5" : "size-4"} aria-hidden />
           {triggerLabel}
         </SheetTrigger>
       ) : null}
@@ -93,10 +102,11 @@ export function WorkspaceSearchOverlay({
           <SheetDescription>{description}</SheetDescription>
         </SheetHeader>
 
-        <div className={cn(siteContainerClassName, "flex min-h-0 flex-1 flex-col")}>
+        <div
+          className={cn(siteContainerClassName, "flex min-h-0 flex-1 flex-col")}
+        >
           <WorkspaceSearchPanel
             active={open}
-            pickMode={pickMode}
             onSelectCard={handleSelect}
             onPeekCard={onPeekCard}
             renderCardActions={renderCardActions}

@@ -106,6 +106,13 @@ export function UserMenu({ onBeforeSignIn }: UserMenuProps) {
               Collection
             </DropdownMenuItem>
             <DropdownMenuItem
+              nativeButton={false}
+              render={<Link href="/decks" />}
+              className="cursor-pointer"
+            >
+              Decks
+            </DropdownMenuItem>
+            <DropdownMenuItem
               className="cursor-pointer"
               onClick={() => {
                 void signOut();

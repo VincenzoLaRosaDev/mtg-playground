@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
 
 import {
@@ -18,7 +19,14 @@ import {
   type OraclePrintingOption,
   type PrintingFinish,
 } from "@/lib/scryfall/card-printing";
-import { DETAIL_OVERVIEW_CONTROLS_GRID_CLASS } from "@/lib/ui/layout";
+import {
+  DETAIL_FINISH_TOGGLE_CLASS,
+  DETAIL_PRINTING_CONTROLS_CLASS,
+  DETAIL_PRINTING_FINISH_COL_CLASS,
+  DETAIL_PRINTING_VERSION_COL_CLASS,
+  DETAIL_PRINTING_VERSION_GROUP_CLASS,
+  DETAIL_VERSION_SELECT_CLASS,
+} from "@/lib/ui/layout";
 import { cn } from "@/lib/utils";
 
 export type PrintingSelection = {
@@ -35,13 +43,18 @@ type VersionPickerProps = {
   selectedFinish: PrintingFinish | null;
   /** Preserve As card / As commander list view across version changes (URL mode). */
   view?: CardDetailView | null;
-  /** Overview panel: Version + Finish share a responsive row. */
-  layout?: "stack" | "overview";
   /**
    * When set, selection calls this instead of navigating to `/cards/{slug}?…`.
-   * Use in deck/collection embeds; omit on the public PDP.
+   * Use in CardDetailModal; omit on the public PDP.
    */
   onSelectPrinting?: (selection: PrintingSelection) => void;
+  /** Lazy printings: fire when the Version select is interacted with. */
+  onNeedPrintings?: () => void;
+  /**
+   * Trailing control beside Version (typically VersionsBrowser “Show all versions”).
+   * Wraps under the select when the pair runs out of horizontal room.
+   */
+  versionActions?: ReactNode;
 };
 
 const FINISH_LABELS: Record<PrintingFinish, string> = {
@@ -50,6 +63,10 @@ const FINISH_LABELS: Record<PrintingFinish, string> = {
   etched: "Etched",
 };
 
+/**
+ * Shared Printing chrome (PDP + modal): Version + Show all (flex wrap pair);
+ * Finish shares a Status|Roles|Themes-style column grid when present.
+ */
 export function VersionPicker({
   slug,
   printings,
@@ -57,8 +74,9 @@ export function VersionPicker({
   selectedCn,
   selectedFinish,
   view = null,
-  layout = "stack",
   onSelectPrinting,
+  onNeedPrintings,
+  versionActions,
 }: VersionPickerProps) {
   const router = useRouter();
 
@@ -69,7 +87,8 @@ export function VersionPicker({
   const selectedPrinting =
     selectedSet && selectedCn
       ? printings.find(
-          (row) => row.setCode === selectedSet && row.collectorNumber === selectedCn,
+          (row) =>
+            row.setCode === selectedSet && row.collectorNumber === selectedCn,
         )
       : selectedSet
         ? printings.find((row) => row.setCode === selectedSet)
@@ -83,7 +102,10 @@ export function VersionPicker({
       finish === "nonfoil" || finish === "foil" || finish === "etched",
   );
 
-  const activeFinish = resolveActiveFinish(activePrinting.finishes, selectedFinish);
+  const activeFinish = resolveActiveFinish(
+    activePrinting.finishes,
+    selectedFinish,
+  );
   const showFinish = finishOptions.length > 1;
 
   function applySelection(next: {
@@ -115,83 +137,83 @@ export function VersionPicker({
     );
   }
 
-  const versionField = (
-    <BrowseSelectField
-      label="Version"
-      value={selectedValue}
-      onChange={(value) => {
-        const parsed = parsePrintingOptionValue(value);
-        if (!parsed) return;
-        const option = printings.find(
-          (row) =>
-            row.setCode === parsed.setCode &&
-            row.collectorNumber === parsed.collectorNumber,
-        );
-        const finish =
-          selectedFinish && option?.finishes.includes(selectedFinish)
-            ? selectedFinish
-            : null;
-        applySelection({
-          set: parsed.setCode,
-          cn: parsed.collectorNumber,
-          finish,
-        });
-      }}
-      options={printings.map((row) => ({
-        value: printingOptionValue(row),
-        label: `${printingOptionLabel(row)} · ${row.setName}`,
-      }))}
-    />
-  );
-
-  const finishField = showFinish ? (
-    <BrowseFilterSection title="Finish">
-      <ToggleGroup
-        value={[activeFinish]}
-        onValueChange={(values) => {
-          const next = parsePrintingFinish(values[0]);
-          if (!next) return;
-          applySelection({
-            set: activePrinting.setCode,
-            cn: activePrinting.collectorNumber,
-            finish: next === "nonfoil" ? null : next,
-          });
-        }}
-        variant="outline"
-        spacing={0}
-        className={cn("flex w-full", layout === "overview" && "min-h-8")}
-        aria-label="Printing finish"
-      >
-        {finishOptions.map((finish) => (
-          <ToggleGroupItem
-            key={finish}
-            value={finish}
-            className="min-w-0 flex-1 justify-center px-2 data-pressed:bg-primary data-pressed:text-primary-foreground"
-          >
-            {FINISH_LABELS[finish]}
-          </ToggleGroupItem>
-        ))}
-      </ToggleGroup>
-    </BrowseFilterSection>
-  ) : null;
-
-  if (layout === "overview") {
-    return (
+  const versionBlock = (
+    <div className={DETAIL_PRINTING_VERSION_GROUP_CLASS}>
       <div
+        onPointerDown={() => onNeedPrintings?.()}
         className={cn(
-          showFinish ? DETAIL_OVERVIEW_CONTROLS_GRID_CLASS : "grid grid-cols-1",
+          "min-w-0 max-w-full",
+          versionActions ? "min-w-[min(100%,12rem)] flex-1" : "w-full",
         )}
       >
-        {versionField}
-        {finishField}
+        <BrowseSelectField
+          label="Version"
+          className={DETAIL_VERSION_SELECT_CLASS}
+          value={selectedValue}
+          onChange={(value) => {
+            const parsed = parsePrintingOptionValue(value);
+            if (!parsed) return;
+            const option = printings.find(
+              (row) =>
+                row.setCode === parsed.setCode &&
+                row.collectorNumber === parsed.collectorNumber,
+            );
+            const finish =
+              selectedFinish && option?.finishes.includes(selectedFinish)
+                ? selectedFinish
+                : null;
+            applySelection({
+              set: parsed.setCode,
+              cn: parsed.collectorNumber,
+              finish,
+            });
+          }}
+          options={printings.map((row) => ({
+            value: printingOptionValue(row),
+            label: `${printingOptionLabel(row)} · ${row.setName}`,
+          }))}
+        />
       </div>
-    );
+      {versionActions ? (
+        <div className="min-w-0 w-full shrink-0 sm:w-auto">{versionActions}</div>
+      ) : null}
+    </div>
+  );
+
+  if (!showFinish) {
+    return versionBlock;
   }
 
   return (
-    <div className="space-y-3">
-      {versionField}
-      {finishField}
+    <div className={DETAIL_PRINTING_CONTROLS_CLASS}>
+      <div className={DETAIL_PRINTING_VERSION_COL_CLASS}>{versionBlock}</div>
+      <BrowseFilterSection
+        title="Finish"
+        className={cn(DETAIL_PRINTING_FINISH_COL_CLASS, DETAIL_FINISH_TOGGLE_CLASS)}
+      >
+        <ToggleGroup
+          value={[activeFinish]}
+          onValueChange={(values) => {
+            const next = parsePrintingFinish(values[0]);
+            if (!next) return;
+            applySelection({
+              set: activePrinting.setCode,
+              cn: activePrinting.collectorNumber,
+              finish: next === "nonfoil" ? null : next,
+            });
+          }}
+          variant="outline"
+          size="default"
+          className="justify-start"
+          aria-label="Printing finish"
+        >
+          {finishOptions.map((finish) => (
+            <ToggleGroupItem key={finish} value={finish}>
+              {FINISH_LABELS[finish]}
+            </ToggleGroupItem>
+          ))}
+        </ToggleGroup>
+      </BrowseFilterSection>
     </div>
   );
 }

@@ -48,20 +48,19 @@ export function CardDetailViewToggle({
         }
       }}
       variant="outline"
-      spacing={0}
       size="lg"
       className={DETAIL_VIEW_TOGGLE_CLASS}
       aria-label="Detail list view"
     >
       <ToggleGroupItem
         value="card"
-        className="h-11 min-w-0 flex-1 justify-center rounded-none px-4 text-sm font-medium first:rounded-l-lg last:rounded-r-lg data-pressed:bg-primary data-pressed:text-primary-foreground"
+        className="h-11 min-w-0 flex-1 justify-center px-4 text-sm font-medium sm:flex-none sm:min-w-36.5"
       >
         As card
       </ToggleGroupItem>
       <ToggleGroupItem
         value="commander"
-        className="h-11 min-w-0 flex-1 justify-center rounded-none px-4 text-sm font-medium first:rounded-l-lg last:rounded-r-lg data-pressed:bg-primary data-pressed:text-primary-foreground"
+        className="h-11 min-w-0 flex-1 justify-center px-4 text-sm font-medium sm:flex-none sm:min-w-36.5"
       >
         As commander
       </ToggleGroupItem>

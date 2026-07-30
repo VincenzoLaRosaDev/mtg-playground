@@ -71,7 +71,6 @@ function mapBrowseRow(
     isCommander: row.isCommander,
     prices: row.prices,
     popularityRank: row.popularityRank,
-    frictionScore: row.frictionScore,
     isGameChanger: row.isGameChanger,
     isReserved: row.isReserved,
     listPrice: row.listPriceEur ?? parseCatalogListPrice(row.prices),

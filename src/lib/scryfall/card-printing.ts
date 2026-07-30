@@ -127,28 +127,33 @@ export function parsePrintingOptionValue(
   };
 }
 
-export async function listOraclePrintings(
-  prisma: PrismaClient,
-  oracleId: string,
-): Promise<OraclePrintingOption[]> {
-  const rows = await prisma.printing.findMany({
-    where: { oracleId },
-    select: {
-      id: true,
-      setCode: true,
-      collectorNumber: true,
-      rarity: true,
-      finishes: true,
-      imageUri: true,
-      faces: true,
-      prices: true,
-      releasedAt: true,
-      set: { select: { name: true } },
-    },
-    orderBy: [{ releasedAt: "desc" }, { setCode: "asc" }, { collectorNumber: "asc" }],
-  });
+const ORACLE_PRINTING_OPTION_SELECT = {
+  id: true,
+  setCode: true,
+  collectorNumber: true,
+  rarity: true,
+  finishes: true,
+  imageUri: true,
+  faces: true,
+  prices: true,
+  releasedAt: true,
+  set: { select: { name: true } },
+} as const;
 
-  return rows.map((row) => ({
+type OraclePrintingOptionRow = {
+  id: string;
+  setCode: string;
+  collectorNumber: string;
+  rarity: string;
+  finishes: string[];
+  imageUri: string | null;
+  faces: unknown;
+  prices: unknown;
+  set: { name: string };
+};
+
+function toOraclePrintingOption(row: OraclePrintingOptionRow): OraclePrintingOption {
+  return {
     id: row.id,
     setCode: row.setCode,
     setName: row.set.name,
@@ -158,7 +163,85 @@ export async function listOraclePrintings(
     imageUri: row.imageUri,
     faces: parseCardFaces(row.faces),
     prices: row.prices,
-  }));
+  };
+}
+
+export async function listOraclePrintings(
+  prisma: PrismaClient,
+  oracleId: string,
+): Promise<OraclePrintingOption[]> {
+  const rows = await prisma.printing.findMany({
+    where: { oracleId },
+    select: ORACLE_PRINTING_OPTION_SELECT,
+    orderBy: [{ releasedAt: "desc" }, { setCode: "asc" }, { collectorNumber: "asc" }],
+  });
+
+  return rows.map(toOraclePrintingOption);
+}
+
+/**
+ * Resolve a single printing option without listing the full oracle set.
+ * Same preference order as `resolveActivePrinting` / PDP catalog default.
+ */
+export async function resolveOraclePrintingOption(
+  prisma: PrismaClient,
+  oracleId: string,
+  input: {
+    preferredPrintingId?: string | null;
+    initialSet?: string | null;
+    initialCn?: string | null;
+    catalogPrintingId?: string | null;
+    catalogImageUri?: string | null;
+  },
+): Promise<OraclePrintingOption | null> {
+  if (input.preferredPrintingId) {
+    const byId = await prisma.printing.findFirst({
+      where: { id: input.preferredPrintingId, oracleId },
+      select: ORACLE_PRINTING_OPTION_SELECT,
+    });
+    if (byId) return toOraclePrintingOption(byId);
+  }
+
+  const set = input.initialSet?.trim().toLowerCase() || null;
+  const cn = input.initialCn?.trim() || null;
+  if (set && cn) {
+    const exact = await prisma.printing.findFirst({
+      where: { setCode: set, collectorNumber: cn, oracleId },
+      select: ORACLE_PRINTING_OPTION_SELECT,
+    });
+    if (exact) return toOraclePrintingOption(exact);
+  }
+  if (set) {
+    const inSet = await prisma.printing.findFirst({
+      where: { setCode: set, oracleId },
+      orderBy: { collectorNumber: "asc" },
+      select: ORACLE_PRINTING_OPTION_SELECT,
+    });
+    if (inSet) return toOraclePrintingOption(inSet);
+  }
+
+  if (input.catalogPrintingId) {
+    const catalog = await prisma.printing.findFirst({
+      where: { id: input.catalogPrintingId, oracleId },
+      select: ORACLE_PRINTING_OPTION_SELECT,
+    });
+    if (catalog) return toOraclePrintingOption(catalog);
+  }
+  if (input.catalogImageUri) {
+    const byImage = await prisma.printing.findFirst({
+      where: { oracleId, imageUri: input.catalogImageUri },
+      orderBy: [{ releasedAt: "desc" }, { collectorNumber: "asc" }],
+      select: ORACLE_PRINTING_OPTION_SELECT,
+    });
+    if (byImage) return toOraclePrintingOption(byImage);
+  }
+
+  const fallback = await prisma.printing.findFirst({
+    where: { oracleId },
+    orderBy: [{ releasedAt: "desc" }, { setCode: "asc" }, { collectorNumber: "asc" }],
+    select: ORACLE_PRINTING_OPTION_SELECT,
+  });
+  return fallback ? toOraclePrintingOption(fallback) : null;
 }
 
 type PrintingRow = {

@@ -1,11 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 
-import {
-  CardGridSkeleton,
-  PageListMetaSkeleton,
-} from "@/components/discovery/loading-skeletons";
-import { PageShell } from "@/components/layout/page-shell";
 import { createPageMetadata } from "@/lib/seo/site";
 
 import SearchPage from "./search-page";
@@ -17,23 +12,13 @@ export const metadata: Metadata = createPageMetadata({
   noIndex: true,
 });
 
-function SearchPageFallback() {
-  return (
-    <PageShell
-      title="Search"
-      description="Find cards, commanders, and sets across the MTGPlayground catalog."
-    >
-      <PageListMetaSkeleton />
-      <div className="mt-6">
-        <CardGridSkeleton count={8} />
-      </div>
-    </PageShell>
-  );
-}
-
+/**
+ * `useSearchParams` requires a Suspense boundary; fallback is null so we don’t
+ * flash a page pending UI (block-fino-ai-dati).
+ */
 export default function Page() {
   return (
-    <Suspense fallback={<SearchPageFallback />}>
+    <Suspense fallback={null}>
       <SearchPage />
     </Suspense>
   );

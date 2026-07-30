@@ -255,6 +255,60 @@ Format for new entries:
 **Context:** Soft navigations sometimes landed mid-page; filter / As card|commander / version query updates jumped to top via Next's default `scroll: true`.
 **Decision:** (1) Pathname change → scroll to top (`ScrollToTopOnPathnameChange`), except browser back/forward (`popstate`). (2) Same-pathname query updates → `router.push/replace(..., { scroll: false })` (collection/set filters, detail view toggle, version picker/browser).
 **Consequences:** List/detail chrome stays put while filtering; entering a new route starts at the top. Browse hub filters stay client-only (no URL scroll issue).
+
+## 2026-07-27 — Sheet unlock must not undo route scroll-to-top
+**Context:** `lockBodyScroll` restores the pre-open `scrollY` on unlock. Clicking **View detail** (or other Links) inside an open sheet closed the lock after/around pathname change, so the restore reapplied the scrolled position and beat `ScrollToTopOnPathnameChange`.
+**Decision:** `clearBodyScrollRestore()` zeros the pending restore (and `body.style.top` while locked). Call it from `ScrollToTopOnPathnameChange` on forward pathname changes, and from modal Links that navigate away before close.
+**Consequences:** In-sheet navigations land at top. Closing a sheet without navigating still restores the prior scroll. Query-only `scroll: false` routes unchanged.
+
+## 2026-07-27 — Deck import replaces; qty inputs respect format copy limits
+**Context:** Import merged into the existing list; qty fields allowed values above format max (4-of / singleton) and only failed on submit with an error.
+**Decision:** `importDeckPaste` deletes all `deck_cards` for the deck before writing the paste (no wipe if zero names resolve). Qty inputs in the editor and deck-mode modal use `maxCopiesForCard` (format maxCopies, restricted → 1, basics → 99).
+**Consequences:** Re-import is a full list replace; users cannot type illegal copy counts in the primary qty controls (mutations still enforce).
+**Supersedes:** merge semantics of 2.2.4 import.
+
+## 2026-07-27 — Deck paste: About skip, blank-line sideboard, DFC resolve
+**Context:** Arena exports include `About` / `Name …` metadata that were parsed as cards; plain lists often split sideboard with a blank line only; DFC oracle rows store `search_name` as `front // back`, so front-only paste lookup missed them; some rows still have apostrophes in `search_name` while lookup strips them.
+**Decision:** Skip `About` (capture `Name`); blank line → sideboard only when no explicit board headers; resolve via exact/`startsWith front //` on `search_name` plus case-insensitive `name` / `name //` matches, keyed by normalized front face.
+**Consequences:** Arena + MTGGoldfish-style pastes import cleanly for DFCs and apostrophe names without requiring a re-sync (re-sync still preferred to heal `search_name`).
+**Supersedes:** nothing (refines 2.2.4 import).
+
+## 2026-07-27 — ConfirmDialog instead of window.confirm
+**Context:** Deck delete used the browser `window.confirm`, which ignores site chrome and dark theme.
+**Decision:** Shared `ConfirmDialog` (`Sheet` `side="bottom"` + `size="sm"`) for confirmations; wire deck delete through it. No other `window.confirm` / `alert` / `prompt` call sites in app code.
+**Consequences:** Destructive confirms match sign-in/import sheet language; reusable for future deletes.
+**Supersedes:** nothing.
+
+## 2026-07-27 — Rename Inclusion labels to EDH Inclusion
+**Context:** “Inclusion” / “Inclusion (Commander)” was clear to us but easy to misread as format-agnostic popularity on browse.
+**Decision:** All user-facing Inclusion labels use **EDH Inclusion** (sort option, tile footer, detail chips, hub copy). Sort param remains `popularity` for URL stability.
+**Consequences:** One consistent label site-wide; tooltip still clarifies Scryfall Commander deck inclusion ≠ “as commander” popularity.
+**Supersedes:** user-facing label wording in Catalog honesty (2026-07-20) and Inclusion clarity (2026-07-21).
+
+## 2026-07-27 — Go to set from card detail + modal
+**Context:** From a specific printing it was awkward to jump to that set’s browse page.
+**Decision:** Add **Go to set** → `/sets/{setCode}` for the active printing. On the modal it sits with **View detail**; on the PDP it is a `PageShell` `headerActions` control aligned with the title block. Both stacks go under the title on mobile and to the right from `sm+`.
+**Consequences:** Set deep-link is one click from any printing context; X close stays top-right in the modal.
+**Supersedes:** nothing.
+
+## 2026-07-27 — CardDetailModal deck CTAs + close-after-add on workspace pages
+**Context:** Deck mode had a single Add to deck driven by a page-level board select; collection “Your copies” had no deck counterpart; success left the modal open with an “Added” line even on collection/deck pages where the list is the feedback.
+**Decision:**
+1. Deck mode shows **In this deck** (board + preferred version + qty + owned/missing) parallel to collection **Your copies**.
+2. Deck CTAs: qty + **Add to main** + **Add to sideboard** (commander/companion still via row board move on the editor). Remove the builder “Add to” board select; workspace no longer carries `board`.
+3. On collection or deck workspace pages, a successful add **closes** the card modal (and relies on `router.refresh` / page list) instead of an “Added” status line. Browse/catalog keeps the inline “Added” message.
+**Consequences:** Prefer printing updates still apply when a deck row is active (`deckCardId` / In this deck selection). Payload may include `deck` snapshot when `deckId` is passed to `loadCardDetailModal`.
+**Supersedes:** 2026-07-27 — Modal mode from page workspace (board field); partially supersedes collection-modal inventory success UX on `/collection`.
+
+## 2026-07-27 — Phase 2.2 remaining scope (legality / import / insights)
+**Context:** Slice 1 + card modal done; remaining roadmap items needed product locks before coding.
+**Decision:**
+1. **2.2.3 Legality — option B + block:** Scryfall per-card status (`legal` / `banned` / `not_legal` / `restricted`) plus deck rules (constructed main ≥60 / side ≤15 / max 4; commander-like singleton + size incl. commander; ≥1 commander; color identity). Mutations that violate card/copy/CI/commander-count **refuse**; size incompleteness surfaces as errors in the editor (does not freeze editing). Partner/Background deferred.
+2. **2.2.4 Import:** Oracle-grain paste for common exports (MTGA / Arena sections + plain `N Name` lists) so lists from EDHREC / MTGGoldfish / Arena can be pasted; no preferred printing on import.
+3. **2.2.6 Insights:** In-builder roles/themes counts, GC count, friction sum/avg; commander-like may reuse D2 hints. Curve/types/lands stay Phase 3 analysis.
+4. **2.2.8 Guest analyze:** **Skip** for this phase (auth-to-save remains).
+5. **Notes UI:** later. Remove dead `CardPeekSheet` / `loadDeckCardPeek` / unused peek helpers after modal migration.
+**Consequences:** Roadmap 2.2.8 marked skipped; legality is enforcement + panel, not soft-only warnings.
 **Supersedes:** nothing.
 
 ## 2026-07-23 — Responsive sheets: bottom mobile, centered desktop
@@ -289,3 +343,218 @@ Format for new entries:
 
 **Consequences:** `npm run lint` and `npm test` are green; `npm audit` down to 2 (dev-tooling-only, deferred). First CI run lands green, not red. No schema/behavior changes to any user-facing flow — this is a hygiene pass only.
 **Supersedes:** nothing (closes a gap the pivot-era decisions didn't cover).
+
+## 2026-07-26 — Deck schema + `/decks` workspace (Phase 2.2 slice 1)
+**Context:** Phase 2.2 needs private multi-format decks with oracle-grain lists, preferred printings, and owned/missing vs collection. Roadmap draft mentioned `/my/decks`; middleware already reserved `/decks`.
+**Decision:**
+1. **Routes:** `/decks`, `/decks/[id]` (no `/my/` prefix). Create is a sheet on `/decks` — see 2026-07-30 Create deck via sheet.
+2. **Schema:** `decks` (`user_id`, `name`, `format` as Scryfall browse key string, optional `notes`) + `deck_cards` unique `(deck_id, oracle_id, board)` with `board` ∈ `main` \| `side` \| `commander` \| `companion`, `quantity` ≥ 1, optional `preferred_printing_id` → `printings` (`ON DELETE SET NULL`). Soft-join cards via `oracle_id` (same pattern as printings).
+3. **Limits:** 50 private decks / user; 250 card copies / deck (hard).
+4. **Editor:** Wire existing `WorkspaceSearchOverlay` + `CardPeekSheet` + `onSelectPrinting` for preferred printing; owned/missing from collection oracle aggregate (wish excluded).
+5. **Auth UX:** Same as Collection — no middleware page redirect; `RequireAuthLink` + `DecksSignInGate` (sheet-only).
+6. **Out of slice:** legality engine, Arena paste, builder insights, guest analyze, `DeckPublication`.
+**Consequences:** Nav adds **Decks** (auth sheet when signed out). Commander/Partner are board slots, not Deck columns — legality (2.2.3) will enforce format rules. Requires migration `20260726160000_decks_and_deck_cards`.
+**Supersedes:** Roadmap path `/my/decks` for private CRUD (analysis route in Phase 3 may still use nested paths under `/decks`).
+
+## 2026-07-26 — Environments: Git / Vercel / Neon / Google
+**Context:** App is hosted on Vercel with separate Neon branches and Google OAuth clients. Local `prisma migrate dev` against Neon `dev` failed after a rolled-back collection migration left an orphan `_prisma_migrations` row, which Prisma treated as “modified after applied” and demanded a reset.
+**Decision:**
+1. **Map:** Local → Neon `dev` + Google local; Vercel Preview (git branch `dev`) = online staging → Neon `Staging` + Google staging; Vercel Production (git `main`) → Neon `production` + Google prod.
+2. **Migrations on Neon:** prefer `prisma migrate deploy` (`npm run db:migrate:deploy`). Reserve `migrate dev` for disposable DBs.
+3. **Checksum / orphan recovery:** if `migrate` claims a migration was modified, inspect `_prisma_migrations` for `finished_at IS NULL` (rolled-back attempt) before resetting; delete the orphan, then deploy.
+**Consequences:** Documented in `docs/ARCHITECTURE.md` + README / `.env.example`. Staging and production never use `migrate reset`. Local Neon `dev` is the safe place for schema experiments.
+**Supersedes:** nothing (ops documentation gap).
+
+## 2026-07-27 — Unified card detail modal (in-app primary)
+**Context:** In-app card opens were split: catalog tiles navigated to `/cards/{slug}` PDP; deck used `CardPeekSheet`; collection add had its own search→printing sheet. Users want one overlay for inspect + last step of add-to-collection / add-to-deck, without losing SEO/share on the full detail page.
+**Decision:**
+1. **`CardDetailModalProvider`** (root) + `useCardDetailModal().open(...)` — primary click on cards (browse, search, sets, collection, collection-add, deck) opens one Sheet (`size="xl"`).
+2. **Modal body:** hero (image, status, market — no Roles/Themes) + **version tile grid** + inventory/CTAs aligned with PDP **CardCollectionPanel** (This printing / Card total, Qty + Add owned / Add wish, **Your copies**) + **View detail** → PDP. Finish is an explicit **ToggleGroup** when the printing allows multiple finishes (not nested in Add menus). `deck` mode: owned snapshot + qty + **Add to main** / **Add to sideboard** + **In this deck** list (preferred printing on version select when a deck row is active).
+3. **PDP kept as today** at `/cards/{slug}` (VersionPicker, Show all versions, collection panel, As card / As commander lists). Middle-click / cmd-click / new tab still hit the PDP href.
+4. Collection-add search only picks a card then opens the modal (printing step removed). Deck editor uses the same modal (`mode: "deck"`); `CardPeekSheet` path retired from the editor.
+**Consequences:** In-app discovery is modal-first; public hub + lists stay on the PDP. Supersedes “do not convert browse to overlay-only” from 2026-07-22 for primary clicks (href escape hatch remains).
+**Supersedes:** 2026-07-22 Workspace overlays vs catalog PDP — clause “Do not convert browse to overlay-only” (partial); peek-as-deck-only building block.
+
+## 2026-07-27 — Modal collection UI matches PDP panel
+**Context:** The unified modal’s add/owned block was thinner than the detail page (finish buried in Add dropdowns; no “Your copies” list).
+**Decision:** Mirror `CardCollectionPanel` in `CardDetailModal`: summary line, qty + Add owned / Add to wish, Your copies (select printing+finish), Collection link. Expose finish via ToggleGroup when `finishes.length > 1`. After add, refetch collection via `loadCardDetailModal` so the overlay updates without relying on provider payload alone.
+**Consequences:** Same mental model between modal and PDP for inventory; finish choice is visible before adding.
+
+## 2026-07-27 — Detail controls width + shared finish selected style
+**Context:** PDP overview capped the whole meta column at `max-w-2xl`, which also squeezed Status/Roles/Themes/Market. Finish toggles on PDP vs modal looked different.
+**Decision:** Drop column `max-w`; constrain **Version** (`max-w-md`) and **Finish** (`w-fit`) only. Shared finish ToggleGroup: `outline` + `sm` + primary when pressed (`PRINTING_FINISH_TOGGLE_ITEM_CLASS`) on PDP and modal. Modal omits Roles/Themes (PDP keeps them).
+**Consequences:** Wide viewports keep badges/market readable; selects/toggles stay compact and visually consistent.
+
+## 2026-07-27 — Detail modal mode from page workspace
+**Context:** Opening the card modal from header search while on a deck page still showed collection CTAs because callers hardcoded `mode: "collection"`. Deck add search also used an explicit Add button instead of the collection tile-click list.
+**Decision:** `CardDetailModalProvider.setDeckWorkspace` — deck editor registers `{ deckId, onDeckMutated }` for the page lifetime; while set, every `openCardDetail` uses deck mode (page wins over entry point). Collection page registers `setCollectionWorkspace` so successful adds close the modal. Collection + deck add search share `WorkspaceSearchPanel` with whole-tile pick (no per-hit Add button).
+**Consequences:** Header search on `/decks/[id]` opens Add to main/sideboard CTAs. Board choice lives in the modal, not a page select. Leaving the editor clears the workspace.
+**Supersedes:** nothing (refined by 2026-07-27 CardDetailModal deck CTAs + close-after-add).
+
+## 2026-07-28 — Card detail modal: lazy Versions + Roles/Themes
+**Context:** Every modal open ran `listOraclePrintings` (full oracle set), which is heavy for staples with dozens of printings. Modal also omitted Roles/Themes that the PDP shows.
+**Decision:**
+1. **Initial payload** resolves a **single** active printing (`resolveOraclePrintingOption`) + cheap `printingCount`; `printingsLoaded` is true only when count ≤ 1.
+2. **Hero preview** stays in the modal overview (full-width mobile, `max-w-[16rem]` from `sm`) with set#·finish + price under the art. **Versions** is a **Collapsible** starting closed with only the version tile grid; opening loads the full list once via `loadCardDetailModalPrintings`. Selecting from Your copies / In this deck may also trigger that load if the target printing is not seeded.
+3. **Status | Roles | Themes** via `ClassificationBadges` (same pattern/position as PDP overview). Finish + CTAs stay in the overview column beside the hero.
+**Consequences:** Modal open stays light; version browsing is opt-in. Active art remains visible without expanding Versions.
+**Supersedes:** 2026-07-27 Unified card detail modal — “no Roles/Themes”; 2026-07-27 Detail controls — “Modal omits Roles/Themes”.
+## 2026-07-28 — Card detail hero breakpoint: PDP matches modal (`sm`)
+**Context:** PDP overview stacked image over meta until `lg`, while `CardDetailModal` switched to image | meta at `sm` — tablet widths looked inconsistent.
+**Decision:** Share `DETAIL_HERO_GRID_CLASS` + `CARD_DETAIL_IMAGE_COLUMN_CLASS` between PDP and modal: full-width stacked hero under `sm`; 16rem image column beside meta from `sm`. Lists TOC (`DetailSectionJump` / `DetailSectionNav`) stays on the `lg` split.
+**Consequences:** Same overview responsive behavior on page and overlay; image column is slightly narrower on large PDP than the old 300px sidebar.
+**Supersedes:** older “detail image max 300px / two-column from `lg`” overview notes in `docs/UI.md`.
+
+## 2026-07-28 — PDP hero image column stays 300px
+**Context:** Aligning PDP/modal to the `sm` stack split accidentally narrowed the PDP image to the modal’s 16rem column.
+**Decision:** Keep shared `sm` breakpoint; PDP uses `DETAIL_HERO_GRID_CLASS` / `CARD_DETAIL_IMAGE_COLUMN_CLASS` at **300px**; modal keeps `CARD_DETAIL_MODAL_*` at **16rem**.
+**Consequences:** Tablet+ PDP art matches the pre-alignment size; modal stays compact in the sheet.
+**Supersedes:** 2026-07-28 Card detail hero breakpoint — shared 16rem column clause only.
+
+## 2026-07-28 — Modal Show all versions = nested VersionsBrowser
+**Context:** CardDetailModal used an inline Versions Collapsible; PDP already had Show all versions as a nested sheet.
+**Decision:** Reuse **`VersionsBrowser`** in the modal (button → nested sheet). Lazy-load via `printingCount` + `loadCardDetailModalPrintings` on open; `onSelectPrinting` updates the modal preview and closes the nested sheet (no PDP navigation). Body scroll lock remains reference-counted for nested sheets.
+**Consequences:** Same version-browse UX on page and overlay; Collapsible versions UI removed from the modal.
+**Supersedes:** 2026-07-28 Card detail modal lazy Versions — Collapsible clause only.
+
+## 2026-07-28 — Status|Roles|Themes stack until `lg` (PDP + modal)
+**Context:** Modal already stacked classification until `lg` (bottom-sheet chrome); PDP still went multi-column from `sm`, so tablet widths disagreed.
+**Decision:** `ClassificationBadges` default `rowFrom="lg"` — single column under `lg`, shared row from `lg` on both PDP and modal.
+**Consequences:** Same Status / Roles / Themes stacking on page and overlay below the sheet dialog breakpoint.
+**Supersedes:** prior “one row from `sm`” classification notes for the PDP overview.
+
+## 2026-07-28 — PDP lazy printings + VersionsBrowser skeleton
+**Context:** Modal already deferred `listOraclePrintings` until Show all versions; PDP still SSR’d the full list. Modal loading copy was a plain text line.
+**Decision:** PDP overview seeds one active printing + `printingCount` (`resolveOraclePrintingOption`); `CardDetailPrintingControls` loads via shared `loadOraclePrintings` when Show all versions opens or Version select is first used. `VersionsBrowser` shows `CardGridSkeleton` while the list fetches (modal + PDP).
+**Consequences:** Faster card page TTFB for multi-printing oracles; same lazy browse UX on page and overlay.
+**Supersedes:** SSR `listOraclePrintings` on `/cards/[slug]` overview.
+
+## 2026-07-29 — Skeleton footprint: no sheet/page jump
+**Context:** After lazy versions + modal/PDP layout changes, skeletons drifted from real chrome and `h-fit` sheets jumped short→tall.
+**Decision:** Align `CardDetailModalSkeleton` / PDP hero skeletons to live layout (Finish slot, no fake header close during load, Classification stack under `lg`). Reserve height with `SHEET_CARD_DETAIL_LOADING_MIN_H_CLASS` and `SHEET_CARD_GRID_BODY_MIN_H_CLASS` (VersionsBrowser + workspace search). Drop always-on As card/As commander from lists skeleton; remove unused `BreadcrumbSkeleton` / `PrintingListSkeleton`.
+**Consequences:** Loading states hold footprint closer to loaded UI; fewer layout shifts on modal open and Show all versions.
+
+## 2026-07-29 — PDP lists stream; collection Suspense fallbacks
+**Context:** Full-page PDP wait blocked on similar/relatives/commander packs; collection used empty `h-24`/`h-40` Suspense placeholders.
+**Decision:** (1) `/cards/[slug]` awaits only hero-critical data (card, active printing, classification, auth/collection); lists load in `CardDetailListsDeferred` behind `Suspense` + `DetailListsBandSkeleton`. (2) `/collection` wraps content like sets — page `Suspense` fallback uses `BrowseToolbarSkeleton` + `PageListMetaSkeleton` + `CardGridSkeleton`. Document skeleton levels A (reserve) vs B (tolerate) in `docs/UI.md`.
+**Consequences:** Card PDP hero paints sooner; collection soft-nav shows real chrome instead of blank boxes.
+
+## 2026-07-29 — Soft reveal for level-B bands
+**Context:** Variable bands still hard-cut in after Suspense / classification paint.
+**Decision:** Level-B reveals use `CONTENT_REVEAL_CLASS` (`animate-in fade-in` + `motion-reduce:animate-none`) on streamed lists and classification badges.
+**Consequences:** Softer list/badge appearance without inventing height for unpredictable payloads.
+
+## 2026-07-29 — Revert modal stale-while-revalidate
+**Context:** Keeping the previous card dimmed while loading felt worse than the reserved skeleton; `CardDetailModalSkeleton` + `SHEET_CARD_DETAIL_LOADING_MIN_H_CLASS` already avoid sheet height shift.
+**Decision:** `openCardDetail` clears `payload` and shows the skeleton on every open again. No opacity dim on stale content.
+**Consequences:** Clear loading state per card open; footprint still stable via the loading min-height.
+**Supersedes:** Modal portion of “Soft reveal + modal stale-while-revalidate” (same day; that entry was split — soft reveal kept, SWR dropped).
+
+## 2026-07-29 — Remove Friction score
+**Context:** Friction (0–3 from GC + stax-family otags) was inconsistent and rarely surfaced enough to matter in browse footers, detail Status, or deck insights.
+**Decision:** Drop product + storage entirely: remove `cards.friction_score` (migration `20260729190000_drop_friction_score`), delete `src/lib/classification/friction.ts`, stop writing friction in Scryfall sync / classifications job, strip UI props and deck insight sum/avg.
+**Consequences:** Status / tile footers show EDH Inclusion + GC + Reserved only; builder insights keep GC + roles/themes + skeleton. Game Changer flag remains the clear “salt” signal.
+**Supersedes:** Friction portions of Phase 1.8 discovery, Wave C friction SQL, and 2.2.6 friction insights.
+
+## 2026-07-29 — Align Printing chrome (PDP + modal)
+**Context:** Card detail modal lacked Version select; PDP/modal Printing layouts drifted from Status|Roles|Themes columns.
+**Decision:** Shared `VersionPicker`: Version + Show all in a flex-wrap pair (`h-8` button matches SelectTrigger). When Finish exists, use the same 3-col track as Status|Roles|Themes (`gap-4` / `lg:gap-6`): stack under `lg`; from `lg` Version spans 2 / Finish 1. Modal uses `onSelectPrinting` (no navigation).
+**Consequences:** One Printing pattern site-wide; Version gets the wider share from the sheet/dialog breakpoint upward.
+
+## 2026-07-29 — Classification badges fill leftover columns
+**Context:** Status|Roles|Themes switched to a 2-col grid when one section was missing, or could leave empty space vs the Printing 3-col track.
+**Decision:** Always use the fixed 3-col track from `lg` (same as Printing). When a section is missing, the last visible block spans the leftover columns (2 items → 1+2; 1 item → full width). Never leave an empty column.
+**Consequences:** Status|Roles|Themes and Printing share the same column track; sparse classification rows stay filled.
+
+## 2026-07-29 — Lean level-B loading (no fake grids on-page)
+**Context:** Dense `CardGridSkeleton` / lists-band chrome made soft nav and PDP list streaming feel like waiting even when the page/hero was already usable.
+**Decision:** (1) Keep level A only where geometry jumps (sheets, card aspect, modal/versions, toolbar height). (2) Level B uses lean `ListPagePendingSlot` / `DetailListsBandSkeleton` (muted min-h slot) or soft reveal — not fake TOC/card tiles. (3) PDP `loading.tsx` = hero only; lists stream after. (4) Collection drops page-level Suspense (decks-style keep-mounted). (5) Browse clients keep previous items dimmed while refetching.
+**Consequences:** Less skeleton theatre; first-paint chrome stays; in-page refetches don’t wipe results.
+**Supersedes:** Collection Suspense + full `CardGridSkeleton` fallback from “PDP lists stream; collection Suspense fallbacks” (same day); heavy `DetailListsBandSkeleton` grid from that entry.
+
+## 2026-07-30 — Block-fino-ai-dati as site loading default
+**Context:** Lean slots and route Suspense still felt like waiting; decks (~100 cards) already block until data with no page skeleton, so browse/collection/set/PDP should match.
+**Decision:** (1) Default PageShell routes = block until data — no `loading.tsx`, no page Suspense fallback UI. (2) Skeletons only for on-demand overlays: card detail modal, VersionsBrowser, workspace/global search. (3) PDP awaits hero + lists together (no lists Suspense). (4) Client list refetches keep previous results with no opacity dim / pending slot. (5) Filtered lists share `ListFilterAccess` + `PageListMeta` chrome (URL vs client filter state unchanged).
+**Consequences:** Soft-nav feels like decks site-wide; skeleton theatre limited to optional sheets.
+**Supersedes:** “Lean level-B loading” and route/`loading.tsx` portions of “PDP lists stream; collection Suspense fallbacks” (2026-07-29).
+
+## 2026-07-30 — Overlay defer-open + PDP hero-first stream
+**Context:** Modal/versions skeletons still felt like waiting; full PDP block (hero+lists) felt slower than other pages.
+**Decision:** (1) Card detail modal and Versions browser stay closed until data is ready — no `CardDetailModalSkeleton` / in-sheet versions skeleton. (2) PDP awaits hero only; lists stream again via `CardDetailListsDeferred` with `fallback={null}`. (3) Workspace/global search keep hit skeletons inside already-open UI.
+**Consequences:** Overlays appear complete; card PDP first paint matches other pages’ snappiness while lists fill in after.
+**Supersedes:** Overlay-skeleton and “PDP awaits hero + lists together” portions of “Block-fino-ai-dati as site loading default” (same day).
+
+## 2026-07-30 — Detail image preload + hero priority
+**Context:** Detail page/modal still felt slow; Scryfall art only started after the full data payload, and heroes used default lazy `next/image`.
+**Decision:** (1) Pass tile `imageUri`/`faces` into `openCardDetail` and `preloadImage` the front face while the modal payload loads. (2) PDP/modal heroes use `priority` + `fetchPriority="high"`; multiface back stays mounted with lazy fetch (hover only raises it — deferred mount was reverted; gray strip until hover felt broken). (3) PDP runs collection summary in parallel with printing/classification (not after). (4) Modal payload loads collection ∥ deck snapshot.
+**Consequences:** Art can hit cache before the sheet opens; LCP hero is eager; signed-in detail waits less on serial user queries.
+
+## 2026-07-30 — Modal opens on catalog; user data after
+**Context:** Even with collection ∥ deck, signed-in `loadCardDetailModal` still waited on `auth()` + user queries before the sheet could open.
+**Decision:** (1) `loadCardDetailModal` returns catalog hero only (no auth / collection / deck). (2) After open, `loadCardDetailModalUserData` fills collection + optional deck snapshots; summary / “Your copies” / “In this deck” pulse meanwhile; Add CTAs stay usable. (3) Post-add refresh uses the user-data action only.
+**Consequences:** Modal time-to-open matches guest path for signed-in users; inventory chrome streams in after hero.
+**Supersedes:** Clause (4) of “Detail image preload + hero priority” (same day).
+
+## 2026-07-30 — Restore search_tsv after bad friction migration
+**Context:** `20260729163755_drop_friction_score_dev` was Prisma drift SQL that dropped `cards.search_tsv` and several GIN indexes (not friction). Browse `q` and `/api/search` then 500’d with `column "search_tsv" does not exist`.
+**Decision:** Add `20260730120000_restore_search_tsv` to recreate the generated FTS column (apostrophe-strip definition) + GIN indexes. Keep the bad migration as historical applied SQL; the intentional friction drop remains `20260729190000_drop_friction_score`.
+**Consequences:** Text search works again after `db:migrate:deploy` on affected DBs.
+
+## 2026-07-30 — Soft-nav top progress bar
+**Context:** Block-fino-ai-dati keeps the previous page visible until RSC arrives, so slow soft-nav can feel frozen (sites like EDHREC use a thin top bar).
+**Decision:** Custom `NavigationProgress` (no `nextjs-toploader` / nprogress): start on same-origin Link/`<a>` clicks in **capture** phase (Next soft-nav `preventDefault` is not a skip signal), fake progress to ~90%, complete when URL leaves the click-origin key; **100ms anti-flash** before show (site-wide — fast/prefetched navs stay silent); brand `bg-primary`; no spinner. Overlay-only links opt out with `data-nav-progress="skip"`. Do not wrap all `useRouter` in v1 — `startNavigationProgress` / `doneNavigationProgress` remain for optional call sites.
+**Consequences:** Page transitions get clear loading affordance without restoring route skeletons; filter `router.replace` stays silent unless wired later; tile/modal opens do not leave the bar stuck.
+
+## 2026-07-30 — Deck editor grid + type sections
+**Context:** List rows felt dense and unlike browse/collection; builders expect Goldfish-style Main split by type and CMC order.
+**Decision:** (1) Deck editor cards are **grid-only** (`CARD_FACE_GRID_CLASS` + `CardFaceTile`); no list/grid toggle in v1. (2) Main + Sideboard group by primary type (`card-type-groups.ts`: Creature first so Artifact Creature → Creature; DFC uses front face); sort CMC → name within groups. Commander/Companion stay flat. (3) `getDeckDetail` sorts board → type → CMC → name for stable SSR. (4) Surge/special foil via `promo_types` deferred (needs migration + printings re-sync).
+**Consequences:** Editor matches site tile language; type sections need no schema change (`typeLine` + `cmc` already on `DeckCardView`).
+
+## 2026-07-30 — Outline toggle active = input fill
+**Context:** Finish / As card|commander / filter pills used full `bg-primary` when selected, competing with primary action buttons.
+**Decision:** Outline `Toggle` / `ToggleGroupItem` pressed state uses `bg-input` (same token as the idle border) + foreground text. Reserve solid primary for submit/important actions. Mana/rarity symbol filters keep ring affordance.
+**Consequences:** Selection chrome is quieter site-wide wherever outline toggles are used.
+
+## 2026-07-30 — Action full vs label soft (primary + info)
+**Context:** Need a clear rule for brand orange and wish teal across buttons, chips, and selection toggles.
+**Decision:** Shared tokens in `src/lib/ui/selection-chrome.ts`: **Action (primary)** = full border + full fill (`Button` default); **Label** = full border + `bg-*/15` (`LABEL_*`, status chips, outline toggle pressed, filter pills); **info/wish buttons** = label chrome (not solid). Nav active tabs stay solid primary for wayfinding.
+**Consequences:** Add owned / Get are solid primary; Add to wish uses soft info label chrome; Owned·Wish chips and Finish/As card|filters use soft fills. Supersedes “Outline toggle active = input fill” (same day).
+**Supersedes:** 2026-07-30 — Outline toggle active = input fill.
+
+## 2026-07-30 — Special foil promo_types deferred
+**Context:** Surge Foil etc. are Scryfall `promo_types` on distinct printings with `finishes: ["foil"]`; we only store `finishes` and UI maps nonfoil|foil|etched.
+**Decision:** Postpone persisting `promo_types` and labeled special foils until a dedicated migration + `default_cards` re-sync.
+**Consequences:** Special foils remain labeled “Foil” until that work lands.
+
+## 2026-07-30 — Wish/info teal darkened for solid CTAs
+**Context:** `--info` at L≈0.75 with light foreground made `Button variant="info"` (Add to wish) look washed out vs primary actions.
+**Decision:** Darken `--palette-info` to L≈0.58 and set `--info-foreground` to a light `--palette-info-ink` (on-fill text). Label wish chips use `text-info` on translucent fill.
+**Consequences:** Wish solid buttons read as full teal CTAs; soft chips/alerts stay the same token family.
+
+## 2026-07-30 — Wish buttons use label opacity (teal reverted)
+**Context:** Darkened solid teal CTAs were unconvincing; original light `--info` is better for chips/notices.
+**Decision:** Restore `--palette-info` to L≈0.75 / soft-fg. `Button variant="info"` and `ACTION_INFO` use label chrome (`border-info bg-info/15`), not full fill. Primary actions stay solid.
+**Consequences:** Add to wish / wish CTAs match Owned·Wish chip language; only brand primary stays full-style action.
+**Supersedes:** 2026-07-30 — Wish/info teal darkened for solid CTAs.
+
+## 2026-07-30 — Deck size shown as main(+side)
+**Context:** Listing and builder showed a single total (main+sideboard), which hides the split builders care about.
+**Decision:** Always display `formatDeckSizeLabel` → `N M · S S` where N = main+commander+companion and S = sideboard. Shared helpers in `boards.ts`.
+**Consequences:** `/decks` list and deck editor meta use the same label; never a combined “75 cards” total.
+**Supersedes:** (format only) earlier same-day `N(+S)` wording in this entry’s first draft.
+
+## 2026-07-30 — Deck editor sticky Add cards
+**Context:** Collection keeps Add cards reachable via sticky header chrome after the toolbar scrolls away; the deck editor buried Add in the meta panel.
+**Decision:** Wrap the deck meta panel in `ListFilterAccess` with `showFilterTongue={false}` and compact `WorkspaceSearchOverlay` as `stickyActions` (portal under nav, no Filters tongue).
+**Consequences:** Scrolling the card grid keeps Add cards sticky like collection; Import stays in the meta panel only.
+
+## 2026-07-30 — Create deck via sheet on /decks
+**Context:** Inline create form under the list + dedicated `/decks/new` page duplicated the same form.
+**Decision:** Single primary **New deck** on `/decks` opens a `size="sm"` sheet (`CreateDeckDialog`). Remove the list-page form. `/decks/new` redirects to `/decks`.
+**Consequences:** One create entry point; bookmarks to `/decks/new` still land on the list.
+
+## 2026-07-30 — Deck editor Grid + Goldfish list view
+**Context:** Grid tiles match the rest of the site but long decks need a dense “whole deck at a glance” layout (MTGGoldfish-style).
+**Decision:** Add a second **List** presentation beside Grid. Rows: qty · name · mana cost · light Owned/Missing chip · price · board · Remove (no collect CTA in list). Hover name → floating art preview (fine pointer); click name → card detail modal. Multi-column CSS (`1 / sm:2 / xl:3`); **Main** type sections `break-inside-avoid`; **Sideboard flat** (no type subcats) with title+rows in one `break-inside-avoid` so the Sideboard heading never orphans at a column end. Default **List**; persist in `localStorage` (`mtgplayground.deckEditorView`). Expose `manaCost` on `DeckCardView`; render via `ManaCost` / `parseManaCost`.
+**Consequences:** Deck editor opens in list for scan-first completeness; browse/collection remain grid-only. Collection top-ups stay on grid tiles / detail modal.
+**Supersedes:** (default + sideboard layout) earlier same-day drafts of this entry.

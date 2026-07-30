@@ -1,6 +1,6 @@
 # MTGPlayground — Product Specification
 
-> Last updated: 2026-07-20 · **Pivot** from EDHForge commander-center → catalog + collection + multi-format decks  
+> Last updated: 2026-07-26 · **Pivot** from EDHForge commander-center → catalog + collection + multi-format decks  
 > Package/UI: MTGPlayground · local folder / GitHub may still be `edhforge` until rename ops.
 
 ## Vision
@@ -36,7 +36,7 @@
 
 ### Oracle vs Printing
 
-- **OracleCard** — identity: name, oracle text, color identity, legalities, keywords, classifications (roles/themes), friction/GC flags, popularity *inclusion* rank
+- **OracleCard** — identity: name, oracle text, color identity, legalities, keywords, classifications (roles/themes), GC / Reserved flags, popularity *inclusion* rank
 - **Printing** — concrete version: set, collector number, rarity, images (incl. faces), finishes available, prices; Scryfall printing id
 - **CollectionItem** — user + printing + finish + quantity; **owned** and **wish** are separate rows (`wantlist` in the unique key)
 - **Deck / DeckCard** — format + list by **oracle** (legality); optional preferred printing for display; owned qty = sum of collection printings for that oracle
@@ -44,10 +44,11 @@
 ### Deck (private workspace)
 
 - Editable, unlimited revisions
-- Owner only
-- Format field (Commander, Standard, …)
-- Import: Arena paste, manual editor, fork, precon
-- Commander/Partner fields when format requires them
+- Owner only — routes `/decks`, `/decks/[id]` (not public)
+- Format field (Scryfall keys: Commander, Standard, Modern, …)
+- Boards: main / side / commander / companion (commander-like formats surface commander+companion)
+- Import: Arena paste (planned), manual editor, fork, precon (later)
+- Commander/Partner: deck cards on `commander` board (legality engine enforces rules later)
 
 ### DeckPublication (public snapshot)
 
@@ -84,7 +85,7 @@ PublicationRating: 1 per user per publication (power, budget, originality 1–10
 
 - Search + browse cards (facets); sets; precons (when MTGJSON lands)
 - Card detail: oracle hub + **version picker** (set/art/foil) + multiface toggle
-- Popularity shown only as Scryfall **Inclusion** rank (honest copy), not commander popularity; commanders hub is a legality filter (name-first)
+- Popularity shown only as Scryfall **EDH Inclusion** rank (honest copy), not commander popularity; commanders hub is a legality filter (name-first)
 - Deprecated: dual `/commanders/[slug]` meta detail as a product surface (redirect/merge into card detail)
 
 **Collection (auth)**
@@ -95,11 +96,11 @@ PublicationRating: 1 per user per publication (power, budget, originality 1–10
 
 **Decks (auth to save)**
 
-- Multi-format editor + legality
+- Multi-format editor + legality (block: Scryfall status + size / copies / CI / commander)
 - Owned / missing vs collection (oracle aggregation)
-- Arena paste import
-- Insights from classifications (roles, GC, friction, relations) **inside builder**, not as a second detail mode
-- Card inspect / catalog search **in the editor** use contextual overlays (`CardPeekSheet`, `WorkspaceSearchOverlay`); full `/cards/{slug}` remains the public catalog hub
+- Arena + plain-text paste import (oracle; Arena / EDHREC / MTGGoldfish style lists)
+- Insights from classifications (roles, themes, GC; commander-like skeleton) **inside builder**, not as a second detail mode
+- Card inspect / add flows use the unified **`CardDetailModal`** (browse, search, collection, decks); full `/cards/{slug}` remains the public catalog hub (lists + SEO) via **View detail**
 
 **Community (after collection + decks work)**
 
@@ -125,7 +126,7 @@ Historical sections below (1.5 / 1.6 / 1.8) remain for archive; they do **not** 
 
 ## Discovery Scryfall (Phase 1.8) — archive
 
-> **Superseded as product end-state by MTGPlayground pivot (2026-07-20).** Technical enrichment (popularity_rank, GC, friction, relations) remains useful on oracle cards.
+> **Superseded as product end-state by MTGPlayground pivot (2026-07-20).** Technical enrichment (popularity_rank, GC, relations) remains useful on oracle cards. **Friction** was removed 2026-07-29.
 
 ### Browse hub (`/browse`) — legacy
 
@@ -137,7 +138,6 @@ Historical sections below (1.5 / 1.6 / 1.8) remain for archive; they do **not** 
 | UI term | Meaning |
 |---|---|
 | **Popularity** | Scryfall `edhrec_rank` — Commander **deck inclusion**, not “as commander” |
-| **Friction** | 0–3: +2 GC, +1 stax-family otag |
 
 ### Detail pack (D2) — commander list view on card detail
 

@@ -17,6 +17,11 @@ type PageShellProps = {
   children: ReactNode;
   /** Optional toolbar row (filters, window selector) rendered below the page header. */
   toolbar?: ReactNode;
+  /**
+   * Actions aligned with the title block (right on `sm+`, under title on mobile).
+   * Homologous to CardDetailModal header actions (View detail / Go to set).
+   */
+  headerActions?: ReactNode;
 };
 
 export function PageShell({
@@ -25,6 +30,7 @@ export function PageShell({
   breadcrumbs,
   children,
   toolbar,
+  headerActions,
 }: PageShellProps) {
   return (
     <div className={cn(siteContainerClassName, "py-8 lg:py-10")}>
@@ -41,13 +47,20 @@ export function PageShell({
         </nav>
       )}
 
-      <header className="space-y-2">
-        <h1 className="font-heading text-3xl font-bold tracking-tight text-foreground lg:text-4xl">
-          {title}
-        </h1>
-        {description && (
-          <p className="max-w-3xl text-base text-muted-foreground">{description}</p>
-        )}
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
+        <div className="min-w-0 flex-1 space-y-2">
+          <h1 className="font-heading text-3xl font-bold tracking-tight text-foreground lg:text-4xl">
+            {title}
+          </h1>
+          {description && (
+            <p className="max-w-3xl text-base text-muted-foreground">{description}</p>
+          )}
+        </div>
+        {headerActions ? (
+          <div className="flex shrink-0 flex-wrap items-center gap-2 sm:pt-1">
+            {headerActions}
+          </div>
+        ) : null}
       </header>
 
       {toolbar ? (

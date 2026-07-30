@@ -43,7 +43,6 @@ export const cardBrowseSelect = {
   prices: true,
   listPriceEur: true,
   popularityRank: true,
-  frictionScore: true,
   isGameChanger: true,
   isReserved: true,
   colorSort: true,

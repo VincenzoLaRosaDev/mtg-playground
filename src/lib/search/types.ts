@@ -13,7 +13,6 @@ export type GlobalSearchCardResult = {
   isCommander: boolean;
   prices: unknown;
   popularityRank: number | null;
-  frictionScore: number;
   isGameChanger: boolean;
   isReserved: boolean;
 };

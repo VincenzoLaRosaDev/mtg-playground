@@ -1,15 +1,9 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { Suspense } from "react";
 
-import { CardFaceTile } from "@/components/discovery/card-face-tile";
 import { EmptyState } from "@/components/discovery/empty-state";
-import {
-  BrowseToolbarSkeleton,
-  CardGridSkeleton,
-  PageListMetaSkeleton,
-} from "@/components/discovery/loading-skeletons";
 import { SetCardFilters } from "@/components/discovery/set-card-filters";
+import { SetPrintingTile } from "@/components/discovery/set-printing-tile";
 import { ListFilterAccess } from "@/components/layout/list-filter-access";
 import { ListLoadMoreRow } from "@/components/layout/list-load-more-row";
 import { PageListMeta } from "@/components/layout/page-list-meta";
@@ -72,7 +66,8 @@ export async function generateMetadata({ params }: SetDetailPageProps): Promise<
   });
 }
 
-async function SetDetailContent({ params, searchParams }: SetDetailPageProps) {
+/** Block until data — no route Suspense / loading.tsx (decks-style). */
+export default async function SetDetailPage({ params, searchParams }: SetDetailPageProps) {
   const { code } = await params;
   const setCode = code.toLowerCase();
   const filters = parseSetCardFilters(await searchParams);
@@ -155,14 +150,12 @@ async function SetDetailContent({ params, searchParams }: SetDetailPageProps) {
         { label: mtgSet.name, href: `/sets/${mtgSet.code}` },
       ]}
       toolbar={
-        <Suspense fallback={<BrowseToolbarSkeleton variant="setDetail" />}>
-          <ListFilterAccess
-            hasActiveFilters={hasActiveSetCardFilters(filters)}
-            filtersKey={JSON.stringify(filters)}
-          >
-            <SetCardFilters setCode={mtgSet.code} />
-          </ListFilterAccess>
-        </Suspense>
+        <ListFilterAccess
+          hasActiveFilters={hasActiveSetCardFilters(filters)}
+          filtersKey={JSON.stringify(filters)}
+        >
+          <SetCardFilters setCode={mtgSet.code} />
+        </ListFilterAccess>
       }
     >
       {printings.length === 0 ? (
@@ -187,21 +180,16 @@ async function SetDetailContent({ params, searchParams }: SetDetailPageProps) {
               const catalog = catalogByOracle.get(printing.oracleId);
               const imageUri = printing.imageUri ?? catalog?.imageUri ?? null;
               const faces = parseCardFaces(printing.faces);
-              const detailHref = catalog?.slug
-                ? `/cards/${catalog.slug}?set=${mtgSet.code}&cn=${encodeURIComponent(printing.collectorNumber)}`
-                : null;
               return (
                 <li key={printing.id}>
-                  <CardFaceTile
-                    href={detailHref}
+                  <SetPrintingTile
+                    printingId={printing.id}
+                    name={printing.name}
+                    collectorNumber={printing.collectorNumber}
                     imageUri={imageUri}
                     faces={faces}
-                    name={printing.name}
-                    footer={
-                      <p className="w-full text-center text-xs tabular-nums text-muted-foreground">
-                        #{printing.collectorNumber}
-                      </p>
-                    }
+                    slug={catalog?.slug ?? null}
+                    setCode={mtgSet.code}
                   />
                 </li>
               );
@@ -212,30 +200,5 @@ async function SetDetailContent({ params, searchParams }: SetDetailPageProps) {
         </>
       )}
     </PageShell>
-  );
-}
-
-export default function SetDetailPage(props: SetDetailPageProps) {
-  return (
-    <Suspense
-      fallback={
-        <PageShell
-          title="…"
-          description="Loading set…"
-          breadcrumbs={[
-            { label: "Sets", href: "/sets" },
-            { label: "…", href: "#" },
-          ]}
-          toolbar={<BrowseToolbarSkeleton variant="setDetail" />}
-        >
-          <PageListMetaSkeleton />
-          <div className="mt-6">
-            <CardGridSkeleton count={12} footerLines={1} />
-          </div>
-        </PageShell>
-      }
-    >
-      <SetDetailContent {...props} />
-    </Suspense>
   );
 }

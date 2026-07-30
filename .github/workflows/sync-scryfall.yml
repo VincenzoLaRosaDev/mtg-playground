@@ -3,14 +3,14 @@ name: Scryfall sync
 # TEMP: scheduled + manual runs disabled until GitHub secrets are configured.
 # Re-enable: set SYNC_JOBS_ENABLED to "true" and uncomment `schedule` below.
 env:
-  SYNC_JOBS_ENABLED: "false"
+  SYNC_JOBS_ENABLED: "true"
 
 on:
-  # schedule:
+  schedule:
   #   # Daily oracle_cards check + sync when bulk changed (03:00 UTC)
-  #   - cron: "0 3 * * *"
+    - cron: "0 3 * * *"
   #   # Weekly sets + set index (Sundays 04:30 UTC)
-  #   - cron: "30 4 * * 0"
+    - cron: "30 4 * * 0"
   workflow_dispatch:
     inputs:
       mode:

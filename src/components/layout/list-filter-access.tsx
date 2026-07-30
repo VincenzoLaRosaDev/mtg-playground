@@ -47,8 +47,14 @@ type ListFilterAccessProps = {
    * Collection's "Add cards") — right-aligned, same row, same show/hide
    * timing. Not shown at the drawer-bottom copy of the tongue (the open
    * drawer already re-renders `children`, which includes these).
+   * With `showFilterTongue={false}`, these alone form the sticky chrome.
    */
   stickyActions?: ReactNode;
+  /**
+   * When false, no Filters tongue/drawer — only `stickyActions` portal under
+   * the header when children scroll away (deck editor Add cards).
+   */
+  showFilterTongue?: boolean;
   /**
    * Opaque string that changes whenever the wrapped filters change (e.g. a
    * serialized filter/sort state). When it changes while the toolbar is
@@ -91,6 +97,7 @@ export function ListFilterAccess({
   label = "Filters",
   filtersKey,
   stickyActions,
+  showFilterTongue = true,
 }: ListFilterAccessProps) {
   const inlineShellRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -280,6 +287,12 @@ export function ListFilterAccess({
 
   // Mount / unmount drawer. Do not start the open slide here — wait until measured.
   useEffect(() => {
+    if (!showFilterTongue) {
+      setDrawerMounted(false);
+      setDrawerShown(false);
+      return;
+    }
+
     // Bump synchronously (not deferred below) so the open-slide effect's
     // `gen` capture always sees this cycle, invalidating any stale in-flight
     // rAF chain from a previous rapid toggle.
@@ -316,7 +329,7 @@ export function ListFilterAccess({
       cancelAnimationFrame(setupId);
       cleanup?.();
     };
-  }, [open]);
+  }, [open, showFilterTongue]);
 
   // Open slide: only after panel height is known (otherwise offset is 0 → desktop snap).
   useEffect(() => {
@@ -470,7 +483,21 @@ export function ListFilterAccess({
   // full-size counterpart included), so it skips this row to avoid a duplicate.
   // A little top padding detaches it from the header's bottom edge — the
   // plain tongueRow (no stickyActions) sits flush, which is fine on its own.
-  const closedTongueRow = stickyActions ? (
+  const closedTongueRow = !showFilterTongue ? (
+    stickyActions ? (
+      <div
+        className={cn(
+          "mx-auto flex w-full items-end justify-start gap-2 pt-1",
+          SITE_MAX_WIDTH_CLASS,
+          SITE_GUTTER_CLASS,
+        )}
+      >
+        <div className={cn(!chromeShown && "pointer-events-none")}>
+          {stickyActions}
+        </div>
+      </div>
+    ) : null
+  ) : stickyActions ? (
     <div
       className={cn(
         "mx-auto flex w-full items-end gap-2",

@@ -8,7 +8,6 @@ import {
   type BrowseHubToolbarState,
 } from "@/components/discovery/browse-hub-toolbar";
 import { CardGridTile } from "@/components/discovery/card-grid-tile";
-import { CardGridSkeleton } from "@/components/discovery/loading-skeletons";
 import { ListFilterAccess } from "@/components/layout/list-filter-access";
 import { ListLoadMoreRow } from "@/components/layout/list-load-more-row";
 import { PageListMeta } from "@/components/layout/page-list-meta";
@@ -22,7 +21,6 @@ import {
   getCatalogBrowseSortOptions,
 } from "@/lib/browse/cards-shared";
 import { CARD_FACE_GRID_CLASS } from "@/lib/ui/card-face";
-import { cn } from "@/lib/utils";
 
 type BrowseHubClientProps = {
   initialData: BrowseListInitialData<CardBrowseItem>;
@@ -32,7 +30,7 @@ type BrowseHubClientProps = {
   presentThemes: string[];
 };
 
-/** Show Inclusion on tiles for Any/Commander format, or when sorting by Inclusion. */
+/** Show EDH Inclusion on tiles for Any/Commander format, or when sorting by it. */
 export function shouldShowBrowseInclusionRank(state: {
   format: string;
   sort: string;
@@ -117,7 +115,7 @@ export function BrowseHubClient({
 
   const description = toolbar.commandersOnly
     ? "Legendary cards that can be your commander — catalog filter, not a popularity ranking."
-    : "Browse the Scryfall card catalog. Inclusion is Commander (EDH) deck inclusion from Scryfall.";
+    : "Browse the Scryfall card catalog. EDH Inclusion is Commander deck inclusion from Scryfall.";
 
   return (
     <PageShell
@@ -144,17 +142,10 @@ export function BrowseHubClient({
           : ""}
       </PageListMeta>
 
-      {error && <p className="mt-4 text-sm text-destructive">{error}</p>}
+      {error ? <p className="mt-4 text-sm text-destructive">{error}</p> : null}
 
-      {loading && items.length === 0 ? (
-        <div className="mt-6">
-          <CardGridSkeleton />
-        </div>
-      ) : (
-        <div
-          className={cn(`mt-6 ${CARD_FACE_GRID_CLASS}`, loading && "opacity-60")}
-          aria-busy={loading || undefined}
-        >
+      {items.length > 0 ? (
+        <div className={`mt-6 ${CARD_FACE_GRID_CLASS}`} aria-busy={loading || undefined}>
           {items.map((card) => (
             <CardGridTile
               key={card.id}
@@ -163,11 +154,11 @@ export function BrowseHubClient({
             />
           ))}
         </div>
-      )}
+      ) : null}
 
-      {!loading && items.length === 0 && !error && (
+      {!loading && items.length === 0 && !error ? (
         <p className="mt-6 text-sm text-muted-foreground">No results match these filters.</p>
-      )}
+      ) : null}
 
       <ListLoadMoreRow
         loadMore={{ onClick: loadMore, loading: loadingMore, disabled: !nextCursor || loading }}

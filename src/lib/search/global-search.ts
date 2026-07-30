@@ -52,7 +52,6 @@ export async function queryGlobalSearch(
             isCommander: true,
             prices: true,
             popularityRank: true,
-            frictionScore: true,
             isGameChanger: true,
             isReserved: true,
           },
@@ -75,7 +74,6 @@ export async function queryGlobalSearch(
       isCommander: row.isCommander,
       prices: row.prices,
       popularityRank: row.popularityRank,
-      frictionScore: row.frictionScore,
       isGameChanger: row.isGameChanger,
       isReserved: row.isReserved,
     }));

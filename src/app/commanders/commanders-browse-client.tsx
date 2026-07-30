@@ -10,6 +10,7 @@ import {
 } from "@/components/discovery/commander-browse-toolbar";
 import { CommanderGridTile } from "@/components/discovery/commander-grid-tile";
 import { LoadMoreButton } from "@/components/discovery/load-more-button";
+import { ListFilterAccess } from "@/components/layout/list-filter-access";
 import { PageListMeta } from "@/components/layout/page-list-meta";
 import { PageShell } from "@/components/layout/page-shell";
 import { useBrowseList, type BrowseListInitialData } from "@/hooks/use-browse-list";
@@ -34,10 +35,12 @@ export function CommandersBrowseClient({
 }: CommandersBrowseClientProps) {
   const [toolbar, setToolbar] = useState<CommanderBrowseToolbarState>(initialToolbar);
 
+  const requestKey = JSON.stringify(toolbar);
+
   const { items, total, nextCursor, loading, loadingMore, error, loadMore } =
     useBrowseList<CommanderBrowseItem>({
       path: "/api/commanders/browse",
-      requestKey: JSON.stringify(toolbar),
+      requestKey,
       initialRequestKey,
       initialData,
       searchQuery: toolbar.query,
@@ -69,7 +72,20 @@ export function CommandersBrowseClient({
     <PageShell
       title="Commanders"
       description="Browse every commander-legal legendary from the Scryfall catalog."
-      toolbar={<CommanderBrowseToolbar state={toolbar} onChange={handleToolbarChange} />}
+      toolbar={
+        <ListFilterAccess
+          hasActiveFilters={Boolean(
+            toolbar.query.trim() ||
+              toolbar.colors.length ||
+              toolbar.typeContains.trim() ||
+              toolbar.cmcMin ||
+              toolbar.cmcMax,
+          )}
+          filtersKey={requestKey}
+        >
+          <CommanderBrowseToolbar state={toolbar} onChange={handleToolbarChange} />
+        </ListFilterAccess>
+      }
     >
       <PageListMeta>
         Scryfall catalog — commanders only.

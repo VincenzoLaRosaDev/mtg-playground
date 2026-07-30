@@ -55,16 +55,19 @@ export function CardDetailLists({
   buildSkeleton,
 }: CardDetailListsProps) {
   const showToc = sectionNavItems.length >= 2;
+  /** No lateral TOC at `lg+` — use denser card columns so tiles don’t grow huge. */
+  const wideGrid = !showToc;
 
   const sections =
     activeView === "commander" ? (
       <>
-        <RoleStaplesSection groups={roleStaples} />
+        <RoleStaplesSection groups={roleStaples} wideGrid={wideGrid} />
         {gameChangers.length > 0 ? (
           <DetailCardGridSection
             id={DETAIL_SECTION_IDS.gameChangers}
             title="Game Changers"
             cards={gameChangers}
+            wideGrid={wideGrid}
           />
         ) : null}
         {buildSkeleton.length > 0 ? (
@@ -78,9 +81,14 @@ export function CardDetailLists({
             id={DETAIL_SECTION_IDS.similarCards}
             title="Similar cards"
             cards={similar}
+            wideGrid={wideGrid}
           />
         ) : null}
-        <CardRelativesBySubtype subtypes={subtypes} relatives={relatives} />
+        <CardRelativesBySubtype
+          subtypes={subtypes}
+          relatives={relatives}
+          wideGrid={wideGrid}
+        />
       </>
     );
 
