@@ -72,6 +72,10 @@ export function CardsBrowseClient({
     <PageShell
       title="Cards"
       description="Browse the Commander-legal card catalog from Scryfall."
+      breadcrumbs={[
+        { label: "Home", href: "/" },
+        { label: "Browse", href: "/browse" },
+      ]}
       toolbar={
         <ListFilterAccess
           hasActiveFilters={Boolean(

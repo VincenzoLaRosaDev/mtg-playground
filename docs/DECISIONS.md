@@ -558,3 +558,206 @@ Format for new entries:
 **Decision:** Add a second **List** presentation beside Grid. Rows: qty · name · mana cost · light Owned/Missing chip · price · board · Remove (no collect CTA in list). Hover name → floating art preview (fine pointer); click name → card detail modal. Multi-column CSS (`1 / sm:2 / xl:3`); **Main** type sections `break-inside-avoid`; **Sideboard flat** (no type subcats) with title+rows in one `break-inside-avoid` so the Sideboard heading never orphans at a column end. Default **List**; persist in `localStorage` (`mtgplayground.deckEditorView`). Expose `manaCost` on `DeckCardView`; render via `ManaCost` / `parseManaCost`.
 **Consequences:** Deck editor opens in list for scan-first completeness; browse/collection remain grid-only. Collection top-ups stay on grid tiles / detail modal.
 **Supersedes:** (default + sideboard layout) earlier same-day drafts of this entry.
+
+## 2026-07-30 — Sign out leaves account workspaces
+**Context:** Signing out on `/collection` or `/decks/*` refreshed into `*SignInGate`, which auto-opened the sign-in sheet on an empty workspace.
+**Decision:** `UserMenu` Sign out calls `signOut({ callbackUrl: "/" })` when `isAuthRequiredHref(pathname)` (collection/decks); other routes keep the current URL.
+**Consequences:** Logout from user flows returns home; unauthorized visit to those URLs still shows the gate + sheet as before.
+
+## 2026-07-30 — Unified Collection | Decks manage + lazy modal lists
+**Context:** Detail modal CTAs flipped between collection-only and deck-only by page workspace; PDP had collection only. Building decks from browse/search needed Add to deck everywhere, and modal related lists were missing (or would be heavy if always fetched).
+**Decision:**
+1. Always show **Collection** and **Decks** side by side (`CardManagePanels`) in the card detail modal and on the PDP (`CardDetailManageSection`).
+2. Decks column: deck `<Select>` + qty + Add to main/sideboard + in-deck lines. Default deck = workspace deck on an editor page, else `localStorage` `mtgplayground.lastDeckId` (written on deck page visit and successful adds), else most recently updated deck. Select remains visible on the current deck page.
+3. Modal **Related cards** collapse loads similar / relatives / commander packs only when opened (`loadCardDetailLists`); tile clicks replace the open modal via `openCardDetail`.
+**Consequences:** One manage UX across modal + PDP; deck adds available from any card open; modal open stays light until lists are expanded.
+**Supersedes:** Modal mode that showed either collection CTAs or deck CTAs (not both).
+
+## 2026-07-30 — Modal lists match PDP As card / As commander
+**Context:** Modal Related cards dumped all sections without the PDP view split or TOC; with near-parity content, “View detail” was misleading.
+**Decision:** Reuse `CardDetailLists` in the modal (`variant="sheet"`): As card / As commander toggles in-place, sticky jump + lateral TOC (sheet sticky top), denser sheet grid classes that still +1 column when TOC is absent. Rename header CTA to **Go to page**. Scroll-spy uses the nearest scrollport so TOC active state works inside the sheet.
+**Consequences:** Modal lists feel like a compressed PDP; full page remains for SEO/share and deep links.
+
+## 2026-07-30 — Phase 2.3 precons (MTGJSON constructed)
+**Context:** Need official precon browse/fork/owned gap without scraping retail sites; MTGJSON is the planned source.
+**Decision:**
+1. Sync **constructed** MTGJSON deck types only — use real DeckList strings (`Commander Deck`, `Duel Deck`, `Challenger Deck`, `Starter Deck`, `Intro Pack`, `Theme Deck`, …). Exclude Jumpstart, Secret Lair Drop, Deck Builder’s Toolkit, Bundle Land Pack, Box Set, MTGO Redemption, etc.
+2. Map type (+ name/code hints) → Scryfall browse `format`; skip when unmappable.
+3. Store `Precon` / `PreconCard` (oracle + board + optional preferred printing via Scryfall id / set+cn). Omit tokens from the checklist.
+4. Fork copies all lines into a private `Deck` with `sourcePreconId`; legality surfaces in the editor (no silent drops).
+5. UI: `/precons` browse + `/precons/[slug]` detail with Owned/Missing chips and Fork CTA.
+**Consequences:** Precons depend on Scryfall printings being indexed first; monthly/`--if-changed` sync via `npm run sync:mtgjson-precons` (local) and `.github/workflows/sync-mtgjson-precons.yml` (1st of month 05:00 UTC + manual dispatch). Short keys like `commander` alone never appear in DeckList — matching must use the human-readable `type` field.
+
+## 2026-07-30 — Phase 3 analysis scope (in-builder only)
+**Context:** Roadmap listed precon/publication compare (3.5) and a dedicated `/decks/[id]/analysis` page (3.6). Precon diffs are a poor fit (decks diverge by design); a second analysis surface duplicates the builder.
+**Decision:**
+1. Ship **3.1–3.4** only: composition (curve/types/lands/colors), role counts, theme overlap, soft format coherence — all in the deck editor meta panel.
+2. **Cancel 3.5** (compare vs precon / own publications) and **3.6** (analysis route). `sourcePreconId` remains provenance for possible later Phase 4 corpus tools.
+3. Charts: compact CSS bars/chips (no Recharts in v1) so the sticky meta panel stays light.
+**Consequences:** Analysis extends `DeckInsightsPanel` / `src/lib/decks/{composition,insights,coherence}.ts`. Hard legality stays in `DeckLegalityPanel`; coherence is advisory only.
+
+## 2026-07-30 — Archidekt-inspired deck stats (in-builder)
+**Context:** Archidekt Deck stats (Colors / Mana curve / Probability / Quantities + header size/cost/salt/bracket) are a brewing benchmark. We want closer vision without EDHREC salt, official Bracket parity, or a separate analysis route.
+**Decision:**
+1. Evolve `DeckInsightsPanel` into tabbed stats: **Overview | Colors | Curve | Quantities | Odds**, with header `Size · Avg MV · Est cost · Lands`.
+2. **Colors:** spell **pips** from `manaCost` + **production** from Scryfall `produced_mana` (lands-only toggle). No fragile oracle regex.
+3. **Odds:** hypergeometric ≥1 in N (default 7) for lands / top roles / types.
+4. **Out of v1:** salt sum, EDH Bracket estimate, user-editable categories, chart→focus, pin-to-side panel, Recharts.
+**Consequences:** Est cost uses EUR-first preferred-printing prices (same grain as tiles). Roles stand in for Archidekt “categories” honestly labeled. GC remains the power/salt-ish signal.
+
+## 2026-07-30 — Deck stats below list, grid not tabs
+**Context:** Tabbed stats in the sticky meta panel crowded the editor chrome and hid sections behind clicks. Archidekt itself places stats under the list.
+**Decision:** Move `DeckInsightsPanel` **below** the deck list/grid. Drop section tabs; show Overview · Colors · Curve · Quantities · Odds in a **responsive grid** (1 column → 2 from `md`), Odds full-width on wide viewports. Meta panel keeps name/format/legality/Add only.
+**Consequences:** Supersedes the tabbed-in-meta layout from the prior Archidekt-inspired entry. Stats scroll with the page after the cards.
+
+## 2026-07-30 — Deck stats single-column until section rework
+**Context:** A 2-column grid locked spacing before the individual stats sections are redesigned.
+**Decision:** Stack all deck-stats sections **vertically for now**. Revisit multi-column after the section rework settles content density.
+**Consequences:** Supersedes the 1→2 column grid choice in the prior “below list” entry.
+
+## 2026-07-30 — Colors stats: Archidekt structure, our chrome
+**Context:** Archidekt Colors shows Cost/Production share bars plus per-color cards (% · pips/mana · cards) with mana icons and tinted bars.
+**Decision:** Rebuild Colors via `DeckColorsStats` with that information architecture (share bars + always-visible WUBRG(+C) grid, % badges, pip/mana·cards). Keep include-colorless and lands-only-production toggles. Use Scryfall-aligned bar fills (`mana-palette`) and existing `ManaSymbol` — not Archidekt’s dark chrome or control icons.
+**Consequences:** Percentages are share of total cost pips / production sources (not relative to the max color).
+
+## 2026-07-30 — Mana curve stats: overall + facet mini-curves
+**Context:** Archidekt Mana curve shows Avg/Total MV, an overall histogram, “Mana curve by” dropdown, and a grid of mini-curves (Color / Permanent / Categories / Types / …).
+**Decision:** Ship `DeckCurveStats` with that structure. Facet modes **v1:** Color · Types · Permanent/non-permanent (data we already have). Defer Categories/roles, subtypes, rarity, power, toughness. Multicolor spells count in **each** cost color. Keep CMC buckets `0–6` + `7+` (not Archidekt `8+`). Bars use rounded tops + gaps; color mini-curves use `mana-palette` fills.
+**Consequences:** `curveBreakdowns` on `DeckDetail` from `summarizeDeckCurveBreakdowns`. Dropdown lists only supported modes — no disabled stub options.
+
+## 2026-07-30 — Mana curve facets: Roles, Subtypes, Rarity
+**Context:** Archidekt also breaks mana curve by Categories, Subtypes, Rarity (plus Power/Toughness).
+**Decision:** Add **Roles** (our classification categories — labeled Roles, not Categories), **Subtypes** (front-face `typeLine`, top 12 + Other + No subtype), and **Rarity** (preferred/catalog printing, fallback `Card.minRarity`). Still **defer Power/Toughness**. Multi-role / multi-subtype cards count in each matching series; untagged roles → Uncategorized.
+**Consequences:** `DeckCardView.rarity` loaded for stats; no schema/migration. Power/toughness remain out until explicitly requested.
+
+## 2026-07-30 — Quantities: Quantity-of select (Archidekt facets)
+**Context:** Archidekt Quantities uses one selectable view (Categories / Types / Subtypes / Supertypes / Mana Value / Keywords). We previously stacked Roles+Types+MV always expanded and lacked subtypes/supertypes/keywords.
+**Decision:** Ship `DeckQuantitiesStats` with a **Quantity of** select covering Roles · Types · Subtypes · Supertypes · Mana value · Keywords (main+commander; lands included). Keep our horizontal bars (not Archidekt’s vertical orange chart). Label Roles not Categories. Keywords from Scryfall `Card.keywords`.
+**Consequences:** `quantityBreakdowns` on `DeckDetail`; `DeckCardView.keywords` loaded. One facet visible at a time.
+
+## 2026-07-30 — Odds: At least/Exactly + facet select
+**Context:** Archidekt Probability is “drawing At least|Exactly K by [facet] having drawn N”. Our Odds was fixed ≥1 with a mixed Land/roles/types list.
+**Decision:** Ship `DeckOddsStats` with At least|Exactly · target K · by Card Name|Roles|Types|Subtypes|Mana value|Keywords · draws N. Reuse `quantityBreakdowns` + `cardNameQuantities`. Hypergeometric Exact via existing PMF. No mulligan model, no list-focus from row click.
+**Consequences:** Table Label/Qty/Odds sorted by odds then qty. Grain remains main+commander.
+
+## 2026-07-30 — Odds default facet by format
+**Context:** On singleton / commander-like decks nearly every Card Name row is qty 1, so “by Card Name” is noisy as a default.
+**Decision:** Default Odds facet = **Types** for commander-like formats (`isCommanderLikeFormat`); **Card Name** for multi-copy constructed. Changing format resets the facet to that default. Card Name remains selectable in all formats.
+**Consequences:** `defaultOddsFacetForFormat` in `odds-rows.ts`; `DeckOddsStats` takes `format`.
+
+## 2026-07-30 — Overview as stats dashboard
+**Context:** Overview duplicated Size and listed themes/GC/skeleton without summarizing Colors/Curve/Quantities/Odds; deleting it would orphan coherence/GC/themes/skeleton.
+**Decision:** Rework Overview into `DeckOverviewStats`: coherence alerts, snapshot tiles (GC, top role/type, curve peak, land odds, themed %), top pip chips, mini-curve, compact skeleton bars, one-line themes. Detail lists stay in the specialized sections.
+**Consequences:** Overview is a brew dashboard, not a fourth quantities list.
+
+## 2026-07-30 — Deck list columns: allow type-group splits
+**Context:** `break-inside-avoid` on whole type subsections (e.g. all Creatures) forced one tall column and left Sorcery/Artifact/Land short — uneven Goldfish columns.
+**Decision:** Prefer **column balance**: type groups may split across columns; keep `break-after-avoid` on board/type headings and `break-inside-avoid` on individual rows. Enable `column-fill: balance` on the list container. Same for precon list view.
+**Consequences:** A Creature header can sit above a partial list that continues in the next column; heights stay closer across columns.
+
+## 2026-07-30 — Deck stats mosaic layout (lg+)
+**Context:** After section rework, full-width stacked stats felt stretched on large screens; a rigid 2-col grid would equal-height stretch cells.
+**Decision:** Use CSS multi-column mosaico: `columns-1` below `lg`, `lg:columns-2` with each `StatCell` `break-inside-avoid` + `mb-4` so heights follow content. Cap Odds table with `max-h-[min(28rem,70vh)] overflow-auto`. No masonry library / no tabs.
+**Consequences:** Supersedes the temporary “single-column until section rework” choice. Desktop shows side-by-side variable-height sections; Odds scroll internally when long.
+
+## 2026-07-30 — Deck list as preview card grid
+**Context:** `/decks` was a dense text list; Archidekt-style browse shows cover art + mana distribution. We want grid parity with sets/precons without public views/tags/author chrome.
+**Decision:**
+1. **Layout:** `CARD_FACE_GRID_CLASS` (browse card column density, not set/precon rows) — cover crop, cost share bar, overlay meta; whole card links to the editor; footer is name + Delete only.
+2. **Cover:** commander board (first by name if partners) → highest-CMC non-land main → first main; preferred printing image then catalog.
+3. **Cover image size:** display Scryfall **`art_crop`** (rewrite CDN size segment from stored `normal`) so the frame/name bar is not visible — same idea as Archidekt. No schema change; catalog still stores `normal`.
+4. **Overlay:** `Format · sizeLabel · relative updated` (no views).
+5. **Bar:** Cost pips only (`summarizeDeckManaPips`), shared `ManaShareBar` with Colors stats — not production or color identity.
+**Consequences:** `listDecks` batch-loads card faces for cover + pips; picker list stays slim. No custom cover UX yet.
+
+## 2026-07-30 — Precon PDP reuses deck stats panel
+**Context:** Deck editor shipped Archidekt-inspired stats; precon detail only had list + owned/missing + fork.
+**Decision:** Extract `buildDeckStatsFromCards` from `getDeckDetail`; widen `getPreconBySlug` (CI, produced mana, rarity, keywords, GC, classifications); mount `DeckInsightsPanel` below `PreconDeckView` as “Precon stats”. No legality strip on PDP. PLP set/precon card redesign follows as a separate slice.
+**Consequences:** Editor and precon PDP share one stats pipeline; list-page Cost bars can reuse the same pip summarizer.
+
+## 2026-07-30 — Sets/precons PLP preview cards
+**Context:** Deck list shipped art_crop + Cost bar + browse-density grid; sets/precons still used wide set-icon rows.
+**Decision:**
+1. Shared `CatalogPreviewCard` on `CARD_FACE_GRID_CLASS` for `/sets`, `/precons`, and `/search` set hits.
+2. Keep **set icon** in the footer on both PLPs.
+3. **Sets cover:** first indexed printing (`collectorNumber` asc with `imageUri`); no mana bar.
+4. **Precons:** existing preview face as art_crop + Cost pip bar (`loadPreconCostSegments`); drop hover floating preview.
+**Consequences:** Precon list queries are heavier (full main/commander lines for pips); set browse/search load one cover printing per set on the page.
+
+## 2026-07-30 — Precon browse filters: search widen + type + CI
+**Context:** `/precons` only filtered format and searched name/code; users want set name, commander, product type, and color identity.
+**Decision:**
+1. **Search `q`:** name · code · set name (`MtgSet`) · commander card name (`PreconCard` board commander).
+2. **Type** select from distinct `Precon.type`.
+3. **Color identity:** denormalize `Precon.colorIdentity` at MTGJSON sync — commander CI union when present, else mainboard non-land union; browse pills use `hasEvery` for WUBRG and empty array for `C`.
+**Consequences:** Requires migration + sync/backfill (`recomputeAllPreconColorIdentities`, also on `--if-changed` skip). Exact-CI-only toggle deferred.
+
+## 2026-07-31 — Deck stats mosaic stacks until xl
+**Context:** Two-column stats at `lg` felt cramped on mid-width deck/precon PDPs; sections need to stack earlier when shrinking.
+**Decision:** Keep CSS multi-column mosaico; switch side-by-side from `lg:columns-2` to `xl:columns-2` (`columns-1` below `xl`). Same panel for deck editor and precon PDP.
+**Consequences:** Supersedes the breakpoint in “Deck stats mosaic layout (lg+)”. Mosaic layout otherwise unchanged.
+
+## 2026-07-31 — Deck stats: Overview row + fixed 2-col pairs
+**Context:** CSS multi-column reordered cells by height; Overview should stay first, and wide layouts should pair Colors↔Curve and Quantities↔Odds explicitly.
+**Decision:**
+1. **Overview** first on its own row — full width; `2xl:max-w-[50%]` on very large screens (right half empty).
+2. Below: two explicit pair rows (Colors | Mana curve, then Quantities | Odds), each `grid-cols-1` → `lg:grid-cols-2` with `items-start`.
+3. Drop multi-column mosaico for this panel.
+**Consequences:** Supersedes “Deck stats mosaic layout (lg+)” and “Deck stats mosaic stacks until xl” for section placement. Same panel for deck editor and precon PDP. Pair rows use `lg` (not `xl`) so side-by-side is visible on typical laptop widths.
+
+## 2026-07-31 — Collection | Decks manage stacks until lg
+**Context:** With both Collection and Decks CTAs always present, `sm:grid-cols-2` felt cramped in the card detail modal and on the PDP at mid widths.
+**Decision:** `CardManagePanels` uses `grid-cols-1` → `lg:grid-cols-2` (stack below `lg`). Shared by modal and PDP.
+**Consequences:** Side-by-side manage columns only from `lg` up; narrow/mid viewports get a full-width stack.
+
+## 2026-07-31 — Deck Tokens & Extras (Archidekt parity)
+**Context:** After deck/precon stats, users expect an Archidekt-style Tokens & Extras grid. Related parts were dropped from the card PDP; precon sync omitted MTGJSON tokens; token sets were skipped so printings were missing.
+**Decision:**
+1. Restore slim `card_relations` for Scryfall `all_parts` with `component` ∈ `{token, emblem}` only — used for **deck/precon Tokens inference**, not the card PDP Related section.
+2. Ingest Scryfall **token** sets (memorabilia still skipped). Token/emblem layouts stay indexed but are excluded from default browse/FTS hub.
+3. Deck board **`extras`**: editable in the builder; excluded from legality, copy limits, size label, and stats; separate cap `MAX_EXTRAS_CARDS` (100). Tokens tab is read-only inferred (+ “Add to extras”).
+4. Precon sync stores MTGJSON `tokens[]` as `PreconCard.board = "token"` (not in owned/missing checklist). Fork maps those lines to deck `extras`.
+5. UI: `DeckTokensExtrasSection` after `DeckInsightsPanel` on editor + precon PDP (precon hides empty Extras tab).
+**Consequences:** Requires migrate + sets/printings/oracle sync (relations) + MTGJSON precon resync for populated Tokens tabs.
+**Supersedes:** “Drop Related parts / card_relations” for **deck inference only** (card PDP Related stays gone). Supersedes Phase 2.3 “Omit tokens from the checklist” for product token storage (still omitted from owned/missing checklist).
+**Superseded by:** “Tokens & Extras inferred (drop extras board)” (same day) for editable extras board / Tokens-vs-Extras split.
+
+## 2026-07-31 — Resolve `all_parts` ids via printing + token name
+**Context:** Scryfall `all_parts[].id` is often a **printing** UUID, not the `oracle_cards` representative id. Oracle sync only looked up `Card.id`, so most token edges (Treasure, Clue, …) never wrote to `card_relations` (~1.2k rows) and deck Tokens tabs stayed empty even after a full oracle sync.
+**Decision:** When writing relations, resolve related id as: (1) `Card.id`, else (2) `Printing.id` → `oracleId`, else (3) exact name among `token` / `double_faced_token` / `emblem` layouts.
+**Consequences:** Re-run `npm run sync:scryfall` (oracle pass) after deploy; printings sync improves path (2) and token art, but name fallback works from oracle tokens alone.
+
+## 2026-07-31 — Emblems via `combo_piece` all_parts
+**Context:** Scryfall tags many planeswalker emblems (e.g. Kaito, Bane of Nightmares) as `all_parts[].component = combo_piece` with `type_line = Emblem`, not `token`. Sync only accepted `component === "token"`, so emblems never entered `card_relations` and Tokens tabs stayed empty for those decks.
+**Decision:** Also accept `combo_piece` when `type_line` matches Emblem or Token; map Emblem → `emblem`, Token → `token`. Ignore other combo pieces (meld partners, alt printings of the same card, etc.).
+**Consequences:** Re-run `npm run sync:scryfall` after deploy. Extras board remains user/precon-filled only — not inferred from `all_parts`.
+**Superseded by:** “Tokens & Extras inferred (drop extras board)” (same day).
+
+## 2026-07-31 — Tokens & Extras inferred (drop extras board)
+**Context:** Editable `DeckCard.board = extras` + “Add to extras” mismatched the product: Tokens/Extras are consequences of cards in the list, not a separate board. Emblems were also wrongly lumped under Tokens.
+**Decision:**
+1. **Tokens** = inferred `card_relations` with `component = token` (plus MTGJSON precon product tokens on the precon PDP).
+2. **Extras** = inferred non-token related parts (`component = extra`: emblems, meld partners/results, other `combo_piece` / related oracles ≠ source).
+3. Both tabs **read-only** — change only by adding/removing generating cards.
+4. Remove editable extras board (schema cleanup deletes existing `board=extras` rows; fork precon no longer copies product tokens onto the deck).
+5. Enum rename: `CardRelationComponent.emblem` → `extra`. Sync accepts `token`, and `combo_piece` / `meld_part` / `meld_result` (token type_line → `token`, else → `extra`).
+**Consequences:** Re-run migrate + `npm run sync:scryfall`. Kaito’s emblem appears under Extras. No Add to extras / qty on the section.
+**Supersedes:** “Deck Tokens & Extras (Archidekt parity)” board-editability clauses; “Emblems via combo_piece all_parts” mapping to `emblem` / ignore-other-combo.
+
+## 2026-07-31 — Extras = emblems only (not all combo_piece)
+**Context:** Accepting every Scryfall `combo_piece` as Extra pulled in Alchemy rebalances (A-Blood Artist), conjure targets (Gilded Goose), and other playable cards into the Extras tab.
+**Decision:** Keep Tokens = token-typed parts; Extras = **Emblem** type_line only (often tagged `combo_piece`). Ignore other `combo_piece` / meld links. Name fallback resolves only `token` / `double_faced_token` / `emblem` layouts.
+**Consequences:** Re-run `npm run sync:scryfall`. Extras tab shows PW emblems etc., not Alchemy/conjure relatives.
+**Supersedes:** “Tokens & Extras inferred” clause that mapped all non-token combo/meld → `extra`.
+**Superseded by:** “Tokens/Extras denylist playable cards” (same day).
+
+## 2026-07-31 — Tokens/Extras denylist playable cards
+**Context:** Allowlisting only Emblem missed City's Blessing / The Monarch / Dungeons. Allowlisting every `combo_piece` pulled Alchemy + conjure targets. Safer: denylist **playable main-deck cards**.
+**Decision:** Collect `token` / `combo_piece` / meld all_parts; resolve related oracle; **drop** if playable deck card (normal/saga/… layouts unless type is Dungeon/Conspiracy/Plane/Scheme/Phenomenon/Vanguard). Classify remainder: type `Token` → Tokens; else (emblem, layout-token markers like City's Blessing `Card`, dungeons, …) → Extras. Helpers in `src/lib/decks/relation-classify.ts`.
+**Consequences:** Re-run `npm run sync:scryfall`. Alchemy/conjure stay out; emblems + City's Blessing-style markers stay in Extras.
+**Supersedes:** “Extras = emblems only (not all combo_piece)”.
+
+## 2026-07-31 — Tokens & Extras stacked + shared List/Grid
+**Context:** Tokens|Extras tabs hid one list; users want both visible and the same List/Grid control as the deck.
+**Decision:** Stack Tokens then Extras (omit empty groups). Replace the category tabs with `DeckViewToggle`, sharing `mtgplayground.deckEditorView` / `preconDeckView`. List mode uses Goldfish-style name rows (+ type line); grid keeps face tiles.
+**Consequences:** Toggling view in the section syncs with the main deck/precon list above.

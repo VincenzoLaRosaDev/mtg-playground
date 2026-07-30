@@ -7,38 +7,55 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 export type DeckEditorViewMode = "grid" | "list";
 
-const STORAGE_KEY = "mtgplayground.deckEditorView";
+const DECK_EDITOR_VIEW_KEY = "mtgplayground.deckEditorView";
+const PRECON_DECK_VIEW_KEY = "mtgplayground.preconDeckView";
 
-function readDeckEditorView(): DeckEditorViewMode {
-  if (typeof window === "undefined") return "list";
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (raw === "list" || raw === "grid") return raw;
-  } catch {
-    /* private mode */
+function createPersistedViewStore(storageKey: string) {
+  const listeners = new Set<() => void>();
+
+  function read(): DeckEditorViewMode {
+    if (typeof window === "undefined") return "list";
+    try {
+      const raw = window.localStorage.getItem(storageKey);
+      if (raw === "list" || raw === "grid") return raw;
+    } catch {
+      /* private mode */
+    }
+    return "list";
   }
-  return "list";
-}
 
-function writeDeckEditorView(view: DeckEditorViewMode): void {
-  try {
-    window.localStorage.setItem(STORAGE_KEY, view);
-  } catch {
-    /* private mode */
+  function write(view: DeckEditorViewMode): void {
+    try {
+      window.localStorage.setItem(storageKey, view);
+    } catch {
+      /* private mode */
+    }
   }
-}
 
-const viewListeners = new Set<() => void>();
+  function subscribe(onStoreChange: () => void) {
+    listeners.add(onStoreChange);
+    return () => {
+      listeners.delete(onStoreChange);
+    };
+  }
 
-function subscribeView(onStoreChange: () => void) {
-  viewListeners.add(onStoreChange);
-  return () => {
-    viewListeners.delete(onStoreChange);
+  function getServerSnapshot(): DeckEditorViewMode {
+    return "list";
+  }
+
+  return function usePersistedDeckView(): [
+    DeckEditorViewMode,
+    (view: DeckEditorViewMode) => void,
+  ] {
+    const view = useSyncExternalStore(subscribe, read, getServerSnapshot);
+
+    const update = useCallback((next: DeckEditorViewMode) => {
+      write(next);
+      listeners.forEach((listener) => listener());
+    }, []);
+
+    return [view, update];
   };
-}
-
-function getServerView(): DeckEditorViewMode {
-  return "list";
 }
 
 type DeckViewToggleProps = {
@@ -46,7 +63,7 @@ type DeckViewToggleProps = {
   onChange: (view: DeckEditorViewMode) => void;
 };
 
-/** Grid (default) vs Goldfish-style list presentation for the deck editor. */
+/** Grid vs Goldfish-style list presentation (deck editor / precon detail). */
 export function DeckViewToggle({ value, onChange }: DeckViewToggleProps) {
   return (
     <ToggleGroup
@@ -71,21 +88,8 @@ export function DeckViewToggle({ value, onChange }: DeckViewToggleProps) {
   );
 }
 
-/** Client view mode with localStorage persistence (SSR-safe default: list). */
-export function useDeckEditorView(): [
-  DeckEditorViewMode,
-  (view: DeckEditorViewMode) => void,
-] {
-  const view = useSyncExternalStore(
-    subscribeView,
-    readDeckEditorView,
-    getServerView,
-  );
+/** Deck editor List/Grid preference (`mtgplayground.deckEditorView`). */
+export const useDeckEditorView = createPersistedViewStore(DECK_EDITOR_VIEW_KEY);
 
-  const update = useCallback((next: DeckEditorViewMode) => {
-    writeDeckEditorView(next);
-    viewListeners.forEach((listener) => listener());
-  }, []);
-
-  return [view, update];
-}
+/** Precon detail List/Grid preference (`mtgplayground.preconDeckView`) — independent of deck editor. */
+export const usePreconDeckView = createPersistedViewStore(PRECON_DECK_VIEW_KEY);

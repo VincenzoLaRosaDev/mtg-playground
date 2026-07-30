@@ -1,5 +1,6 @@
 "use client";
 
+import { Trash2 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useTransition } from "react";
 
@@ -9,6 +10,7 @@ import { PriceChip } from "@/components/discovery/price-chip";
 import { ListLoadMoreRow } from "@/components/layout/list-load-more-row";
 import { PageListMeta } from "@/components/layout/page-list-meta";
 import { Button } from "@/components/ui/button";
+import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
 import {
   obtainFromWish,
@@ -219,6 +221,7 @@ function CollectionItemCard({ item }: { item: CollectionListItem }) {
                 });
               }}
             >
+              <Icon icon={Trash2} size="sm" />
               Remove
             </Button>
           </div>

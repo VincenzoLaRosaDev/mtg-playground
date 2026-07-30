@@ -6,8 +6,9 @@ import { useSession } from "next-auth/react";
 import { XIcon } from "lucide-react";
 import { useEffect, useState, useTransition } from "react";
 
-import { useSignInSheet } from "@/components/auth/sign-in-sheet";
 import { CardMultifaceImage } from "@/components/discovery/card-multiface-image";
+import { CardDetailModalLists } from "@/components/discovery/card-detail-modal-lists";
+import { CardManagePanels } from "@/components/discovery/card-manage-panels";
 import { ClassificationBadges } from "@/components/discovery/classification-badges";
 import { DetailHeroMeta } from "@/components/discovery/detail-hero-meta";
 import { EntityPreviewFooter } from "@/components/discovery/entity-preview-footer";
@@ -17,7 +18,6 @@ import {
 } from "@/components/discovery/version-picker";
 import { VersionsBrowser } from "@/components/discovery/versions-browser";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Sheet,
   SheetClose,
@@ -27,6 +27,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import {
+  loadCardDetailDeckSnapshot,
   loadCardDetailModalUserData,
   loadOraclePrintings,
 } from "@/lib/cards/actions";
@@ -35,11 +36,14 @@ import {
   type CardDetailModalMode,
   type CardDetailModalPayload,
 } from "@/lib/cards/card-detail-modal";
-import { addOwnedCopies, addWishCopies } from "@/lib/collection/actions";
 import type { OracleCollectionSnapshot } from "@/lib/collection/oracle-collection";
-import { upsertDeckCard, setPreferredPrinting } from "@/lib/decks/actions";
-import type { DeckBoard } from "@/lib/decks/boards";
-import { maxCopiesForCard } from "@/lib/decks/legality";
+import { setPreferredPrinting } from "@/lib/decks/actions";
+import type { DeckPickerItem } from "@/lib/decks/decks";
+import {
+  pickDefaultDeckId,
+  readLastDeckId,
+  writeLastDeckId,
+} from "@/lib/decks/last-deck";
 import type { OracleDeckSnapshot } from "@/lib/decks/oracle-deck";
 import {
   buildCardVersionHref,
@@ -54,12 +58,6 @@ import {
   SHEET_LIST_RULE_CLASS,
   siteContainerClassName,
 } from "@/lib/ui/layout";
-import { QTY_INPUT_WIDTH_CLASS } from "@/lib/ui/qty-input";
-import {
-  LABEL_INFO_CLASS,
-  LABEL_PRIMARY_CLASS,
-  STATUS_CHIP_CLASS,
-} from "@/lib/ui/selection-chrome";
 import { clearBodyScrollRestore } from "@/lib/ui/scroll";
 import { cn } from "@/lib/utils";
 
@@ -80,9 +78,9 @@ export type CardDetailModalProps = {
   onOpenChange: (open: boolean) => void;
   payload: CardDetailModalPayload | null;
   mode: CardDetailModalMode;
-  /** Required when mode === "deck". */
+  /** Workspace deck id when opened from a deck editor page. */
   deckId?: string | null;
-  /** Deck format key — caps Add qty. */
+  /** Deck format key — unused for caps (derived from selected deck). */
   deckFormat?: string | null;
   /** Existing deck card id when inspecting a row already in the deck. */
   deckCardId?: string | null;
@@ -90,10 +88,12 @@ export type CardDetailModalProps = {
   /** Collection / deck workspace pages: close modal after a successful add. */
   closeAfterAdd?: boolean;
   onCollectionMutated?: () => void;
+  /** Fired on successful add (before optional close) — e.g. dismiss host search. */
+  onSuccessfulAdd?: () => void;
 };
 
 /**
- * Unified in-app card detail overlay: hero + version grid + mode CTAs + View detail.
+ * Unified in-app card detail overlay: hero + version grid + manage panels + lists.
  */
 export function CardDetailModal({
   open,
@@ -101,18 +101,15 @@ export function CardDetailModal({
   payload,
   mode,
   deckId = null,
-  deckFormat = null,
   deckCardId = null,
   onDeckMutated,
   closeAfterAdd = false,
   onCollectionMutated,
+  onSuccessfulAdd,
 }: CardDetailModalProps) {
   const router = useRouter();
   const { data: session, status } = useSession();
-  const { openSignIn } = useSignInSheet();
-  const [pending, startTransition] = useTransition();
-  const [message, setMessage] = useState<string | null>(null);
-  const [qty, setQty] = useState("1");
+  const [, startTransition] = useTransition();
   const [activePrintingId, setActivePrintingId] = useState<string | null>(
     payload?.activePrintingId ?? null,
   );
@@ -124,6 +121,8 @@ export function CardDetailModal({
   const [deckSnapshot, setDeckSnapshot] = useState<OracleDeckSnapshot | null>(
     payload?.deck ?? null,
   );
+  const [decks, setDecks] = useState<DeckPickerItem[]>([]);
+  const [selectedDeckId, setSelectedDeckId] = useState<string | null>(null);
   const [activeDeckCardId, setActiveDeckCardId] = useState<string | null>(
     deckCardId,
   );
@@ -143,6 +142,12 @@ export function CardDetailModal({
     open && payload && sessionUserId && status !== "loading",
   );
   const [syncedNeedsUserData, setSyncedNeedsUserData] = useState(needsUserData);
+  const userDataFetchKey = needsUserData
+    ? `${payload!.oracleId}|${deckId ?? ""}|${sessionUserId}`
+    : null;
+  const [syncedUserDataFetchKey, setSyncedUserDataFetchKey] = useState<
+    string | null
+  >(null);
 
   // Reset local selection when a new payload arrives (React “adjust during render”).
   if (payload !== syncedPayload) {
@@ -151,12 +156,13 @@ export function CardDetailModal({
     setSelectedFinish(payload?.selectedFinish ?? "nonfoil");
     setCollectionBase(null);
     setDeckSnapshot(null);
+    setDecks([]);
+    setSelectedDeckId(null);
     setUserDataLoading(Boolean(payload));
     setPrintings(payload?.printings ?? []);
     setPrintingsLoaded(payload?.printingsLoaded ?? false);
     setVersionsOpen(false);
-    setQty("1");
-    setMessage(null);
+    setSyncedUserDataFetchKey(null);
   }
   if (deckCardId !== syncedDeckCardId) {
     setSyncedDeckCardId(deckCardId);
@@ -169,7 +175,10 @@ export function CardDetailModal({
     if (!sessionUserId) {
       setCollectionBase(null);
       setDeckSnapshot(null);
+      setDecks([]);
+      setSelectedDeckId(null);
       setUserDataLoading(false);
+      setSyncedUserDataFetchKey(null);
     }
   }
 
@@ -181,27 +190,70 @@ export function CardDetailModal({
     }
   }
 
-  // Collection / deck CTAs load after the catalog hero opens.
+  if (
+    needsUserData &&
+    userDataFetchKey != null &&
+    userDataFetchKey !== syncedUserDataFetchKey
+  ) {
+    setSyncedUserDataFetchKey(userDataFetchKey);
+    setUserDataLoading(true);
+  }
+
+  // Collection + decks load after the catalog hero opens.
   useEffect(() => {
-    if (!needsUserData || !payload || !sessionUserId) return;
+    if (!needsUserData || !payload || !sessionUserId || !userDataFetchKey) {
+      return;
+    }
 
     let cancelled = false;
+    const lastId = readLastDeckId();
+    const preferId = deckId ?? lastId;
+
     void loadCardDetailModalUserData({
       oracleId: payload.oracleId,
-      deckId: mode === "deck" ? deckId : null,
+      deckId: preferId,
       printingId: payload.activePrintingId,
       finish: payload.selectedFinish,
-    }).then((data) => {
+    }).then(async (data) => {
       if (cancelled) return;
+      // Paint collection + deck list immediately; only re-fetch deck snapshot
+      // if the resolved default differs from the preferred id.
       setCollectionBase(data?.collection ?? null);
-      setDeckSnapshot(data?.deck ?? null);
+      setDecks(data?.decks ?? []);
+
+      const nextId = pickDefaultDeckId({
+        deckIds: (data?.decks ?? []).map((d) => d.id),
+        workspaceDeckId: deckId,
+        lastDeckId: lastId,
+      });
+      setSelectedDeckId(nextId);
+
+      if (!nextId) {
+        setDeckSnapshot(null);
+        setUserDataLoading(false);
+        return;
+      }
+
+      if (preferId === nextId) {
+        setDeckSnapshot(data?.deck ?? null);
+        setUserDataLoading(false);
+        return;
+      }
+
+      setDeckSnapshot(null);
       setUserDataLoading(false);
+      const deckOnly = await loadCardDetailDeckSnapshot({
+        oracleId: payload.oracleId,
+        deckId: nextId,
+      });
+      if (cancelled) return;
+      setDeckSnapshot(deckOnly);
     });
 
     return () => {
       cancelled = true;
     };
-  }, [needsUserData, payload, mode, deckId, sessionUserId]);
+  }, [needsUserData, payload, sessionUserId, userDataFetchKey, deckId]);
 
   const activePrinting =
     printings.find((p) => p.id === activePrintingId) ??
@@ -209,10 +261,9 @@ export function CardDetailModal({
     null;
 
   const finishes = activePrinting ? printingFinishes(activePrinting) : [];
-  const finish =
-    finishes.includes(selectedFinish)
-      ? selectedFinish
-      : resolveActiveFinish(activePrinting?.finishes ?? [], null);
+  const finish = finishes.includes(selectedFinish)
+    ? selectedFinish
+    : resolveActiveFinish(activePrinting?.finishes ?? [], null);
 
   const collection = snapshotForPrinting(
     collectionBase,
@@ -228,10 +279,11 @@ export function CardDetailModal({
       })
     : "#";
 
-  const callbackUrl =
-    typeof window !== "undefined"
-      ? `${window.location.pathname}${window.location.search}`
-      : "/";
+  const workspaceDeckId = deckId;
+  const effectiveDeckCardId =
+    selectedDeckId && workspaceDeckId && selectedDeckId === workspaceDeckId
+      ? activeDeckCardId
+      : null;
 
   async function ensurePrintingsLoaded(): Promise<OraclePrintingOption[]> {
     if (printingsLoaded) return printings;
@@ -253,22 +305,18 @@ export function CardDetailModal({
         ? nextFinish
         : resolveActiveFinish(printing.finishes, null),
     );
-    setMessage(null);
     if (nextDeckCardId !== undefined) {
       setActiveDeckCardId(nextDeckCardId);
     }
 
-    const preferredTarget = nextDeckCardId ?? activeDeckCardId;
+    const preferredTarget = nextDeckCardId ?? effectiveDeckCardId;
     if (mode === "deck" && preferredTarget) {
       startTransition(async () => {
         const result = await setPreferredPrinting({
           deckCardId: preferredTarget,
           printingId: printing.id,
         });
-        if (!result.ok) {
-          setMessage(result.error);
-          return;
-        }
+        if (!result.ok) return;
         onDeckMutated?.();
       });
     }
@@ -281,7 +329,6 @@ export function CardDetailModal({
   ) {
     if (!printingId) {
       if (nextDeckCardId !== undefined) setActiveDeckCardId(nextDeckCardId);
-      setMessage(null);
       return;
     }
     const existing = printings.find((p) => p.id === printingId);
@@ -297,7 +344,6 @@ export function CardDetailModal({
         return;
       }
       if (nextDeckCardId !== undefined) setActiveDeckCardId(nextDeckCardId);
-      setMessage(null);
     });
   }
 
@@ -310,7 +356,6 @@ export function CardDetailModal({
       setVersionsOpen(true);
       return;
     }
-    // Defer sheet open until printings are ready (no skeleton).
     void ensurePrintingsLoaded().then(() => {
       setVersionsOpen(true);
     });
@@ -321,8 +366,7 @@ export function CardDetailModal({
       const all = await ensurePrintingsLoaded();
       const printing = all.find(
         (p) =>
-          p.setCode === selection.set &&
-          p.collectorNumber === selection.cn,
+          p.setCode === selection.set && p.collectorNumber === selection.cn,
       );
       if (printing) {
         selectPrinting(printing, selection.finish ?? undefined);
@@ -330,139 +374,52 @@ export function CardDetailModal({
     });
   }
 
-  function parseQty(max?: number): number {
-    const raw = Math.max(1, Math.floor(Number(qty)) || 1);
-    if (max != null) return Math.min(raw, max);
-    return raw;
-  }
-
-  function requireAuth(): boolean {
-    if (session?.user) return true;
-    openSignIn({ callbackUrl });
-    return false;
-  }
-
-  async function refreshModalSnapshots() {
+  async function refreshModalSnapshots(deckIdOverride?: string | null) {
     if (!payload) return;
+    const targetDeckId =
+      deckIdOverride !== undefined ? deckIdOverride : selectedDeckId;
     const next = await loadCardDetailModalUserData({
       oracleId: payload.oracleId,
-      deckId: mode === "deck" ? deckId : null,
+      deckId: targetDeckId,
       printingId: activePrinting?.id ?? payload.activePrintingId,
       finish,
     });
     if (!next) return;
     setCollectionBase(next.collection);
+    setDecks(next.decks);
     setDeckSnapshot(next.deck);
   }
 
-  function finishSuccessfulAdd(kind: "collection" | "deck") {
+  function handleSelectedDeckIdChange(nextId: string) {
+    writeLastDeckId(nextId);
+    setSelectedDeckId(nextId);
+    if (workspaceDeckId && nextId !== workspaceDeckId) {
+      setActiveDeckCardId(null);
+    } else if (workspaceDeckId && nextId === workspaceDeckId) {
+      setActiveDeckCardId(deckCardId);
+    }
+    setUserDataLoading(true);
+    void loadCardDetailDeckSnapshot({
+      oracleId: payload!.oracleId,
+      deckId: nextId,
+    })
+      .then((deck) => {
+        setDeckSnapshot(deck);
+      })
+      .finally(() => {
+        setUserDataLoading(false);
+      });
+  }
+
+  function handleSuccessfulAdd(kind: "collection" | "deck") {
     if (kind === "collection") onCollectionMutated?.();
     else onDeckMutated?.();
+    onSuccessfulAdd?.();
     router.refresh();
     if (closeAfterAdd) {
       onOpenChange(false);
-      return;
     }
   }
-
-  function handleAddOwned() {
-    if (!activePrinting || !requireAuth()) return;
-    const delta = parseQty();
-    setMessage(null);
-    startTransition(async () => {
-      const result = await addOwnedCopies({
-        printingId: activePrinting.id,
-        finish,
-        delta,
-      });
-      if (!result.ok) {
-        setMessage(result.error);
-        return;
-      }
-      if (closeAfterAdd) {
-        finishSuccessfulAdd("collection");
-        return;
-      }
-      setMessage(`Added ×${delta} owned.`);
-      await refreshModalSnapshots();
-      router.refresh();
-    });
-  }
-
-  function handleAddWish() {
-    if (!activePrinting || !requireAuth()) return;
-    const delta = parseQty();
-    setMessage(null);
-    startTransition(async () => {
-      const result = await addWishCopies({
-        printingId: activePrinting.id,
-        finish,
-        delta,
-      });
-      if (!result.ok) {
-        setMessage(result.error);
-        return;
-      }
-      if (closeAfterAdd) {
-        finishSuccessfulAdd("collection");
-        return;
-      }
-      setMessage(`Added ×${delta} to wish.`);
-      await refreshModalSnapshots();
-      router.refresh();
-    });
-  }
-
-  function handleAddToBoard(board: DeckBoard) {
-    if (!payload || !deckId || !requireAuth()) return;
-    const delta = parseQty(
-      deckFormat
-        ? maxCopiesForCard({
-            format: deckFormat,
-            typeLine: payload.typeLine,
-            legalities: payload.legalities,
-          })
-        : undefined,
-    );
-    setMessage(null);
-    startTransition(async () => {
-      const result = await upsertDeckCard({
-        deckId,
-        cardId: payload.cardId,
-        board,
-        delta,
-        preferredPrintingId: activePrinting?.id ?? null,
-      });
-      if (!result.ok) {
-        setMessage(result.error);
-        return;
-      }
-      if (closeAfterAdd) {
-        finishSuccessfulAdd("deck");
-        return;
-      }
-      setMessage(board === "side" ? "Added to sideboard." : "Added to main.");
-      await refreshModalSnapshots();
-      onDeckMutated?.();
-      router.refresh();
-    });
-  }
-
-  const activeOwned = collection?.activeOwnedQty ?? 0;
-  const activeWish = collection?.activeWishQty ?? 0;
-  const ownedTotal = collection?.ownedTotal ?? 0;
-  const wishTotal = collection?.wishTotal ?? 0;
-  const collectionRows = collection?.rows ?? [];
-  const deckRows = deckSnapshot?.rows ?? [];
-  const deckTotal = deckSnapshot?.totalQuantity ?? 0;
-  const deckQtyMax =
-    mode === "deck" && deckFormat && payload
-      ? maxCopiesForCard({
-          format: deckFormat,
-          typeLine: payload.typeLine,
-          legalities: payload.legalities,
-        })
-      : undefined;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -524,12 +481,11 @@ export function CardDetailModal({
                     nativeButton={false}
                     render={<Link href={detailHref} />}
                     onClick={() => {
-                      // Unlock must not restore pre-modal scroll after this navigation.
                       clearBodyScrollRestore();
                       onOpenChange(false);
                     }}
                   >
-                    View detail
+                    Go to page
                   </Button>
                   <SheetClose
                     render={
@@ -638,314 +594,70 @@ export function CardDetailModal({
                       </div>
                     </div>
 
-                    <div className="space-y-3 border-t border-border/50 pt-4">
-                      {status === "loading" ? (
-                      <div className="h-8 w-48 animate-pulse rounded-lg bg-muted" />
-                    ) : !session?.user ? (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => openSignIn({ callbackUrl })}
-                      >
-                        {mode === "deck"
-                          ? "Sign in to build decks"
-                          : "Sign in to collect"}
-                      </Button>
-                    ) : (
-                      <>
-                        {userDataLoading ? (
-                          <div className="h-4 w-56 animate-pulse rounded bg-muted" />
-                        ) : (
-                          <p className="text-xs text-muted-foreground">
-                            {activeOwned > 0 || activeWish > 0 ? (
-                              <>
-                                This printing:{" "}
-                                {activeOwned > 0 ? (
-                                  <span className="font-medium text-primary">
-                                    Owned ×{activeOwned}
-                                  </span>
-                                ) : null}
-                                {activeOwned > 0 && activeWish > 0
-                                  ? " · "
-                                  : null}
-                                {activeWish > 0 ? (
-                                  <span className="font-medium text-info-foreground">
-                                    Wish ×{activeWish}
-                                  </span>
-                                ) : null}
-                              </>
-                            ) : (
-                              "This printing is not in your collection."
-                            )}
-                            {ownedTotal + wishTotal > 0 ? (
-                              <span>
-                                {" "}
-                                · Card total: Owned ×{ownedTotal}
-                                {wishTotal > 0
-                                  ? ` · Wish ×${wishTotal}`
-                                  : ""}
-                              </span>
-                            ) : null}
-                          </p>
-                        )}
-
-                        {mode === "collection" ? (
-                          <div className="flex flex-wrap items-center gap-2">
-                            <div className={cn(QTY_INPUT_WIDTH_CLASS, "shrink-0")}>
-                              <label htmlFor="modal-qty" className="sr-only">
-                                Quantity
-                              </label>
-                              <Input
-                                id="modal-qty"
-                                type="number"
-                                min={1}
-                                className="h-8 px-1 text-center tabular-nums"
-                                value={qty}
-                                disabled={pending}
-                                onChange={(e) => setQty(e.target.value)}
-                              />
-                            </div>
-                            <Button
-                              type="button"
-                              size="default"
-                              disabled={pending || !activePrinting}
-                              onClick={handleAddOwned}
-                            >
-                              Add owned
-                            </Button>
-                            <Button
-                              type="button"
-                              size="default"
-                              variant="info"
-                              disabled={pending || !activePrinting}
-                              onClick={handleAddWish}
-                            >
-                              Add to wish
-                            </Button>
-                          </div>
-                        ) : (
-                          <div className="space-y-2">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <div className={cn(QTY_INPUT_WIDTH_CLASS, "shrink-0")}>
-                                <label
-                                  htmlFor="modal-deck-qty"
-                                  className="sr-only"
-                                >
-                                  Quantity
-                                </label>
-                                <Input
-                                  id="modal-deck-qty"
-                                  type="number"
-                                  min={1}
-                                  max={deckQtyMax}
-                                  className="h-8 px-1 text-center tabular-nums"
-                                  value={qty}
-                                  disabled={pending}
-                                  onChange={(e) => {
-                                    const next = e.target.value;
-                                    if (deckQtyMax != null && next !== "") {
-                                      const n = Math.floor(Number(next));
-                                      if (
-                                        Number.isFinite(n) &&
-                                        n > deckQtyMax
-                                      ) {
-                                        setQty(String(deckQtyMax));
-                                        return;
-                                      }
-                                    }
-                                    setQty(next);
-                                  }}
-                                />
-                              </div>
-                              <Button
-                                type="button"
-                                size="default"
-                                disabled={pending || !deckId}
-                                onClick={() => handleAddToBoard("main")}
-                              >
-                                Add to main
-                              </Button>
-                              <Button
-                                type="button"
-                                size="default"
-                                variant="secondary"
-                                disabled={pending || !deckId}
-                                onClick={() => handleAddToBoard("side")}
-                              >
-                                Add to sideboard
-                              </Button>
-                            </div>
-                            {activeDeckCardId ? (
-                              <p className="text-xs text-muted-foreground">
-                                Selecting a version sets the preferred
-                                printing for this deck card.
-                              </p>
-                            ) : null}
-                          </div>
-                        )}
-
-                        {message ? (
-                          <p
-                            className="text-xs text-muted-foreground"
-                            role="status"
-                          >
-                            {message}
-                          </p>
-                        ) : null}
-
-                        {userDataLoading ? (
-                          <div className="h-16 w-full max-w-sm animate-pulse rounded-lg bg-muted" />
-                        ) : mode === "deck" ? (
-                          deckRows.length > 0 ? (
-                            <div className="space-y-1.5">
-                              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                                In this deck
-                                {deckTotal > 0 ? (
-                                  <span className="ml-1 font-normal normal-case tracking-normal">
-                                    · ×{deckTotal}
-                                  </span>
-                                ) : null}
-                              </p>
-                              <ul className="space-y-1">
-                                {deckRows.map((row) => {
-                                  const isActive = row.id === activeDeckCardId;
-                                  const versionLabel =
-                                    row.setCode && row.collectorNumber
-                                      ? `${row.setCode.toUpperCase()} #${row.collectorNumber}`
-                                      : "No preferred version";
-                                  return (
-                                    <li key={row.id}>
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          selectPrintingById(
-                                            row.preferredPrintingId,
-                                            row.finish ?? undefined,
-                                            row.id,
-                                          );
-                                        }}
-                                        className={cn(
-                                          "flex flex-wrap items-center gap-x-2 gap-y-0.5 text-left text-sm transition-colors hover:text-foreground",
-                                          isActive
-                                            ? "text-foreground"
-                                            : "text-muted-foreground",
-                                        )}
-                                      >
-                                        <span className="font-medium">
-                                          {row.boardLabel}
-                                        </span>
-                                        <span className="tabular-nums">
-                                          · {versionLabel}
-                                        </span>
-                                        {row.finish &&
-                                        row.finish !== "nonfoil" ? (
-                                          <span>
-                                            · {FINISH_LABELS[row.finish]}
-                                          </span>
-                                        ) : null}
-                                        <span
-                                          className={cn(
-                                            STATUS_CHIP_CLASS,
-                                            LABEL_PRIMARY_CLASS,
-                                          )}
-                                        >
-                                          ×{row.quantity}
-                                        </span>
-                                        <span
-                                          className={cn(
-                                            "inline-flex h-5 items-center rounded-md border px-1.5 text-[10px] font-semibold leading-none tracking-wide uppercase",
-                                            row.missingQty > 0
-                                              ? "border-destructive/45 bg-destructive/10 text-destructive"
-                                              : "border-emerald-600/40 bg-emerald-500/15 text-emerald-800 dark:text-emerald-300",
-                                          )}
-                                        >
-                                          {row.missingQty > 0
-                                            ? `Missing ×${row.missingQty}`
-                                            : `Owned ×${row.ownedQty}`}
-                                        </span>
-                                      </button>
-                                    </li>
-                                  );
-                                })}
-                              </ul>
-                            </div>
-                          ) : (
-                            <p className="text-xs text-muted-foreground">
-                              Not in this deck yet.
-                            </p>
-                          )
-                        ) : collectionRows.length > 0 ? (
-                          <div className="space-y-1.5">
-                            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                              Your copies
-                            </p>
-                            <ul className="space-y-1">
-                              {collectionRows.map((row) => {
-                                const isActive =
-                                  row.printingId === activePrinting?.id &&
-                                  row.finish === finish;
-                                return (
-                                  <li key={row.id}>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        selectPrintingById(
-                                          row.printingId,
-                                          row.finish,
-                                        );
-                                      }}
-                                      className={cn(
-                                        "flex flex-wrap items-center gap-x-2 gap-y-0.5 text-left text-sm transition-colors hover:text-foreground",
-                                        isActive
-                                          ? "text-foreground"
-                                          : "text-muted-foreground",
-                                      )}
-                                    >
-                                      <span className="font-medium tabular-nums">
-                                        {row.setCode.toUpperCase()} #
-                                        {row.collectorNumber}
-                                      </span>
-                                      <span>
-                                        · {FINISH_LABELS[row.finish]}
-                                      </span>
-                                      <span
-                                        className={cn(
-                                          STATUS_CHIP_CLASS,
-                                          row.wantlist
-                                            ? LABEL_INFO_CLASS
-                                            : LABEL_PRIMARY_CLASS,
-                                        )}
-                                      >
-                                        {row.wantlist ? "Wish" : "Owned"} ×
-                                        {row.quantity}
-                                      </span>
-                                    </button>
-                                  </li>
-                                );
-                              })}
-                            </ul>
-                            <p className="text-xs text-muted-foreground">
-                              Manage quantities on{" "}
-                              <Link
-                                href="/collection"
-                                className="underline-offset-2 hover:underline"
-                                onClick={() => {
-                                  clearBodyScrollRestore();
-                                  onOpenChange(false);
-                                }}
-                              >
-                                Collection
-                              </Link>
-                              .
-                            </p>
-                          </div>
-                        ) : null}
-                      </>
-                    )}
+                    <div className="border-t border-border/50 pt-4">
+                      <CardManagePanels
+                      slug={payload.slug}
+                      cardId={payload.cardId}
+                      typeLine={payload.typeLine}
+                      legalities={payload.legalities}
+                      printingId={activePrinting?.id ?? null}
+                      finish={finish}
+                      collectionSnapshot={collection}
+                      decks={decks}
+                      selectedDeckId={selectedDeckId}
+                      onSelectedDeckIdChange={handleSelectedDeckIdChange}
+                      deckSnapshot={deckSnapshot}
+                      activeDeckCardId={effectiveDeckCardId}
+                      collectionLoading={
+                        status === "loading" ||
+                        (needsUserData && userDataLoading)
+                      }
+                      deckLoading={
+                        status === "loading" ||
+                        (needsUserData && userDataLoading)
+                      }
+                      closeAfterAdd={closeAfterAdd}
+                      inSheet
+                      onSelectCopy={(row) => {
+                        selectPrintingById(row.printingId, row.finish);
+                      }}
+                      onSelectDeckRow={(row) => {
+                        selectPrintingById(
+                          row.preferredPrintingId,
+                          row.finish ?? undefined,
+                          row.id,
+                        );
+                      }}
+                      onCollectionMutated={() => {
+                        void refreshModalSnapshots();
+                      }}
+                      onDeckMutated={() => {
+                        void refreshModalSnapshots();
+                        onDeckMutated?.();
+                      }}
+                      onCollectionAddSuccess={() => {
+                        handleSuccessfulAdd("collection");
+                      }}
+                      onDeckAddSuccess={() => {
+                        handleSuccessfulAdd("deck");
+                      }}
+                    />
                     </div>
                   </div>
                 </div>
+
+                <CardDetailModalLists
+                  slug={payload.slug}
+                  cardId={payload.cardId}
+                  oracleId={payload.oracleId}
+                  typeLine={payload.typeLine}
+                  isCommander={payload.isCommander}
+                  colorIdentity={payload.colorIdentity}
+                  themes={payload.classification?.themes ?? []}
+                  setCode={activePrinting?.setCode ?? null}
+                  collectorNumber={activePrinting?.collectorNumber ?? null}
+                  finish={finish}
+                />
               </div>
             </div>
           </>

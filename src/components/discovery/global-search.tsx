@@ -76,7 +76,8 @@ function SearchResultLink({
             event.button === 0
           ) {
             event.preventDefault();
-            onSelect();
+            // Keep the typeahead open under the detail modal so dismissing
+            // without adding returns to the same result list.
             onOpen();
             return;
           }
@@ -151,9 +152,20 @@ export function GlobalSearch() {
 
   useEffect(() => {
     function handlePointerDown(event: MouseEvent) {
-      if (!containerRef.current?.contains(event.target as Node)) {
-        closeDropdown();
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (containerRef.current?.contains(target)) return;
+      // Nested sheets (card detail, etc.) live in a portal — ignore them so
+      // opening / dismissing a detail modal does not wipe the typeahead.
+      if (
+        target instanceof Element &&
+        target.closest(
+          '[data-slot="sheet-overlay"], [data-slot="sheet-content"]',
+        )
+      ) {
+        return;
       }
+      closeDropdown();
     }
 
     document.addEventListener("mousedown", handlePointerDown);

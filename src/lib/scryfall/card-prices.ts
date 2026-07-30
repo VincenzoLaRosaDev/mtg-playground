@@ -51,6 +51,15 @@ function formatMoneyAmount(
   }).format(amount);
 }
 
+/** Format a numeric/string amount in the given catalog currency. */
+export function formatMoneyAmountForCurrency(
+  value: string | number | null | undefined,
+  currency: CatalogPriceCurrency,
+): string | null {
+  if (value == null) return null;
+  return formatMoneyAmount(String(value), currency);
+}
+
 /** @deprecated Use formatCatalogAmount — kept for call-site clarity during migration. */
 export function formatUsdAmount(value: string | null | undefined): string | null {
   return formatMoneyAmount(value, "USD");

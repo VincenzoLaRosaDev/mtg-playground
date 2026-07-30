@@ -19,9 +19,17 @@ export const LABEL_PRIMARY_CLASS =
 export const LABEL_INFO_CLASS =
   "border border-info bg-info/15 text-info-foreground";
 
-/** Neutral status (e.g. deck Owned× when not missing). */
+/** Neutral status (e.g. generic muted chips). */
 export const LABEL_MUTED_CLASS =
   "border border-border bg-muted/50 text-muted-foreground";
+
+/** Deck row fully owned (matches modal / PDP “In this deck” Owned chip). */
+export const LABEL_OWNED_CLASS =
+  "border border-emerald-600/40 bg-emerald-500/15 text-emerald-800 dark:text-emerald-300";
+
+/** Deck row still missing copies from collection. */
+export const LABEL_MISSING_CLASS =
+  "border border-warning bg-warning/15 text-warning-foreground";
 
 /** Chip / badge footprint shared by Owned · Wish · qty pills. */
 export const STATUS_CHIP_CLASS =

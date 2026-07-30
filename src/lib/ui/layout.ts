@@ -110,9 +110,17 @@ export const DETAIL_VIEW_TOGGLE_CLASS =
 /** Sticky section jump under the site header (mobile detail). */
 export const DETAIL_SECTION_JUMP_STICKY_CLASS = `sticky ${SITE_STICKY_BELOW_HEADER_CLASS} z-30 -mx-1 border-b border-border/80 bg-background/95 px-1 py-2 backdrop-blur-md lg:hidden`;
 
+/** Sticky section jump inside sheet scroll (modal) — sticks to scrollport top. */
+export const DETAIL_SECTION_JUMP_STICKY_SHEET_CLASS =
+  "sticky top-0 z-30 -mx-1 border-b border-border/80 px-1 py-2 lg:hidden";
+
 /** Desktop section TOC — sticks below header; -1px tucks `border-t` under the header edge. */
 export const DETAIL_SECTION_NAV_STICKY_CLASS =
   "sticky top-[calc(var(--site-header-height)-1px)] z-20 hidden max-h-[calc(100dvh-var(--site-header-height)-1rem)] min-h-0 flex-col border-t border-border bg-background/95 pt-4 backdrop-blur-md lg:flex";
+
+/** Desktop section TOC inside sheet scroll (modal) — no opaque bg (avoids a cut panel). */
+export const DETAIL_SECTION_NAV_STICKY_SHEET_CLASS =
+  "sticky top-0 z-20 hidden max-h-[min(70dvh,28rem)] min-h-0 flex-col pt-3 lg:flex";
 
 /**
  * Reserve sheet height while card-detail / versions / workspace-search load

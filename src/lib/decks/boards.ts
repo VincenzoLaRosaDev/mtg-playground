@@ -1,6 +1,16 @@
-export const DECK_BOARDS = ["main", "side", "commander", "companion"] as const;
+export const DECK_BOARDS = [
+  "main",
+  "side",
+  "commander",
+  "companion",
+] as const;
 
 export type DeckBoard = (typeof DECK_BOARDS)[number];
+
+/** Boards shown in the main list/grid editor. */
+export const DECK_LIST_BOARDS = DECK_BOARDS;
+
+export type DeckListBoard = DeckBoard;
 
 const BOARD_SET = new Set<string>(DECK_BOARDS);
 
@@ -29,7 +39,7 @@ export function isCommanderLikeFormat(format: string): boolean {
   return COMMANDER_LIKE_FORMATS.has(format);
 }
 
-export function boardLabel(board: DeckBoard): string {
+export function boardLabel(board: DeckBoard | string): string {
   switch (board) {
     case "main":
       return "Main";
@@ -39,6 +49,10 @@ export function boardLabel(board: DeckBoard): string {
       return "Commander";
     case "companion":
       return "Companion";
+    case "token":
+      return "Tokens";
+    default:
+      return board;
   }
 }
 

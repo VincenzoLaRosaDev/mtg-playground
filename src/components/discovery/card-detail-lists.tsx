@@ -21,7 +21,9 @@ import {
 import {
   DETAIL_LISTS_GRID_CLASS,
   DETAIL_SECTION_NAV_STICKY_CLASS,
+  DETAIL_SECTION_NAV_STICKY_SHEET_CLASS,
 } from "@/lib/ui/layout";
+import { cn } from "@/lib/utils";
 
 type CardDetailListsProps = {
   slug: string;
@@ -37,6 +39,11 @@ type CardDetailListsProps = {
   roleStaples: RoleStapleGroup[];
   gameChangers: DetailCardLite[];
   buildSkeleton: BuildSkeletonRow[];
+  /** Page PDP (default) or modal sheet — sticky chrome + denser grids. */
+  variant?: "page" | "sheet";
+  /** Modal: switch As card / As commander without navigating. */
+  onViewChange?: (view: CardDetailView) => void;
+  className?: string;
 };
 
 export function CardDetailLists({
@@ -53,21 +60,30 @@ export function CardDetailLists({
   roleStaples,
   gameChangers,
   buildSkeleton,
+  variant = "page",
+  onViewChange,
+  className,
 }: CardDetailListsProps) {
   const showToc = sectionNavItems.length >= 2;
   /** No lateral TOC at `lg+` — use denser card columns so tiles don’t grow huge. */
   const wideGrid = !showToc;
+  const gridDensity = variant === "sheet" ? "sheet" : "page";
 
   const sections =
     activeView === "commander" ? (
       <>
-        <RoleStaplesSection groups={roleStaples} wideGrid={wideGrid} />
+        <RoleStaplesSection
+          groups={roleStaples}
+          wideGrid={wideGrid}
+          gridDensity={gridDensity}
+        />
         {gameChangers.length > 0 ? (
           <DetailCardGridSection
             id={DETAIL_SECTION_IDS.gameChangers}
             title="Game Changers"
             cards={gameChangers}
             wideGrid={wideGrid}
+            gridDensity={gridDensity}
           />
         ) : null}
         {buildSkeleton.length > 0 ? (
@@ -82,12 +98,14 @@ export function CardDetailLists({
             title="Similar cards"
             cards={similar}
             wideGrid={wideGrid}
+            gridDensity={gridDensity}
           />
         ) : null}
         <CardRelativesBySubtype
           subtypes={subtypes}
           relatives={relatives}
           wideGrid={wideGrid}
+          gridDensity={gridDensity}
         />
       </>
     );
@@ -95,7 +113,13 @@ export function CardDetailLists({
   const tocKey = sectionNavItems.map((item) => item.id).join("|");
 
   return (
-    <section className="mt-10 space-y-4" aria-label="Related lists">
+    <section
+      className={cn(
+        variant === "page" ? "mt-10 space-y-4" : "space-y-4",
+        className,
+      )}
+      aria-label="Related lists"
+    >
       {isCommander ? (
         <CardDetailViewToggle
           slug={slug}
@@ -103,17 +127,31 @@ export function CardDetailLists({
           setCode={setCode}
           collectorNumber={collectorNumber}
           finish={finish}
+          onViewChange={onViewChange}
         />
       ) : null}
 
       {showToc ? (
-        <DetailSectionJump key={`jump-${activeView}-${tocKey}`} items={sectionNavItems} />
+        <DetailSectionJump
+          key={`jump-${activeView}-${tocKey}`}
+          items={sectionNavItems}
+          variant={variant}
+        />
       ) : null}
 
       {showToc ? (
         <div className={DETAIL_LISTS_GRID_CLASS}>
-          <div className={DETAIL_SECTION_NAV_STICKY_CLASS}>
-            <DetailSectionNav key={`nav-${activeView}-${tocKey}`} items={sectionNavItems} />
+          <div
+            className={
+              variant === "sheet"
+                ? DETAIL_SECTION_NAV_STICKY_SHEET_CLASS
+                : DETAIL_SECTION_NAV_STICKY_CLASS
+            }
+          >
+            <DetailSectionNav
+              key={`nav-${activeView}-${tocKey}`}
+              items={sectionNavItems}
+            />
           </div>
           <div className="min-w-0 space-y-6">{sections}</div>
         </div>

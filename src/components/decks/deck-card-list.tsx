@@ -1,11 +1,13 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { Trash2 } from "lucide-react";
 
 import { CardNameWithHoverPreview } from "@/components/discovery/card-hover-preview";
 import { PriceChip } from "@/components/discovery/price-chip";
 import { ManaCost } from "@/components/mtg/mana-cost";
 import { Button } from "@/components/ui/button";
+import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -19,14 +21,15 @@ import type { DeckCardView } from "@/lib/decks/decks";
 import { maxCopiesForCard } from "@/lib/decks/legality";
 import { QTY_INPUT_WIDTH_CLASS } from "@/lib/ui/qty-input";
 import {
-  LABEL_MUTED_CLASS,
+  LABEL_MISSING_CLASS,
+  LABEL_OWNED_CLASS,
   STATUS_CHIP_CLASS,
 } from "@/lib/ui/selection-chrome";
 import { cn } from "@/lib/utils";
 
-/** Multi-column flow for Goldfish-style list sections. */
+/** Multi-column flow for Goldfish-style list sections (balance-friendly; type groups may split). */
 export const DECK_LIST_COLUMNS_CLASS =
-  "columns-1 gap-x-6 sm:columns-2 xl:columns-3";
+  "columns-1 gap-x-6 sm:columns-2 xl:columns-3 [column-fill:balance]";
 
 export type DeckCardListCallbacks = {
   format: string;
@@ -36,6 +39,7 @@ export type DeckCardListCallbacks = {
   onQty: (row: DeckCardView, quantity: number) => void;
   onRemove: (row: DeckCardView) => void;
   onMove: (row: DeckCardView, board: DeckBoard) => void;
+  onCollectMissing: (row: DeckCardView) => void;
 };
 
 type DeckCardListProps = DeckCardListCallbacks & {
@@ -77,8 +81,11 @@ function DeckCardListRow({
   onQty,
   onRemove,
   onMove,
+  onCollectMissing,
 }: DeckCardListRowProps) {
   const missing = row.missingQty > 0;
+  const canCollectMissing =
+    missing && row.preferredPrintingId != null && row.finish != null;
   const qtyMax = maxCopiesForCard({
     format,
     typeLine: row.typeLine,
@@ -122,17 +129,31 @@ function DeckCardListRow({
         className="min-w-0 flex-1 basis-24"
       />
       <ManaCost cost={row.manaCost} size="xs" className="shrink-0" />
-      <span
-        className={cn(
-          STATUS_CHIP_CLASS,
-          "hidden shrink-0 md:inline-flex",
-          missing
-            ? "border border-warning bg-warning/15 text-warning-foreground"
-            : LABEL_MUTED_CLASS,
-        )}
-      >
-        {missing ? `Missing ×${row.missingQty}` : `Owned ×${row.ownedQty}`}
-      </span>
+      <div className="hidden shrink-0 items-center gap-1 md:inline-flex">
+        <span
+          className={cn(
+            STATUS_CHIP_CLASS,
+            missing ? LABEL_MISSING_CLASS : LABEL_OWNED_CLASS,
+          )}
+        >
+          {missing ? `Missing ×${row.missingQty}` : `Owned ×${row.ownedQty}`}
+        </span>
+        {canCollectMissing ? (
+          <Button
+            type="button"
+            size="xs"
+            disabled={pending}
+            title={`Add ×${row.missingQty} to collection`}
+            className={cn(
+              STATUS_CHIP_CLASS,
+              "h-5 gap-0 rounded-md px-1.5 text-[10px] leading-none",
+            )}
+            onClick={() => onCollectMissing(row)}
+          >
+            +×{row.missingQty}
+          </Button>
+        ) : null}
+      </div>
       <PriceChip
         prices={row.prices}
         preferredFinish={row.finish}
@@ -168,18 +189,22 @@ function DeckCardListRow({
       <Button
         type="button"
         variant="ghost"
-        size="xs"
+        size="icon-xs"
         className="shrink-0 text-destructive hover:text-destructive"
         disabled={pending}
+        aria-label="Remove"
         onClick={() => onRemove(row)}
       >
-        Remove
+        <Icon icon={Trash2} size="sm" />
       </Button>
     </div>
   );
 }
 
-/** Type-group block that stays intact inside CSS multi-column flow. */
+/**
+ * Type-group block in CSS multi-column flow.
+ * Groups may split across columns for balance; the heading stays with the first rows.
+ */
 export function DeckListTypeSection({
   label,
   totalQuantity,
@@ -190,8 +215,8 @@ export function DeckListTypeSection({
   children: ReactNode;
 }) {
   return (
-    <div className="mb-4 break-inside-avoid">
-      <h3 className="mb-1.5 text-sm font-medium text-muted-foreground">
+    <div className="mb-4">
+      <h3 className="mb-1.5 break-after-avoid text-sm font-medium text-muted-foreground">
         {label}
         <span className="ml-1.5 font-normal tabular-nums">
           ({totalQuantity})
@@ -211,7 +236,7 @@ export function DeckListBoardHeading({
   totalQuantity: number;
 }) {
   return (
-    <h2 className="mb-3 break-inside-avoid font-heading text-lg font-semibold">
+    <h2 className="mb-3 break-after-avoid font-heading text-lg font-semibold">
       {label}
       <span className="ml-2 text-sm font-normal text-muted-foreground">
         ({totalQuantity})

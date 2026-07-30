@@ -33,6 +33,9 @@ export function defaultSortForCommanderTab(): CommanderBrowseSort {
   return "name";
 }
 
-export function defaultOrderForCommanderTab(_sort: CommanderBrowseSort): "asc" | "desc" {
+export function defaultOrderForCommanderTab(
+  sort: CommanderBrowseSort,
+): "asc" | "desc" {
+  void sort;
   return "asc";
 }

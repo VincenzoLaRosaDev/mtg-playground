@@ -28,18 +28,19 @@ type CollectionAddPanelProps = {
 
 /**
  * Collection add: search overlay → unified card detail modal (version grid + CTAs).
+ * Search stays open under the detail modal; a successful add closes both.
  */
 export function CollectionAddPanel({ compact = false }: CollectionAddPanelProps) {
   const { openCardDetail } = useCardDetailModal();
   const [open, setOpen] = useState(false);
 
   function selectCard(card: GlobalSearchCardResult) {
-    setOpen(false);
     openCardDetail({
       mode: "collection",
       cardId: card.id,
       slug: card.slug ?? undefined,
       imageUri: card.imageUri,
+      onSuccessfulAdd: () => setOpen(false),
     });
   }
 

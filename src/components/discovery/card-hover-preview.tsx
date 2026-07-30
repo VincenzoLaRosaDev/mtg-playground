@@ -19,7 +19,11 @@ import { cn } from "@/lib/utils";
 
 const OPEN_DELAY_MS = 150;
 const PREVIEW_WIDTH_PX = 224; // 14rem
+const PREVIEW_HEIGHT_PX = PREVIEW_WIDTH_PX * (680 / 488);
 const VIEWPORT_PAD = 12;
+/** Offset from the cursor so the card isn’t under the pointer. */
+const CURSOR_OFFSET_X = 16;
+const CURSOR_OFFSET_Y = 16;
 
 function subscribeNever() {
   return () => {};
@@ -41,22 +45,31 @@ function canUseHoverPreview(): boolean {
   return window.matchMedia("(hover: hover) and (pointer: fine)").matches;
 }
 
-function positionPreview(anchor: DOMRect): { top: number; left: number } {
+/** Place the preview near the pointer, flipping when it would leave the viewport. */
+function positionPreviewAtCursor(
+  clientX: number,
+  clientY: number,
+): { top: number; left: number } {
   const vh = window.innerHeight;
   const vw = window.innerWidth;
-  const height = PREVIEW_WIDTH_PX * (680 / 488);
 
-  let left = anchor.right + VIEWPORT_PAD;
+  let left = clientX + CURSOR_OFFSET_X;
   if (left + PREVIEW_WIDTH_PX > vw - VIEWPORT_PAD) {
-    left = anchor.left - PREVIEW_WIDTH_PX - VIEWPORT_PAD;
+    left = clientX - PREVIEW_WIDTH_PX - CURSOR_OFFSET_X;
   }
-  left = Math.max(VIEWPORT_PAD, Math.min(left, vw - PREVIEW_WIDTH_PX - VIEWPORT_PAD));
+  left = Math.max(
+    VIEWPORT_PAD,
+    Math.min(left, vw - PREVIEW_WIDTH_PX - VIEWPORT_PAD),
+  );
 
-  let top = anchor.top;
-  if (top + height > vh - VIEWPORT_PAD) {
-    top = vh - height - VIEWPORT_PAD;
+  let top = clientY + CURSOR_OFFSET_Y;
+  if (top + PREVIEW_HEIGHT_PX > vh - VIEWPORT_PAD) {
+    top = clientY - PREVIEW_HEIGHT_PX - CURSOR_OFFSET_Y;
   }
-  top = Math.max(VIEWPORT_PAD, top);
+  top = Math.max(
+    VIEWPORT_PAD,
+    Math.min(top, vh - PREVIEW_HEIGHT_PX - VIEWPORT_PAD),
+  );
 
   return { top, left };
 }
@@ -133,6 +146,9 @@ export function CardNameWithHoverPreview({
   children,
 }: CardNameWithHoverPreviewProps) {
   const openTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const rafRef = useRef<number | null>(null);
+  const pointerRef = useRef({ x: 0, y: 0 });
+  const openRef = useRef(false);
   const [preview, setPreview] = useState<PreviewState | null>(null);
 
   const clearTimer = useCallback(() => {
@@ -142,12 +158,40 @@ export function CardNameWithHoverPreview({
     }
   }, []);
 
+  const cancelRaf = useCallback(() => {
+    if (rafRef.current != null) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
+  }, []);
+
   const hide = useCallback(() => {
     clearTimer();
+    cancelRaf();
+    openRef.current = false;
     setPreview(null);
-  }, [clearTimer]);
+  }, [cancelRaf, clearTimer]);
 
-  useEffect(() => () => clearTimer(), [clearTimer]);
+  const scheduleMove = useCallback(() => {
+    if (!openRef.current || rafRef.current != null) return;
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = null;
+      if (!openRef.current) return;
+      const { x, y } = pointerRef.current;
+      const pos = positionPreviewAtCursor(x, y);
+      setPreview((prev) =>
+        prev ? { ...prev, ...pos } : prev,
+      );
+    });
+  }, []);
+
+  useEffect(
+    () => () => {
+      clearTimer();
+      cancelRaf();
+    },
+    [cancelRaf, clearTimer],
+  );
 
   const src = faces?.[0]?.imageUri ?? imageUri;
 
@@ -163,12 +207,18 @@ export function CardNameWithHoverPreview({
         onMouseEnter={(event) => {
           if (!canUseHoverPreview()) return;
           clearTimer();
-          const rect = event.currentTarget.getBoundingClientRect();
+          pointerRef.current = { x: event.clientX, y: event.clientY };
           preloadImage(src);
           openTimer.current = setTimeout(() => {
-            const pos = positionPreview(rect);
-            setPreview({ src, name, ...pos });
+            const { x, y } = pointerRef.current;
+            openRef.current = true;
+            setPreview({ src, name, ...positionPreviewAtCursor(x, y) });
           }, OPEN_DELAY_MS);
+        }}
+        onMouseMove={(event) => {
+          if (!canUseHoverPreview()) return;
+          pointerRef.current = { x: event.clientX, y: event.clientY };
+          scheduleMove();
         }}
         onMouseLeave={hide}
         onFocus={hide}

@@ -72,6 +72,10 @@ export function CommandersBrowseClient({
     <PageShell
       title="Commanders"
       description="Browse every commander-legal legendary from the Scryfall catalog."
+      breadcrumbs={[
+        { label: "Home", href: "/" },
+        { label: "Browse", href: "/browse?commanders_only=true" },
+      ]}
       toolbar={
         <ListFilterAccess
           hasActiveFilters={Boolean(

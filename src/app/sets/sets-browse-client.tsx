@@ -17,7 +17,7 @@ import { useBrowseList, type BrowseListInitialData } from "@/hooks/use-browse-li
 import type { SetsBrowseToolbarSnapshot } from "@/lib/browse/sets-defaults";
 import type { SetBrowseItem, SetTypeFilterOption } from "@/lib/browse/sets-shared";
 import { defaultSetBrowseOrder, getSetBrowseSortOptions } from "@/lib/browse/sets-shared";
-import { SET_BROWSE_GRID_CLASS } from "@/lib/ui/card-face";
+import { CARD_FACE_GRID_CLASS } from "@/lib/ui/card-face";
 
 type SetsBrowseClientProps = {
   initialData: BrowseListInitialData<SetBrowseItem>;
@@ -72,6 +72,10 @@ export function SetsBrowseClient({
     <PageShell
       title="Sets"
       description="Browse Magic sets by release date, type, and indexed card coverage."
+      breadcrumbs={[
+        { label: "Home", href: "/" },
+        { label: "Sets", href: "/sets" },
+      ]}
       toolbar={
         <ListFilterAccess hasActiveFilters={hasActiveFilters} filtersKey={requestKey}>
           <SetBrowseToolbar
@@ -90,7 +94,7 @@ export function SetsBrowseClient({
       {error ? <p className="mt-4 text-sm text-destructive">{error}</p> : null}
 
       {items.length > 0 ? (
-        <ul className={`mt-6 ${SET_BROWSE_GRID_CLASS}`} aria-busy={loading || undefined}>
+        <ul className={`mt-6 ${CARD_FACE_GRID_CLASS}`} aria-busy={loading || undefined}>
           {items.map((set) => (
             <SetBrowseRow key={set.code} set={set} />
           ))}

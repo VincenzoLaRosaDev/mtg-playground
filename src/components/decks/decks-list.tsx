@@ -1,24 +1,13 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
-import { Button } from "@/components/ui/button";
+import { DeckListCard } from "@/components/decks/deck-list-card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { deleteDeck } from "@/lib/decks/actions";
 import type { DeckListItem } from "@/lib/decks/decks";
-import { cn } from "@/lib/utils";
-
-function formatRelative(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "";
-  return date.toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
-}
+import { CARD_FACE_GRID_CLASS } from "@/lib/ui/card-face";
 
 type DecksListProps = {
   decks: DeckListItem[];
@@ -64,47 +53,16 @@ export function DecksList({ decks }: DecksListProps) {
           {error}
         </p>
       ) : null}
-      <ul className="divide-y divide-border/60 rounded-lg border border-border/60">
+      <ul className={CARD_FACE_GRID_CLASS}>
         {decks.map((deck) => (
-          <li
+          <DeckListCard
             key={deck.id}
-            className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
-          >
-            <div className="min-w-0 space-y-0.5">
-              <Link
-                href={`/decks/${deck.id}`}
-                className="font-medium text-foreground hover:underline"
-              >
-                {deck.name}
-              </Link>
-              <p className="text-xs text-muted-foreground">
-                {deck.formatLabel} · {deck.sizeLabel} · Updated{" "}
-                {formatRelative(deck.updatedAt)}
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                nativeButton={false}
-                render={<Link href={`/decks/${deck.id}`} />}
-              >
-                Edit
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className={cn("text-destructive hover:text-destructive")}
-                disabled={pending && pendingId === deck.id}
-                onClick={() =>
-                  setConfirmTarget({ id: deck.id, name: deck.name })
-                }
-              >
-                Delete
-              </Button>
-            </div>
-          </li>
+            deck={deck}
+            deletePending={pending && pendingId === deck.id}
+            onDelete={() =>
+              setConfirmTarget({ id: deck.id, name: deck.name })
+            }
+          />
         ))}
       </ul>
 

@@ -60,3 +60,7 @@ export function getBrowseFormatFilterOptions(): Array<{
 }> {
   return SCRYFALL_BROWSE_FORMATS.map((f) => ({ value: f.value, label: f.label }));
 }
+
+export function labelForBrowseFormat(format: string): string {
+  return SCRYFALL_BROWSE_FORMATS.find((row) => row.value === format)?.label ?? format;
+}

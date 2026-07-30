@@ -1,9 +1,11 @@
+import { randomUUID } from "node:crypto";
 import { createGunzip } from "node:zlib";
 import { createInterface } from "node:readline";
 import { Readable } from "node:stream";
 import { config } from "dotenv";
 
 import {
+  CardRelationComponent,
   Prisma,
   SyncSource,
   SyncStatus,
@@ -25,9 +27,192 @@ import {
 } from "../../src/lib/scryfall/card-utils";
 import { mapScryfallFaces } from "../../src/lib/scryfall/faces";
 import { shouldIndexScryfallCard } from "../../src/lib/scryfall/catalog-filters";
+import { classifyTokenOrExtra } from "../../src/lib/decks/relation-classify";
 import { computeColorSortKey } from "../../src/lib/browse/color-sort";
 import { buildCardSearchDocumentFromScryfall } from "../../src/lib/search/card-text-search";
 import { parseCatalogListPrice } from "../../src/lib/scryfall/card-prices";
+
+type PendingRelation = {
+  oracleId: string;
+  relatedScryfallId: string;
+  name: string;
+  typeLine: string;
+};
+
+function isAllPartsRelationComponent(component: string): boolean {
+  return (
+    component === "token" ||
+    component === "combo_piece" ||
+    component === "meld_part" ||
+    component === "meld_result"
+  );
+}
+
+function collectPendingRelations(
+  card: ScryfallCard,
+  out: PendingRelation[],
+): void {
+  const parts = card.all_parts;
+  if (!parts?.length) return;
+  for (const part of parts) {
+    if (!part.id || part.id === card.id) continue;
+    if (!isAllPartsRelationComponent(part.component)) continue;
+    out.push({
+      oracleId: card.oracle_id,
+      relatedScryfallId: part.id,
+      name: part.name,
+      typeLine: part.type_line ?? "",
+    });
+  }
+}
+
+async function replaceCardRelations(
+  prisma: PrismaClient,
+  pending: PendingRelation[],
+): Promise<number> {
+  if (pending.length === 0) {
+    await prisma.cardRelation.deleteMany({});
+    return 0;
+  }
+
+  const relatedIds = [...new Set(pending.map((p) => p.relatedScryfallId))];
+  const oracleByScryfallId = new Map<string, string>();
+
+  // 1) oracle_cards representative id
+  for (let i = 0; i < relatedIds.length; i += BATCH_SIZE) {
+    const chunk = relatedIds.slice(i, i + BATCH_SIZE);
+    const relatedCards = await prisma.card.findMany({
+      where: { id: { in: chunk } },
+      select: { id: true, oracleId: true },
+    });
+    for (const c of relatedCards) {
+      oracleByScryfallId.set(c.id, c.oracleId);
+    }
+  }
+
+  // 2) all_parts often points at a printing id, not the oracle representative
+  const missingAfterCards = relatedIds.filter((id) => !oracleByScryfallId.has(id));
+  for (let i = 0; i < missingAfterCards.length; i += BATCH_SIZE) {
+    const chunk = missingAfterCards.slice(i, i + BATCH_SIZE);
+    const printings = await prisma.printing.findMany({
+      where: { id: { in: chunk } },
+      select: { id: true, oracleId: true },
+    });
+    for (const p of printings) {
+      oracleByScryfallId.set(p.id, p.oracleId);
+    }
+  }
+
+  // 3) fallback: exact name (classify/denylist runs after resolve)
+  const namesNeedingFallback = [
+    ...new Set(
+      pending
+        .filter((p) => !oracleByScryfallId.has(p.relatedScryfallId))
+        .map((p) => p.name)
+        .filter(Boolean),
+    ),
+  ];
+  const oracleByRelatedName = new Map<string, string>();
+  for (let i = 0; i < namesNeedingFallback.length; i += BATCH_SIZE) {
+    const chunk = namesNeedingFallback.slice(i, i + BATCH_SIZE);
+    const named = await prisma.card.findMany({
+      where: { name: { in: chunk } },
+      select: { name: true, oracleId: true, layout: true },
+      orderBy: { name: "asc" },
+    });
+    // Prefer token/emblem layouts when names collide with playable cards.
+    for (const c of named) {
+      const existing = oracleByRelatedName.get(c.name);
+      if (!existing) {
+        oracleByRelatedName.set(c.name, c.oracleId);
+        continue;
+      }
+      if (
+        c.layout === "token" ||
+        c.layout === "double_faced_token" ||
+        c.layout === "emblem"
+      ) {
+        oracleByRelatedName.set(c.name, c.oracleId);
+      }
+    }
+  }
+
+  const resolvedOracleIds = [
+    ...new Set(
+      pending
+        .map(
+          (p) =>
+            oracleByScryfallId.get(p.relatedScryfallId) ??
+            oracleByRelatedName.get(p.name),
+        )
+        .filter((id): id is string => Boolean(id)),
+    ),
+  ];
+  const metaByOracle = new Map<
+    string,
+    { layout: string; typeLine: string; name: string }
+  >();
+  for (let i = 0; i < resolvedOracleIds.length; i += BATCH_SIZE) {
+    const chunk = resolvedOracleIds.slice(i, i + BATCH_SIZE);
+    const cards = await prisma.card.findMany({
+      where: { oracleId: { in: chunk } },
+      select: { oracleId: true, layout: true, typeLine: true, name: true },
+    });
+    for (const c of cards) {
+      metaByOracle.set(c.oracleId, {
+        layout: c.layout,
+        typeLine: c.typeLine,
+        name: c.name,
+      });
+    }
+  }
+
+  const rows: {
+    id: string;
+    oracleId: string;
+    relatedOracleId: string;
+    component: CardRelationComponent;
+    name: string;
+    typeLine: string;
+  }[] = [];
+  const seen = new Set<string>();
+
+  for (const edge of pending) {
+    const relatedOracleId =
+      oracleByScryfallId.get(edge.relatedScryfallId) ??
+      oracleByRelatedName.get(edge.name);
+    if (!relatedOracleId || relatedOracleId === edge.oracleId) continue;
+    const meta = metaByOracle.get(relatedOracleId);
+    const layout = meta?.layout ?? "";
+    const typeLine = meta?.typeLine || edge.typeLine;
+    const kind = classifyTokenOrExtra(layout, typeLine);
+    if (!kind) continue;
+    const component =
+      kind === "token"
+        ? CardRelationComponent.token
+        : CardRelationComponent.extra;
+    const key = `${edge.oracleId}|${relatedOracleId}|${component}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    rows.push({
+      id: randomUUID(),
+      oracleId: edge.oracleId,
+      relatedOracleId,
+      component,
+      name: meta?.name ?? edge.name,
+      typeLine,
+    });
+  }
+
+  await prisma.cardRelation.deleteMany({});
+  for (let i = 0; i < rows.length; i += BATCH_SIZE) {
+    await prisma.cardRelation.createMany({
+      data: rows.slice(i, i + BATCH_SIZE),
+    });
+  }
+
+  return rows.length;
+}
 
 // Must run before importing db.ts (that module reads DATABASE_URL at load time)
 config({ path: ".env.local" });
@@ -238,6 +423,7 @@ async function processBulkStream(
   const lines = createInterface({ input: nodeStream.pipe(gunzip), crlfDelay: Infinity });
 
   let batch: ReturnType<typeof mapCard>[] = [];
+  const pendingRelations: PendingRelation[] = [];
   let processed = 0;
   let skipped = 0;
   let excluded = 0;
@@ -264,6 +450,7 @@ async function processBulkStream(
       continue;
     }
 
+    collectPendingRelations(card, pendingRelations);
     batch.push(mapCard(card));
 
     if (batch.length >= BATCH_SIZE) {
@@ -279,7 +466,8 @@ async function processBulkStream(
     processed += batch.length;
   }
 
-  return { processed, skipped, excluded };
+  const relations = await replaceCardRelations(prisma, pendingRelations);
+  return { processed, skipped, excluded, relations };
 }
 
 async function main() {
@@ -335,7 +523,7 @@ async function main() {
       throw new Error(`Download failed: ${response.status}`);
     }
 
-    const { processed, skipped, excluded } = await processBulkStream(
+    const { processed, skipped, excluded, relations } = await processBulkStream(
       prisma,
       response.body,
     );
@@ -343,7 +531,7 @@ async function main() {
       where: { layout: "art_series" },
     });
     console.log(
-      `\nDone. ${processed} cards upserted, ${skipped} lines skipped, ${excluded} excluded layouts, ${purged.count} art_series purged.`,
+      `\nDone. ${processed} cards upserted, ${skipped} lines skipped, ${excluded} excluded layouts, ${relations} token/extra relations, ${purged.count} art_series purged.`,
     );
 
     await prisma.syncLog.update({
@@ -354,6 +542,7 @@ async function main() {
         recordsProcessed: processed,
         errors: {
           bulkUpdatedAt: bulk.updated_at,
+          relations,
           ...(skipped > 0 || excluded > 0 || purged.count > 0
             ? { skipped, excluded, purged: purged.count }
             : {}),

@@ -1,5 +1,6 @@
 "use client";
 
+import { Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState, useTransition } from "react";
 
@@ -10,6 +11,7 @@ import { WorkspaceSearchOverlay } from "@/components/discovery/workspace-search-
 import { DeckImportPanel } from "@/components/decks/deck-import-panel";
 import { DeckInsightsPanel } from "@/components/decks/deck-insights-panel";
 import { DeckLegalityPanel } from "@/components/decks/deck-legality-panel";
+import { DeckTokensExtrasSection } from "@/components/decks/deck-tokens-extras-section";
 import {
   DECK_LIST_COLUMNS_CLASS,
   DeckCardList,
@@ -22,6 +24,7 @@ import {
 } from "@/components/decks/deck-view-toggle";
 import { ListFilterAccess } from "@/components/layout/list-filter-access";
 import { Button } from "@/components/ui/button";
+import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -48,13 +51,15 @@ import {
   groupDeckCardsByType,
 } from "@/lib/decks/card-type-groups";
 import type { DeckCardView, DeckDetail } from "@/lib/decks/decks";
+import { writeLastDeckId } from "@/lib/decks/last-deck";
 import { maxCopiesForCard } from "@/lib/decks/legality";
 import { SCRYFALL_BROWSE_FORMATS } from "@/lib/formats/scryfall-formats";
 import type { GlobalSearchCardResult } from "@/lib/search/types";
 import { CARD_FACE_GRID_CLASS } from "@/lib/ui/card-face";
 import { QTY_INPUT_WIDTH_CLASS } from "@/lib/ui/qty-input";
 import {
-  LABEL_MUTED_CLASS,
+  LABEL_MISSING_CLASS,
+  LABEL_OWNED_CLASS,
   STATUS_CHIP_CLASS,
 } from "@/lib/ui/selection-chrome";
 import { cn } from "@/lib/utils";
@@ -86,6 +91,7 @@ export function DeckEditor({ deck }: DeckEditorProps) {
   const [name, setName] = useState(deck.name);
   const [format, setFormat] = useState(deck.format);
   const [view, setView] = useDeckEditorView();
+  const [addSearchOpen, setAddSearchOpen] = useState(false);
 
   const boards = boardsForDeck(deck.showCommanderBoards);
 
@@ -94,6 +100,7 @@ export function DeckEditor({ deck }: DeckEditorProps) {
   }, [router]);
 
   useEffect(() => {
+    writeLastDeckId(deck.id);
     setDeckWorkspace({
       deckId: deck.id,
       format: deck.format,
@@ -136,6 +143,7 @@ export function DeckEditor({ deck }: DeckEditorProps) {
       cardId: card.id,
       slug: card.slug ?? undefined,
       imageUri: card.imageUri,
+      onSuccessfulAdd: () => setAddSearchOpen(false),
     });
   }
 
@@ -149,6 +157,9 @@ export function DeckEditor({ deck }: DeckEditorProps) {
         stickyActions={
           <WorkspaceSearchOverlay
             compact
+            open={addSearchOpen}
+            onOpenChange={setAddSearchOpen}
+            closeOnSelect={false}
             onAddCard={onSearchPick}
             triggerLabel="Add cards"
             title="Add to deck"
@@ -217,6 +228,9 @@ export function DeckEditor({ deck }: DeckEditorProps) {
               </span>
               <div className="flex h-8 items-center gap-3">
                 <WorkspaceSearchOverlay
+                  open={addSearchOpen}
+                  onOpenChange={setAddSearchOpen}
+                  closeOnSelect={false}
                   onAddCard={onSearchPick}
                   triggerLabel="Add cards"
                   title="Add to deck"
@@ -242,8 +256,6 @@ export function DeckEditor({ deck }: DeckEditorProps) {
             ok={deck.legality.ok}
             issues={deck.legality.issues}
           />
-
-          <DeckInsightsPanel insights={deck.insights} />
 
           {error ? (
             <p className="text-sm text-destructive" role="alert">
@@ -315,58 +327,34 @@ export function DeckEditor({ deck }: DeckEditorProps) {
                         </p>
                       </div>
                     ) : grouped ? (
-                      (() => {
-                        const groups = groupDeckCardsByType(rows);
-                        const [first, ...rest] = groups;
-                        if (!first) return null;
-                        return (
-                          <>
-                            {/* Title + first type block move together (no orphan board title). */}
-                            <div className="break-inside-avoid">
-                              <DeckListBoardHeading
-                                label={boardLabel(board)}
-                                totalQuantity={boardCount}
-                              />
-                              <DeckListTypeSection
-                                label={first.label}
-                                totalQuantity={first.totalQuantity}
-                              >
-                                <DeckCardList
-                                  rows={first.cards}
-                                  format={shared.format}
-                                  boards={shared.boards}
-                                  pending={shared.pending}
-                                  onPeek={shared.onPeek}
-                                  onQty={shared.onQty}
-                                  onRemove={shared.onRemove}
-                                  onMove={shared.onMove}
-                                />
-                              </DeckListTypeSection>
-                            </div>
-                            {rest.map((group) => (
-                              <DeckListTypeSection
-                                key={group.id}
-                                label={group.label}
-                                totalQuantity={group.totalQuantity}
-                              >
-                                <DeckCardList
-                                  rows={group.cards}
-                                  format={shared.format}
-                                  boards={shared.boards}
-                                  pending={shared.pending}
-                                  onPeek={shared.onPeek}
-                                  onQty={shared.onQty}
-                                  onRemove={shared.onRemove}
-                                  onMove={shared.onMove}
-                                />
-                              </DeckListTypeSection>
-                            ))}
-                          </>
-                        );
-                      })()
+                      <>
+                        <DeckListBoardHeading
+                          label={boardLabel(board)}
+                          totalQuantity={boardCount}
+                        />
+                        {groupDeckCardsByType(rows).map((group) => (
+                          <DeckListTypeSection
+                            key={group.id}
+                            label={group.label}
+                            totalQuantity={group.totalQuantity}
+                          >
+                            <DeckCardList
+                              rows={group.cards}
+                              format={shared.format}
+                              boards={shared.boards}
+                              pending={shared.pending}
+                              onPeek={shared.onPeek}
+                              onQty={shared.onQty}
+                              onRemove={shared.onRemove}
+                              onMove={shared.onMove}
+                              onCollectMissing={shared.onCollectMissing}
+                            />
+                          </DeckListTypeSection>
+                        ))}
+                      </>
                     ) : (
-                      /* Sideboard / commander / companion: flat list; title never orphans alone. */
-                      <div className="mb-4 break-inside-avoid">
+                      /* Sideboard / commander / companion: flat list; heading sticks to first rows. */
+                      <div className="mb-4">
                         <DeckListBoardHeading
                           label={boardLabel(board)}
                           totalQuantity={boardCount}
@@ -380,6 +368,7 @@ export function DeckEditor({ deck }: DeckEditorProps) {
                           onQty={shared.onQty}
                           onRemove={shared.onRemove}
                           onMove={shared.onMove}
+                          onCollectMissing={shared.onCollectMissing}
                         />
                       </div>
                     )}
@@ -432,6 +421,22 @@ export function DeckEditor({ deck }: DeckEditorProps) {
           );
         });
       })()}
+
+      <DeckInsightsPanel
+        format={deck.format}
+        insights={deck.insights}
+        composition={deck.composition}
+        curveBreakdowns={deck.curveBreakdowns}
+        quantityBreakdowns={deck.quantityBreakdowns}
+        cardNameQuantities={deck.cardNameQuantities}
+        coherence={deck.coherence}
+        estCost={deck.estCost}
+        manaPips={deck.manaPips}
+        manaProduction={deck.manaProduction}
+        manaProductionLandsOnly={deck.manaProductionLandsOnly}
+      />
+
+      <DeckTokensExtrasSection tokensExtras={deck.tokensExtras} />
     </div>
   );
 }
@@ -536,9 +541,7 @@ function DeckCardTile({
               <span
                 className={cn(
                   STATUS_CHIP_CLASS,
-                  missing
-                    ? "border border-warning bg-warning/15 text-warning-foreground"
-                    : LABEL_MUTED_CLASS,
+                  missing ? LABEL_MISSING_CLASS : LABEL_OWNED_CLASS,
                 )}
               >
                 {missing
@@ -621,6 +624,7 @@ function DeckCardTile({
               disabled={pending}
               onClick={onRemove}
             >
+              <Icon icon={Trash2} size="sm" />
               Remove
             </Button>
           </div>

@@ -3,14 +3,33 @@ import type { PrismaClient } from "@/generated/prisma/client";
 import {
   formatDeckSizeLabel,
   isCommanderLikeFormat,
+  isDeckBoard,
   sumDeckBoardQuantities,
   type DeckBoard,
 } from "@/lib/decks/boards";
-import { compareDeckCardsByTypeThenCmc } from "@/lib/decks/card-type-groups";
 import {
-  summarizeDeckInsights,
-  type DeckInsights,
-} from "@/lib/decks/insights";
+  buildDeckStatsFromCards,
+  toDeckStatsCardInput,
+} from "@/lib/decks/build-deck-stats";
+import { compareDeckCardsByTypeThenCmc } from "@/lib/decks/card-type-groups";
+import type { CoherenceAlert } from "@/lib/decks/coherence";
+import {
+  type DeckComposition,
+  type ManaColorKey,
+} from "@/lib/decks/composition";
+import type { DeckCurveBreakdowns } from "@/lib/decks/curve-breakdowns";
+import { pickDeckCover } from "@/lib/decks/deck-cover";
+import type { DeckEstCost } from "@/lib/decks/est-cost";
+import type { DeckInsights } from "@/lib/decks/insights";
+import {
+  summarizeDeckManaPips,
+  type DeckManaPips,
+} from "@/lib/decks/mana-pips";
+import type { DeckManaProduction } from "@/lib/decks/mana-production";
+import type {
+  DeckQuantityBreakdowns,
+  QuantityBucket,
+} from "@/lib/decks/quantity-breakdowns";
 import {
   evaluateDeckLegality,
   type DeckLegalityIssue,
@@ -30,6 +49,16 @@ import {
   SCRYFALL_BROWSE_FORMATS,
   type ScryfallBrowseFormat,
 } from "@/lib/formats/scryfall-formats";
+import {
+  listRelatedTokensExtrasForOracles,
+  oracleIdsForTokenInference,
+  type DeckTokensExtras,
+} from "@/lib/decks/tokens-extras";
+
+export type DeckListCostSegment = {
+  key: ManaColorKey;
+  weight: number;
+};
 
 export type DeckListItem = {
   id: string;
@@ -40,6 +69,18 @@ export type DeckListItem = {
   sizeLabel: string;
   updatedAt: string;
   createdAt: string;
+  coverImageUri: string | null;
+  coverName: string | null;
+  /** Cost pip share segments (main+commander, lands excluded). */
+  costSegments: DeckListCostSegment[];
+};
+
+/** Slim deck row for Add-to-deck selects (modal + PDP). */
+export type DeckPickerItem = {
+  id: string;
+  name: string;
+  format: string;
+  formatLabel: string;
 };
 
 export type DeckCardView = {
@@ -54,7 +95,13 @@ export type DeckCardView = {
   cmc: number;
   /** Scryfall mana cost string, e.g. `{2}{W}{U}`. Null for lands without a cost. */
   manaCost: string | null;
+  /** Scryfall produced_mana colors. */
+  producedMana: string[];
   colorIdentity: string[];
+  /** Preferred/catalog printing rarity (Scryfall), or null. */
+  rarity: string | null;
+  /** Scryfall oracle keywords. */
+  keywords: string[];
   imageUri: string | null;
   faces: CardFaceImage[];
   isCommander: boolean;
@@ -85,6 +132,17 @@ export type DeckDetail = {
     issues: DeckLegalityIssue[];
   };
   insights: DeckInsights;
+  composition: DeckComposition;
+  curveBreakdowns: DeckCurveBreakdowns;
+  quantityBreakdowns: DeckQuantityBreakdowns;
+  /** Main+commander quantities by card name (Odds · Card Name). */
+  cardNameQuantities: QuantityBucket[];
+  coherence: CoherenceAlert[];
+  estCost: DeckEstCost;
+  manaPips: DeckManaPips;
+  manaProduction: DeckManaProduction;
+  manaProductionLandsOnly: DeckManaProduction;
+  tokensExtras: DeckTokensExtras;
 };
 
 function labelForFormat(format: string): string {
@@ -126,8 +184,82 @@ export async function listDecks(
       format: true,
       createdAt: true,
       updatedAt: true,
-      cards: { select: { quantity: true, board: true } },
+      cards: {
+        select: {
+          quantity: true,
+          board: true,
+          oracleId: true,
+          preferredPrintingId: true,
+          preferredPrinting: { select: { imageUri: true } },
+        },
+      },
     },
+  });
+
+  const oracleIds = [
+    ...new Set(decks.flatMap((d) => d.cards.map((c) => c.oracleId))),
+  ];
+  const cards =
+    oracleIds.length > 0
+      ? await prisma.card.findMany({
+          where: { oracleId: { in: oracleIds } },
+          select: {
+            oracleId: true,
+            name: true,
+            typeLine: true,
+            cmc: true,
+            manaCost: true,
+            imageUri: true,
+          },
+        })
+      : [];
+  const cardByOracle = new Map(cards.map((c) => [c.oracleId, c]));
+
+  return decks.map((deck) => {
+    const enriched = deck.cards.map((row) => {
+      const card = cardByOracle.get(row.oracleId);
+      const board = isDeckBoard(row.board) ? row.board : "main";
+      return {
+        board,
+        quantity: row.quantity,
+        name: card?.name ?? "Unknown",
+        typeLine: card?.typeLine ?? "",
+        cmc: card?.cmc ?? 0,
+        manaCost: card?.manaCost ?? null,
+        imageUri: row.preferredPrinting?.imageUri ?? card?.imageUri ?? null,
+      };
+    });
+
+    const cover = pickDeckCover(enriched);
+    const manaPips = summarizeDeckManaPips(enriched);
+    const costSegments: DeckListCostSegment[] = manaPips.buckets.map((b) => ({
+      key: b.key,
+      weight: b.pips,
+    }));
+
+    return {
+      id: deck.id,
+      name: deck.name,
+      format: deck.format,
+      formatLabel: labelForFormat(deck.format),
+      sizeLabel: formatDeckSizeLabel(sumDeckBoardQuantities(deck.cards)),
+      createdAt: deck.createdAt.toISOString(),
+      updatedAt: deck.updatedAt.toISOString(),
+      coverImageUri: cover?.imageUri ?? null,
+      coverName: cover?.name ?? null,
+      costSegments,
+    };
+  });
+}
+
+export async function listDecksForPicker(
+  prisma: PrismaClient,
+  userId: string,
+): Promise<DeckPickerItem[]> {
+  const decks = await prisma.deck.findMany({
+    where: { userId },
+    orderBy: { updatedAt: "desc" },
+    select: { id: true, name: true, format: true },
   });
 
   return decks.map((deck) => ({
@@ -135,9 +267,6 @@ export async function listDecks(
     name: deck.name,
     format: deck.format,
     formatLabel: labelForFormat(deck.format),
-    sizeLabel: formatDeckSizeLabel(sumDeckBoardQuantities(deck.cards)),
-    createdAt: deck.createdAt.toISOString(),
-    updatedAt: deck.updatedAt.toISOString(),
   }));
 }
 
@@ -152,6 +281,7 @@ export async function getDeckOwnedByUser(
   });
 }
 
+/** Total copies on all deck boards. */
 export async function sumDeckCardQuantity(
   prisma: PrismaClient,
   deckId: string,
@@ -189,6 +319,7 @@ export async function getDeckDetail(
               id: true,
               setCode: true,
               collectorNumber: true,
+              rarity: true,
               imageUri: true,
               faces: true,
               prices: true,
@@ -216,7 +347,10 @@ export async function getDeckDetail(
             typeLine: true,
             cmc: true,
             manaCost: true,
+            producedMana: true,
             colorIdentity: true,
+            minRarity: true,
+            keywords: true,
             imageUri: true,
             faces: true,
             isCommander: true,
@@ -239,6 +373,7 @@ export async function getDeckDetail(
             id: true,
             setCode: true,
             collectorNumber: true,
+            rarity: true,
             imageUri: true,
             faces: true,
             prices: true,
@@ -305,7 +440,10 @@ export async function getDeckDetail(
         typeLine: card?.typeLine ?? "",
         cmc: card?.cmc ?? 0,
         manaCost: card?.manaCost ?? null,
+        producedMana: card?.producedMana ?? [],
         colorIdentity: card?.colorIdentity ?? [],
+        rarity: printing?.rarity ?? card?.minRarity ?? null,
+        keywords: card?.keywords ?? [],
         imageUri: printing?.imageUri ?? card?.imageUri ?? null,
         faces: parseCardFaces(printing?.faces ?? card?.faces),
         isCommander: card?.isCommander ?? false,
@@ -333,10 +471,15 @@ export async function getDeckDetail(
   );
 
   const showCommanderBoards = isCommanderLikeFormat(deck.format);
-  const insights = summarizeDeckInsights(
-    cardViews,
+  const stats = buildDeckStatsFromCards(
+    deck.format,
+    cardViews.map(toDeckStatsCardInput),
     classificationsByOracle,
-    { includeSkeleton: showCommanderBoards },
+  );
+
+  const tokensExtras = await listRelatedTokensExtrasForOracles(
+    prisma,
+    oracleIdsForTokenInference(cardViews),
   );
 
   return {
@@ -350,6 +493,7 @@ export async function getDeckDetail(
     ownership,
     showCommanderBoards,
     legality,
-    insights,
+    ...stats,
+    tokensExtras,
   };
 }

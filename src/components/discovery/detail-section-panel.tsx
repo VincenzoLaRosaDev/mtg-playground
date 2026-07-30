@@ -20,16 +20,17 @@ export function DetailSectionPanel({
   title,
   children,
   id,
-  uniqueToView = false,
+  uniqueToView: _uniqueToView = false,
   className,
   headingClassName,
 }: DetailSectionPanelProps) {
+  void _uniqueToView;
   return (
     <section
       id={id}
       className={cn(
         id && DETAIL_SECTION_SCROLL_MARGIN,
-        detailSectionPanelClass(uniqueToView),
+        detailSectionPanelClass(),
         className,
       )}
     >

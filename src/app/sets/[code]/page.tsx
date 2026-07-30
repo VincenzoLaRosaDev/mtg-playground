@@ -146,6 +146,7 @@ export default async function SetDetailPage({ params, searchParams }: SetDetailP
       title={mtgSet.name}
       description={`${mtgSet.code.toUpperCase()} · ${formatSetType(mtgSet.setType)} · ${formatReleaseDate(mtgSet.releasedAt)}`}
       breadcrumbs={[
+        { label: "Home", href: "/" },
         { label: "Sets", href: "/sets" },
         { label: mtgSet.name, href: `/sets/${mtgSet.code}` },
       ]}

@@ -4,11 +4,16 @@ import { revalidatePath } from "next/cache";
 
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
-import { parseDeckBoard, type DeckBoard } from "@/lib/decks/boards";
+import {
+  parseDeckBoard,
+  type DeckBoard,
+} from "@/lib/decks/boards";
 import {
   countUserDecks,
   getDeckOwnedByUser,
+  listDecksForPicker,
   sumDeckCardQuantity,
+  type DeckPickerItem,
 } from "@/lib/decks/decks";
 import {
   mutationBlockReason,
@@ -31,6 +36,13 @@ export type CreateDeckResult =
   | { ok: true; id: string }
   | { ok: false; error: string };
 
+/** Slim deck list for Add-to-deck selects (modal + PDP). */
+export async function listMyDecksForPicker(): Promise<DeckPickerItem[]> {
+  const userId = await requireUserId();
+  if (!userId) return [];
+  return listDecksForPicker(prisma, userId);
+}
+
 async function requireUserId(): Promise<string | null> {
   const session = await auth();
   return session?.user?.id ?? null;
@@ -39,6 +51,19 @@ async function requireUserId(): Promise<string | null> {
 function revalidateDecks(deckId?: string) {
   revalidatePath("/decks");
   if (deckId) revalidatePath(`/decks/${deckId}`);
+}
+
+async function boardQuantityCapError(
+  deckId: string,
+  existingQty: number,
+  nextQty: number,
+): Promise<string | null> {
+  const current = await sumDeckCardQuantity(prisma, deckId);
+  const projected = current - existingQty + nextQty;
+  if (projected > MAX_DECK_CARDS) {
+    return `Deck card limit reached (${MAX_DECK_CARDS}).`;
+  }
+  return null;
 }
 
 function normalizeName(name: string): string | null {
@@ -276,14 +301,12 @@ export async function upsertDeckCard(input: {
   });
 
   const nextQty = (existing?.quantity ?? 0) + delta;
-  const currentTotal = await sumDeckCardQuantity(prisma, input.deckId);
-  const projected = currentTotal - (existing?.quantity ?? 0) + nextQty;
-  if (projected > MAX_DECK_CARDS) {
-    return {
-      ok: false,
-      error: `Deck card limit reached (${MAX_DECK_CARDS}).`,
-    };
-  }
+  const capError = await boardQuantityCapError(
+    input.deckId,
+    existing?.quantity ?? 0,
+    nextQty,
+  );
+  if (capError) return { ok: false, error: capError };
 
   const ctx = await loadDeckLegalityContext(input.deckId);
   if (!ctx) return { ok: false, error: "Deck not found." };
@@ -369,14 +392,13 @@ export async function setDeckCardQuantity(input: {
     return { ok: true };
   }
 
-  const currentTotal = await sumDeckCardQuantity(prisma, row.deckId);
-  const projected = currentTotal - row.quantity + quantity;
-  if (projected > MAX_DECK_CARDS) {
-    return {
-      ok: false,
-      error: `Deck card limit reached (${MAX_DECK_CARDS}).`,
-    };
-  }
+  const board = (parseDeckBoard(row.board) ?? "main") as DeckBoard;
+  const capError = await boardQuantityCapError(
+    row.deckId,
+    row.quantity,
+    quantity,
+  );
+  if (capError) return { ok: false, error: capError };
 
   const [ctx, card] = await Promise.all([
     loadDeckLegalityContext(row.deckId),
@@ -390,7 +412,7 @@ export async function setDeckCardQuantity(input: {
     next: {
       oracleId: row.oracleId,
       quantity,
-      board: row.board as DeckBoard,
+      board,
       name: card.name,
       typeLine: card.typeLine,
       colorIdentity: card.colorIdentity,

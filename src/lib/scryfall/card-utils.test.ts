@@ -41,9 +41,10 @@ describe("normalizeSearchName", () => {
 });
 
 describe("catalog layout filters", () => {
-  it("excludes art_series", () => {
+  it("excludes art_series from sync; keeps tokens indexed", () => {
     expect(isExcludedCatalogLayout("art_series")).toBe(true);
     expect(shouldIndexScryfallCard({ layout: "normal" })).toBe(true);
     expect(shouldIndexScryfallCard({ layout: "art_series" })).toBe(false);
+    expect(shouldIndexScryfallCard({ layout: "token" })).toBe(true);
   });
 });

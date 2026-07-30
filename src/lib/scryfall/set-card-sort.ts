@@ -24,7 +24,8 @@ export function defaultSetCardSort(): SetCardSort {
   return "collector";
 }
 
-export function defaultSetCardOrder(_sort: SetCardSort): SetCardSortOrder {
+export function defaultSetCardOrder(sort: SetCardSort): SetCardSortOrder {
+  void sort;
   return "asc";
 }
 

@@ -17,7 +17,9 @@ describe("deck boards", () => {
 
   it("rejects unknown boards", () => {
     expect(isDeckBoard("maybe")).toBe(false);
+    expect(isDeckBoard("extras")).toBe(false);
     expect(parseDeckBoard("trash")).toBeUndefined();
+    expect(parseDeckBoard("extras")).toBeUndefined();
   });
 
   it("flags commander-like formats", () => {

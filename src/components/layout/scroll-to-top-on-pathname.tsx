@@ -12,7 +12,7 @@ import { clearBodyScrollRestore } from "@/lib/ui/scroll";
  * (VersionPicker, As card/As commander, list filters) so this effect does not run.
  *
  * Also clears any sheet body-scroll restore target: otherwise unlocking a sheet
- * after "View detail" (or other in-sheet Links) re-applies the pre-open scrollY
+ * after "Go to page" (or other in-sheet Links) re-applies the pre-open scrollY
  * and undoes this scroll-to-top.
  */
 export function ScrollToTopOnPathnameChange() {

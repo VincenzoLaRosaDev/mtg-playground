@@ -16,6 +16,10 @@ type CardDetailViewToggleProps = {
   setCode: string | null;
   collectorNumber: string | null;
   finish: PrintingFinish | null;
+  /**
+   * When set (modal), switch view in-place instead of navigating the PDP URL.
+   */
+  onViewChange?: (view: CardDetailView) => void;
 };
 
 export function CardDetailViewToggle({
@@ -24,6 +28,7 @@ export function CardDetailViewToggle({
   setCode,
   collectorNumber,
   finish,
+  onViewChange,
 }: CardDetailViewToggleProps) {
   const router = useRouter();
 
@@ -40,6 +45,10 @@ export function CardDetailViewToggle({
         const next = values[0];
         if (next !== "card" && next !== "commander") return;
         if (next === activeView) return;
+        if (onViewChange) {
+          onViewChange(next);
+          return;
+        }
         const href = buildCardVersionHref(slug, { ...version, view: next });
         router.push(href, { scroll: false });
         // Drop leftover section hashes from the previous view (TOC anchors).

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 
 import { useSignInSheet } from "@/components/auth/sign-in-sheet";
@@ -14,6 +15,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { isAuthRequiredHref } from "@/lib/navigation";
 
 /** Fixed footprint so Sign in ↔ account never shifts header chrome. */
 const AUTH_SLOT_CLASS = "flex h-7 min-w-[5.75rem] items-center justify-end";
@@ -29,6 +31,7 @@ type UserMenuProps = {
 };
 
 export function UserMenu({ onBeforeSignIn }: UserMenuProps) {
+  const pathname = usePathname();
   const { data: session, status } = useSession();
   const { openSignIn } = useSignInSheet();
 
@@ -80,6 +83,8 @@ export function UserMenu({ onBeforeSignIn }: UserMenuProps) {
           }
         >
           {session.user.image ? (
+            // OAuth avatar hosts vary; keep plain img over next/image remotePatterns.
+            // eslint-disable-next-line @next/next/no-img-element -- external auth avatar
             <img
               src={session.user.image}
               alt=""
@@ -115,7 +120,10 @@ export function UserMenu({ onBeforeSignIn }: UserMenuProps) {
             <DropdownMenuItem
               className="cursor-pointer"
               onClick={() => {
-                void signOut();
+                // Leave account-only workspaces so SignInGate does not reopen the sheet.
+                void signOut({
+                  callbackUrl: isAuthRequiredHref(pathname) ? "/" : undefined,
+                });
               }}
             >
               Sign out

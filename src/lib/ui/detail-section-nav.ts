@@ -18,7 +18,7 @@ export const DETAIL_SECTION_UNIQUE_NAV_CLASS = "";
 /** @deprecated Use plain spacing wrappers without primary tint. */
 export const DETAIL_SECTION_UNIQUE_WRAP_CLASS = "rounded-lg p-3";
 
-export function detailSectionPanelClass(_uniqueToView = false): string {
+export function detailSectionPanelClass(): string {
   return DETAIL_SECTION_PANEL_CLASS;
 }
 

@@ -11,7 +11,7 @@
 | ORM | Prisma 7 with `@prisma/adapter-pg` |
 | Auth | Auth.js v5 — Google + Discord + Resend magic link; Prisma Adapter; JWT sessions; primary UX = `SignInSheet`; `/signin` bridges to the sheet (Auth.js `pages.signIn`) |
 | Styling | Tailwind CSS 4 |
-| Charts | Recharts (Phase 3) |
+| Charts | CSS/SVG bars in deck-builder analysis (Phase 3); Recharts deferred |
 | Jobs | Node scripts + GitHub Actions cron |
 | Hosting | Vercel (app) + Neon (DB) |
 
@@ -96,8 +96,10 @@ EDHREC removed (2026-07-20). No third-party meta scrape. See pivot decision in `
 
 ### MTGJSON (Phase 2.3)
 
-- `DeckList.json` + individual deck files for precons
-- Sync monthly + on new product release
+- `DeckList.json.gz` + per-deck `api/v5/decks/{fileName}.json`
+- Sync: `scripts/sync/mtgjson-precons.ts` (`npm run sync:mtgjson-precons`) — constructed-type allowlist, format map, printing resolve via Scryfall ids / set+cn
+- Tables: `precons`, `precon_cards`; optional `decks.source_precon_id` on fork
+- Cadence: monthly + `--if-changed` (meta.date); run after Scryfall printings are indexed
 
 ## Sync schedule
 
@@ -110,9 +112,13 @@ EDHREC removed (2026-07-20). No third-party meta scrape. See pivot decision in `
 | Scryfall oracle_tags | Weekly Sunday | `scripts/sync/scryfall-tags.ts` (`--if-changed`) |
 | Card classifications | Weekly Sunday (after tags) | `scripts/sync/compute-card-classifications.ts` |
 | Rankings recompute | Weekly | `scripts/sync/recompute-rankings.ts` (Phase 4) |
-| MTGJSON precons | Monthly | `scripts/sync/mtgjson-precons.ts` (Phase 5) |
+| MTGJSON precons | Monthly 1st 05:00 UTC (`--if-changed`) + manual | `scripts/sync/mtgjson-precons.ts` |
 
-GitHub Actions (`.github/workflows/sync-scryfall.yml`): **cron + `workflow_dispatch` only** (never on push). Requires repository secret `DATABASE_URL` → Neon **production** pooled URL. Daily `oracle_cards` (`0 3 * * *` UTC) and weekly sets/printings/tags/classifications (`30 4 * * 0` UTC). Pause schedules by commenting out the `schedule` block. Note: job-level `if:` cannot use the `env` context — gate with `github.event_*` only.
+GitHub Actions:
+- `.github/workflows/sync-scryfall.yml` — daily `oracle_cards` (`0 3 * * *` UTC) and weekly sets/printings/tags/classifications (`30 4 * * 0` UTC); `workflow_dispatch` modes `if-changed` / `full` / `sets-only`.
+- `.github/workflows/sync-mtgjson-precons.yml` — monthly constructed precons (`0 5 1 * *` UTC) with `--if-changed`; `workflow_dispatch` `if-changed` / `full`.
+
+Both are **cron + `workflow_dispatch` only** (never on push). Require repository secret `DATABASE_URL` → Neon **production** pooled URL. Pause schedules by commenting out the `schedule` block. Note: job-level `if:` cannot use the `env` context — gate with `github.event_*` only.
 
 Daily Scryfall runs fetch bulk metadata only when `updated_at` matches the last successful sync (`sync_logs.errors.bulkUpdatedAt`); full download runs when Scryfall publishes a new bulk file.
 
@@ -123,7 +129,7 @@ Daily Scryfall runs fetch bulk metadata only when `updated_at` matches the last 
 - `NEXT_PUBLIC_SITE_URL` — canonical base for metadata, `/sitemap.xml`, `/robots.txt`
 - `src/lib/seo/site.ts` — shared `createPageMetadata()` helper
 - Dynamic `generateMetadata` on card/set detail pages (`/commanders/[slug]` redirects)
-- Sitemap: static routes + playable `cards` rows (`cards.slug`) for `/cards/{slug}` (capped) + all sets (revalidates daily)
+- Sitemap: static routes (incl. `/precons`) + playable `cards` rows (`cards.slug`) for `/cards/{slug}` (capped) + all sets (revalidates daily)
 
 ## Application architecture
 
@@ -131,10 +137,10 @@ Daily Scryfall runs fetch bulk metadata only when `updated_at` matches the last 
 Browser
   └─ Analysis engine (client-side TS, Phase 2+) — lookup pre-computed card roles
 Next.js App Router
-  ├─ SSR pages: /browse, /cards/[slug], /sets/[code], /collection, /decks, … (/commanders/[slug] → redirect)
+  ├─ SSR pages: /browse, /cards/[slug], /sets/[code], /precons, /collection, /decks, … (/commanders/[slug] → redirect)
   ├─ Browse lists: RSC page loads first page via lib/browse → client island for filters / load-more
-  ├─ API routes: /api/search, /api/browse, /api/sets/search (pagination + filter changes)
-  └─ Domain logic: src/lib/ (browse, discovery, scryfall, classification, decks, collection, …)
+  ├─ API routes: /api/search, /api/browse, /api/sets/search, /api/precons/search (pagination + filter changes)
+  └─ Domain logic: src/lib/ (browse, discovery, scryfall, classification, decks, collection, precons, …)
 PostgreSQL
   ├─ cards (+ popularity/GC; roles/themes in card_classifications; slug via toCardSlug)
   ├─ printings / mtg_sets
@@ -195,12 +201,13 @@ edhforge/
 │   ├── data/                 ← card-overrides.json
 │   └── dev/                  ← db-health-snapshot, etc.
 ├── packages/
-│   └── analysis/             ← pure TS engine (Phase 2+; not created yet)
+│   └── (none for analysis — deck analysis lives under src/lib/decks/)
 ├── src/
 │   ├── app/                  ← Next.js routes + api/
 │   ├── components/
 │   │   ├── layout/           ← app shell, page shell, theme
 │   │   ├── discovery/        ← browse/detail catalog UI
+│   │   ├── decks/            ← editor, insights/analysis panel, legality
 │   │   ├── mtg/              ← mana / rarity icons
 │   │   ├── ui/               ← shadcn primitives
 │   │   └── dev/              ← catalog debug (gated)
@@ -211,6 +218,7 @@ edhforge/
 │   │   │   ├── cards.ts      ← facade: parse + queryCardsBrowse
 │   │   │   ├── cards-filters.ts / cards-params.ts / cards-catalog.ts
 │   │   │   └── commanders.ts · sets.ts · browse-cache.ts · …
+│   │   ├── decks/            ← CRUD, legality, insights, composition, coherence
 │   │   ├── scryfall/         ← catalog filters, slug helpers, bulk client, prices
 │   │   ├── classification/   ← roles/themes (batch / sync)
 │   │   ├── search/           ← global search
@@ -237,6 +245,7 @@ Tests: `npm test` (Vitest). No DB required for current unit suite.
 **Auth + collection (Phase 2.1):**
 - `users`, `accounts`, `sessions`, `verification_tokens` — Auth.js (NextAuth v5) + Prisma Adapter; app sessions are **JWT** (edge-safe `auth.config`) while users/accounts persist in Postgres
 - Sign-in UX: in-page sheet (`SignInSheetProvider` / `useSignInSheet`); nav **Collection** uses `RequireAuthLink` when signed out; `/collection` shows `CollectionSignInGate` (no middleware redirect). `/signin` is Auth.js `pages.signIn` only and bridges to the sheet
+- Sign-out from `/collection` or `/decks/*` redirects to `/` (`signOut({ callbackUrl: "/" })`) so the page-level SignInGate does not reopen the sheet on an empty workspace; other routes keep the current URL
 - `collection_items` — `(user_id, printing_id, finish, wantlist)` unique; owned and wish are separate rows; `quantity` ≥ 1 per row; FK to `users` + `printings`
 - `/collection` query: paginated (`cursor` / page size 48); scope `filter` (`all` / owned / wish), sort `sort`/`order`, facets scoped to the user’s inventory oracles (not full-catalog scans)
 
@@ -244,7 +253,7 @@ Tests: `npm test` (Vitest). No DB required for current unit suite.
 
 **Removed (Phase 2.0.5):** `set_cards` (replaced by `printings`).
 
-**Removed (2026-07-20):** `card_relations` + `CardRelationComponent` (Scryfall `all_parts` / Related parts on PDP — low value).
+**Card relations (2026-07-31):** `card_relations` + `CardRelationComponent` (`token` | `extra`) from Scryfall `all_parts` — deck/precon **Tokens & Extras** inference only (not Related parts on the card PDP). Resolve related oracle, then **denylist playable main-deck cards** (Alchemy/conjure/meld partners); classify remainder via `relation-classify.ts` (`Token` type → Tokens; emblems, City's Blessing-style `Card` markers, dungeons, … → Extras). Related ids: `Card.id` → `Printing.id` → name. Token **sets** are ingested; memorabilia still skipped. Browse/FTS exclude layouts `token` / `double_faced_token` / `emblem` / `art_series`.
 
 **Hot indexes:** `cards.cmc`, `cards.layout`, `cards.popularity_rank`, `cards.is_game_changer`, `cards.is_reserved`, `cards.color_sort`, `cards.list_price_eur`, `cards.min_rarity_rank`. **FTS:** `cards.search_tsv` GIN. **GIN arrays:** `cards.color_identity`, `card_classifications.roles` / `themes`.
 
@@ -256,13 +265,17 @@ Compute hours dominate over storage (~236 MB catalog). Mitigations: bounded FTS 
 
 - `decks` — private workspace: `user_id`, `name`, `format` (Scryfall browse key), optional `notes`; limits: 50 decks / user
 - `deck_cards` — oracle-grain list: `(deck_id, oracle_id, board)` unique; `board` ∈ `main` \| `side` \| `commander` \| `companion`; `quantity` ≥ 1; optional `preferred_printing_id` → `printings` (ON DELETE SET NULL); soft-join `cards` via `oracle_id`
-- Routes: `/decks`, `/decks/[id]` (auth; middleware + page `auth()`); nav **Decks**. Create is a sheet on `/decks` (legacy `/decks/new` redirects).
+- Routes: `/decks`, `/decks/[id]` (auth; middleware + page `auth()`); nav **Decks**. Create is a sheet on `/decks` (legacy `/decks/new` redirects). `/decks` list cards load cover face + cost pip segments via enriched `listDecks` (`pickDeckCover` + `summarizeDeckManaPips`).
+- Deck/precon stats: shared `buildDeckStatsFromCards` (`src/lib/decks/build-deck-stats.ts`) feeds `DeckInsightsPanel` on the deck editor and `/precons/[slug]`.
+- Precon browse: `listPrecons` search widens to set name + commander; filters type + denormalized `Precon.colorIdentity` (filled by `sync:mtgjson-precons` / `recomputeAllPreconColorIdentities`).
 - Editor presentation: `CardFaceTile` grid (`CARD_FACE_GRID_CLASS`); Main/Side grouped by primary type (`src/lib/decks/card-type-groups.ts`); detail sort board → type → CMC → name
 - Owned/missing: batch `SUM(collection_items.quantity)` where `!wantlist` grouped by `printing.oracle_id` (`src/lib/decks/owned.ts`)
 - Legality (`src/lib/decks/legality.ts`): Scryfall status + format rules (size / copies / CI / commander); mutations block illegal adds; editor panel lists issues
 - Hard cap 250 card copies per deck across boards
 - Import (`src/lib/decks/paste-parse.ts` + `paste-resolve.ts` + `importDeckPaste`): Arena + plain-text paste → oracle rows (set/CN ignored; no preferred printing); **replace** semantics (clears existing deck cards first); sections Deck / Sideboard / Commander / Companion; Arena `About` / `Name …` skipped (name captured); plain lists without headers use a blank line to open sideboard; resolve matches front-face + DFC `name // back` and case-insensitive `name` (covers stale apostrophe `search_name`)
-- Qty inputs (editor + modal deck CTAs) capped by `maxCopiesForCard` (constructed 4 / commander-like 1 / restricted 1 / basics 99)- Insights (`src/lib/decks/insights.ts`): main+commander GC count, role/theme counts from `card_classifications`; commander-like formats also show build-skeleton progress vs `BUILD_SKELETON_TARGETS`
+- Qty inputs (editor + modal deck CTAs) capped by `maxCopiesForCard` (constructed 4 / commander-like 1 / restricted 1 / basics 99)
+- Insights / deck stats (`src/lib/decks/insights.ts`, `composition.ts`, `curve-breakdowns.ts`, `quantity-breakdowns.ts`, `odds-rows.ts`, `coherence.ts`, `est-cost.ts`, `mana-pips.ts`, `mana-production.ts`, `hypergeometric.ts`; UI `DeckColorsStats`, `DeckCurveStats`, `DeckQuantitiesStats`, `DeckOddsStats` + `mana-palette`): Archidekt-inspired block **below** the deck list — header Size/Avg MV/Est cost/Lands; Overview (dashboard snapshot) first on its own row (full width → `2xl:max-w-[50%]`); then pair rows Colors | Mana curve and Quantities | Odds (`lg:grid-cols-2`, natural heights; Odds table scroll-capped). Soft coherence advisories. Commander-like formats also show build-skeleton progress vs `BUILD_SKELETON_TARGETS`. No salt/bracket/EDHREC; no `/decks/[id]/analysis` route.
+- **Tokens & Extras** (`src/lib/decks/tokens-extras.ts`, UI `DeckTokensExtrasSection`): after stats on editor + precon PDP; **read-only**, stacked Tokens then Extras; shared `DeckViewToggle` List/Grid with deck/precon. Inferred from main+commander relations (precon also merges MTGJSON `PreconCard.board=token` into Tokens). Deck boards: `main | side | commander | companion`.
 
 ### Planned (Phase 4)
 

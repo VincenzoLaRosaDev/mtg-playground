@@ -20,7 +20,18 @@ import {
   STATUS_CHIP_CLASS,
 } from "@/lib/ui/selection-chrome";
 import { QTY_INPUT_WIDTH_CLASS } from "@/lib/ui/qty-input";
+import { clearBodyScrollRestore } from "@/lib/ui/scroll";
 import { cn } from "@/lib/utils";
+
+type CollectionCopyRow = {
+  id: string;
+  printingId: string;
+  finish: PrintingFinish;
+  setCode: string;
+  collectorNumber: string;
+  wantlist: boolean;
+  quantity: number;
+};
 
 type CardCollectionPanelProps = {
   slug: string;
@@ -28,6 +39,16 @@ type CardCollectionPanelProps = {
   finish: PrintingFinish;
   /** null when signed out / anonymous — CTAs become Sign in. */
   snapshot: OracleCollectionSnapshot | null;
+  qtyInputId?: string;
+  loading?: boolean;
+  /** Modal: select a owned/wish copy without navigating. */
+  onSelectCopy?: (row: Pick<CollectionCopyRow, "printingId" | "finish">) => void;
+  onMutated?: () => void;
+  /** Close parent after a successful add (workspace pages). */
+  closeAfterAdd?: boolean;
+  onAddSuccess?: () => void;
+  /** When true, Collection link clears sheet scroll restore. */
+  inSheet?: boolean;
 };
 
 function finishLabel(finish: PrintingFinish): string {
@@ -41,6 +62,13 @@ export function CardCollectionPanel({
   printingId,
   finish,
   snapshot,
+  qtyInputId = "detail-collection-qty",
+  loading = false,
+  onSelectCopy,
+  onMutated,
+  closeAfterAdd = false,
+  onAddSuccess,
+  inSheet = false,
 }: CardCollectionPanelProps) {
   const { data: session, status } = useSession();
   const { openSignIn } = useSignInSheet();
@@ -56,7 +84,7 @@ export function CardCollectionPanel({
   const callbackQuery = searchParams.toString();
   const callbackUrl = callbackQuery ? `${pathname}?${callbackQuery}` : pathname;
 
-  if (status === "loading") {
+  if (status === "loading" || loading) {
     return (
       <div className="space-y-2" aria-busy="true">
         <div className="h-4 w-40 animate-pulse rounded bg-muted" />
@@ -92,6 +120,21 @@ export function CardCollectionPanel({
     return Math.max(1, Math.floor(Number(qty)) || 1);
   }
 
+  function finishAdd(kind: "owned" | "wish", delta: number) {
+    onAddSuccess?.();
+    onMutated?.();
+    if (closeAfterAdd) {
+      router.refresh();
+      return;
+    }
+    setMessage(
+      kind === "owned"
+        ? `Added ×${delta} owned.`
+        : `Added ×${delta} to wish.`,
+    );
+    router.refresh();
+  }
+
   function handleAddOwned() {
     if (!printingId) return;
     const delta = parseQty();
@@ -102,8 +145,7 @@ export function CardCollectionPanel({
         setMessage(result.error);
         return;
       }
-      setMessage(`Added ×${delta} owned.`);
-      router.refresh();
+      finishAdd("owned", delta);
     });
   }
 
@@ -117,8 +159,7 @@ export function CardCollectionPanel({
         setMessage(result.error);
         return;
       }
-      setMessage(`Added ×${delta} to wish.`);
-      router.refresh();
+      finishAdd("wish", delta);
     });
   }
 
@@ -150,11 +191,11 @@ export function CardCollectionPanel({
 
       <div className="flex flex-wrap items-center gap-2">
         <div className={cn(QTY_INPUT_WIDTH_CLASS, "shrink-0")}>
-          <label htmlFor="detail-collection-qty" className="sr-only">
+          <label htmlFor={qtyInputId} className="sr-only">
             Quantity
           </label>
           <Input
-            id="detail-collection-qty"
+            id={qtyInputId}
             type="number"
             min={1}
             value={qty}
@@ -198,36 +239,60 @@ export function CardCollectionPanel({
               });
               const isActive =
                 row.printingId === printingId && row.finish === finish;
+              const rowClass = cn(
+                "flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm transition-colors hover:text-foreground",
+                isActive ? "text-foreground" : "text-muted-foreground",
+              );
+              const inner = (
+                <>
+                  <span className="font-medium tabular-nums">
+                    {row.setCode.toUpperCase()} #{row.collectorNumber}
+                  </span>
+                  <span>· {finishLabel(row.finish)}</span>
+                  <span
+                    className={cn(
+                      STATUS_CHIP_CLASS,
+                      row.wantlist ? LABEL_INFO_CLASS : LABEL_PRIMARY_CLASS,
+                    )}
+                  >
+                    {row.wantlist ? "Wish" : "Owned"} ×{row.quantity}
+                  </span>
+                </>
+              );
 
               return (
                 <li key={row.id}>
-                  <Link
-                    href={href}
-                    className={cn(
-                      "flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm transition-colors hover:text-foreground",
-                      isActive ? "text-foreground" : "text-muted-foreground",
-                    )}
-                  >
-                    <span className="font-medium tabular-nums">
-                      {row.setCode.toUpperCase()} #{row.collectorNumber}
-                    </span>
-                    <span>· {finishLabel(row.finish)}</span>
-                    <span
-                      className={cn(
-                        STATUS_CHIP_CLASS,
-                        row.wantlist ? LABEL_INFO_CLASS : LABEL_PRIMARY_CLASS,
-                      )}
+                  {onSelectCopy ? (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onSelectCopy({
+                          printingId: row.printingId,
+                          finish: row.finish,
+                        })
+                      }
+                      className={cn(rowClass, "text-left")}
                     >
-                      {row.wantlist ? "Wish" : "Owned"} ×{row.quantity}
-                    </span>
-                  </Link>
+                      {inner}
+                    </button>
+                  ) : (
+                    <Link href={href} className={rowClass}>
+                      {inner}
+                    </Link>
+                  )}
                 </li>
               );
             })}
           </ul>
           <p className="text-xs text-muted-foreground">
             Manage quantities on{" "}
-            <Link href="/collection" className="underline-offset-2 hover:underline">
+            <Link
+              href="/collection"
+              className="underline-offset-2 hover:underline"
+              onClick={() => {
+                if (inSheet) clearBodyScrollRestore();
+              }}
+            >
               Collection
             </Link>
             .

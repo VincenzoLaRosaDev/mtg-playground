@@ -1,14 +1,14 @@
 import { config } from "dotenv";
 
 import { SyncSource, SyncStatus } from "../../src/generated/prisma/client";
-import type { PrismaClient } from "../../src/generated/prisma/client";
 import type { ScryfallSet, ScryfallSetList } from "../../src/lib/scryfall/types";
 
 config({ path: ".env.local" });
 config({ path: ".env" });
 
 const USER_AGENT = "MTGPlayground/1.0";
-const SKIP_SET_TYPES = new Set(["token", "memorabilia"]);
+/** Memorabilia stays out; token sets are ingested for Tokens & Extras art. */
+const SKIP_SET_TYPES = new Set(["memorabilia"]);
 
 function mapSet(set: ScryfallSet) {
   return {

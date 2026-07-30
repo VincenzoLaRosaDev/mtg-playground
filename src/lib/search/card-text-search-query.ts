@@ -55,7 +55,7 @@ export async function listCardIdsMatchingTextSearch(
     SELECT id
     FROM cards
     WHERE search_tsv @@ to_tsquery('english', ${expression})
-      AND layout <> 'art_series'
+      AND layout NOT IN ('art_series', 'token', 'double_faced_token', 'emblem')
     ORDER BY
       ts_rank(search_tsv, to_tsquery('english', ${expression})) DESC,
       name ASC
@@ -81,7 +81,7 @@ export async function listRankedCardIdsMatchingTextSearch(
     SELECT id
     FROM cards
     WHERE search_tsv @@ to_tsquery('english', ${expression})
-      AND layout <> 'art_series'
+      AND layout NOT IN ('art_series', 'token', 'double_faced_token', 'emblem')
     ORDER BY
       ts_rank(search_tsv, to_tsquery('english', ${expression})) DESC,
       name ASC

@@ -12,7 +12,10 @@ import {
   BrowseToolbarPillGroups,
 } from "@/components/discovery/browse-filter-controls";
 import { BrowseFilterPanel, BrowseFilterPanelRow } from "@/components/discovery/browse-filter-panel";
-import { browseToolbarHubGridClassName } from "@/components/discovery/browse-toolbar-shared";
+import {
+  browseToolbarHubPrimaryGridClassName,
+  browseToolbarHubSecondaryGridClassName,
+} from "@/components/discovery/browse-toolbar-shared";
 import type { BrowseHubToolbarSnapshot } from "@/lib/browse/browse-defaults";
 import {
   defaultCatalogOrder,
@@ -67,49 +70,53 @@ export function BrowseHubToolbar({
 
   return (
     <BrowseFilterPanel>
-      <div className={browseToolbarHubGridClassName}>
-        <BrowseSearchField
-          label="Search in list"
-          value={state.query}
-          onChange={(query) => onChange({ query })}
-          placeholder={CARD_TEXT_SEARCH_PLACEHOLDER}
-        />
+      <div className="space-y-3">
+        <div className={browseToolbarHubPrimaryGridClassName}>
+          <BrowseSearchField
+            label="Search in list"
+            value={state.query}
+            onChange={(query) => onChange({ query })}
+            placeholder={CARD_TEXT_SEARCH_PLACEHOLDER}
+          />
 
-        <BrowseSelectField
-          label="Sort by"
-          value={state.sort}
-          onChange={(sort) => onChange({ sort: sort as AllCardSort })}
-          options={sortOptions}
-        />
+          <BrowseSelectField
+            label="Sort by"
+            value={state.sort}
+            onChange={(sort) => onChange({ sort: sort as AllCardSort })}
+            options={sortOptions}
+          />
 
-        <BrowseCatalogFilterFields
-          values={state}
-          onChange={(patch) => onChange(patch)}
-          inline
-        />
+          <BrowseCatalogFilterFields
+            values={state}
+            onChange={(patch) => onChange(patch)}
+            inline
+          />
+        </div>
 
-        <BrowseSelectField
-          label="Role"
-          value={state.role}
-          onChange={(role) => onChange({ role })}
-          options={[{ value: "", label: "Any role" }, ...roleOptions]}
-        />
+        <div className={browseToolbarHubSecondaryGridClassName}>
+          <BrowseSelectField
+            label="Role"
+            value={state.role}
+            onChange={(role) => onChange({ role })}
+            options={[{ value: "", label: "Any role" }, ...roleOptions]}
+          />
 
-        <BrowseSelectField
-          label="Theme"
-          value={state.theme}
-          onChange={(theme) => onChange({ theme })}
-          options={[{ value: "", label: "Any theme" }, ...themeOptions]}
-        />
+          <BrowseSelectField
+            label="Theme"
+            value={state.theme}
+            onChange={(theme) => onChange({ theme })}
+            options={[{ value: "", label: "Any theme" }, ...themeOptions]}
+          />
 
-        <BrowseSelectField
-          label="Format"
-          value={state.format}
-          onChange={(format) =>
-            onChange({ format: (format as ScryfallBrowseFormat | "") || "" })
-          }
-          options={[{ value: "", label: "Any format" }, ...formatOptions]}
-        />
+          <BrowseSelectField
+            label="Format"
+            value={state.format}
+            onChange={(format) =>
+              onChange({ format: (format as ScryfallBrowseFormat | "") || "" })
+            }
+            options={[{ value: "", label: "Any format" }, ...formatOptions]}
+          />
+        </div>
       </div>
 
       <BrowseFilterPanelRow

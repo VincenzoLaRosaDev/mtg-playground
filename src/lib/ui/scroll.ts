@@ -17,7 +17,7 @@ let savedScrollY = 0;
 /**
  * While a sheet lock is active, drop the restore target to top.
  * Used on pathname navigations so unlock does not undo scroll-to-top
- * (e.g. View detail from CardDetailModal after the page was scrolled).
+ * (e.g. Go to page from CardDetailModal after the page was scrolled).
  */
 export function clearBodyScrollRestore() {
   if (bodyLockCount === 0) return;

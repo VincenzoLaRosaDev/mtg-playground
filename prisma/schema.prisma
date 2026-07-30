@@ -30,6 +30,27 @@ enum ClassificationSource {
   ORACLE_TAG
 }
 
+/** Scryfall all_parts → deck Tokens (token) vs Extras (non-token related). */
+enum CardRelationComponent {
+  token
+  extra
+}
+
+/// Related oracle edges from Scryfall all_parts (Tokens & Extras inference only).
+model CardRelation {
+  id              String                 @id @default(cuid())
+  oracleId        String                 @map("oracle_id")
+  relatedOracleId String                 @map("related_oracle_id")
+  component       CardRelationComponent
+  name            String
+  typeLine        String                 @map("type_line")
+
+  @@unique([oracleId, relatedOracleId, component])
+  @@index([oracleId])
+  @@index([relatedOracleId])
+  @@map("card_relations")
+}
+
 model Card {
   id              String   @id
   oracleId        String   @unique @map("oracle_id")
@@ -128,6 +149,7 @@ model Printing {
   set             MtgSet           @relation(fields: [setCode], references: [code], onDelete: Cascade)
   collectionItems CollectionItem[]
   preferredInDeckCards DeckCard[]
+  preferredInPreconCards PreconCard[]
 
   @@unique([setCode, collectorNumber])
   @@index([oracleId])
@@ -226,21 +248,74 @@ model CollectionItem {
 
 /// Private multi-format deck workspace (Phase 2.2).
 model Deck {
-  id        String   @id @default(cuid())
-  userId    String   @map("user_id")
-  name      String
+  id             String  @id @default(cuid())
+  userId         String  @map("user_id")
+  name           String
   /** Scryfall browse format key (standard, modern, commander, …). */
-  format    String
-  notes     String?  @db.Text
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+  format         String
+  notes          String? @db.Text
+  /** Optional fork provenance from an official precon (Phase 2.3). */
+  sourcePreconId String? @map("source_precon_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at")
 
-  user  User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  cards DeckCard[]
+  user         User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sourcePrecon Precon? @relation(fields: [sourcePreconId], references: [id], onDelete: SetNull)
+  cards        DeckCard[]
 
   @@index([userId])
   @@index([userId, updatedAt])
+  @@index([sourcePreconId])
   @@map("decks")
+}
+
+/// Official constructed precon from MTGJSON (Phase 2.3).
+model Precon {
+  id              String    @id @default(cuid())
+  mtgjsonFileName String    @unique @map("mtgjson_file_name")
+  code            String
+  name            String
+  slug            String    @unique
+  /** Raw MTGJSON deck type (commander, starter, …). */
+  type            String
+  /** Scryfall browse format key mapped at sync. */
+  format          String
+  /**
+   * Denormalized color identity for browse filters.
+   * Commander board union when present; else mainboard non-land union.
+   */
+  colorIdentity   String[]  @default([]) @map("color_identity")
+  releaseDate     DateTime? @map("release_date")
+  syncedAt        DateTime  @default(now()) @map("synced_at")
+
+  cards      PreconCard[]
+  forkedDecks Deck[]
+
+  @@index([format])
+  @@index([type])
+  @@index([releaseDate])
+  @@index([name])
+  @@map("precons")
+}
+
+/// Precon decklist entry by oracle (+ board). Soft-joins Card via oracleId.
+model PreconCard {
+  id                  String @id @default(cuid())
+  preconId            String @map("precon_id")
+  oracleId            String @map("oracle_id")
+  quantity            Int    @default(1)
+  /** main | side | commander | companion | token (MTGJSON product tokens) */
+  board               String @default("main")
+  preferredPrintingId String? @map("preferred_printing_id")
+
+  precon            Precon    @relation(fields: [preconId], references: [id], onDelete: Cascade)
+  preferredPrinting Printing? @relation(fields: [preferredPrintingId], references: [id], onDelete: SetNull)
+
+  @@unique([preconId, oracleId, board])
+  @@index([preconId])
+  @@index([oracleId])
+  @@index([preferredPrintingId])
+  @@map("precon_cards")
 }
 
 /// Decklist entry by oracle (+ board zone). Soft-joins Card via oracleId.
