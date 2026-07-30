@@ -4,7 +4,6 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { CardGridTile } from "@/components/discovery/card-grid-tile";
-import { CardGridSkeleton } from "@/components/discovery/loading-skeletons";
 import { SetBrowseRow } from "@/components/discovery/set-browse-row";
 import { PageListMeta } from "@/components/layout/page-list-meta";
 import { PageShell } from "@/components/layout/page-shell";
@@ -15,7 +14,6 @@ import {
   type GlobalSearchResponse,
 } from "@/lib/search/types";
 import { CARD_FACE_GRID_CLASS, SET_BROWSE_GRID_CLASS } from "@/lib/ui/card-face";
-import { cn } from "@/lib/utils";
 
 function ResultSection({
   title,
@@ -109,6 +107,9 @@ export default function SearchPage() {
       {hasQuery ? (
         <PageListMeta>
           Results for <span className="font-medium text-foreground">{query}</span>
+          {results && totalResults > 0
+            ? ` · ${totalResults.toLocaleString()} matches.`
+            : ""}
         </PageListMeta>
       ) : (
         <PageListMeta>
@@ -117,19 +118,14 @@ export default function SearchPage() {
         </PageListMeta>
       )}
 
-      {loading && !results && hasQuery ? (
-        <div className="mt-6">
-          <CardGridSkeleton count={8} />
-        </div>
-      ) : null}
-      {error && <p className="mt-4 text-sm text-destructive">{error}</p>}
+      {error ? <p className="mt-4 text-sm text-destructive">{error}</p> : null}
 
-      {!loading && hasQuery && results && totalResults === 0 && !error && (
+      {!loading && hasQuery && results && totalResults === 0 && !error ? (
         <p className="mt-6 text-sm text-muted-foreground">No results found.</p>
-      )}
+      ) : null}
 
-      {results && (
-        <div className={cn(loading && "opacity-60")} aria-busy={loading || undefined}>
+      {results ? (
+        <div aria-busy={loading || undefined}>
           <ResultSection
             title="Cards"
             count={results.cards.length}
@@ -157,7 +153,7 @@ export default function SearchPage() {
             ))}
           </ResultSection>
         </div>
-      )}
+      ) : null}
     </PageShell>
   );
 }

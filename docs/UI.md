@@ -2,16 +2,16 @@
 
 Living reference for layout and components. Historical Phase 1.6–1.8 discovery chrome remains below; **product end-state** is the MTGPlayground pivot (`docs/PROJECT.md`, `docs/DECISIONS.md` 2026-07-20).
 
-> Status: Phase **2.1** Auth + Collection complete → **Phase 2.2** Multi-format deck builder.
+> Status: Phase **2.2** Multi-format deck builder + unified card detail modal.
 
 ## Pivot UI principles (current)
 
 1. **Printing-first** — version picker (set / art / foil) is a core pattern, not collection-only.
 2. **Single card detail** — one oracle page at `/cards/{slug}`; `/commanders/{slug}` redirects.
 3. **Multiface** — staggered front/back stack on detail + tiles; hover the back face to bring it forward.
-4. **Honest Inclusion** — Scryfall Commander **deck inclusion** rank only; never “as commander” popularity. UI label: **Inclusion**.
+4. **Honest EDH Inclusion** — Scryfall Commander **deck inclusion** rank only; never “as commander” popularity. UI label: **EDH Inclusion**.
 5. **Commanders browse** — legality filter (name-first); not a meta ranking hub.
-6. **Collection + decks** — owned/missing in builder (Phase 2.1–2.2). Workspace (deck editor) uses **contextual overlays** for search/Add and card peek; catalog keeps the full `/cards/{slug}` PDP.
+6. **Collection + decks** — owned/missing in builder (Phase 2.1–2.2). In-app card opens use the unified **card detail modal**; `/cards/{slug}` PDP stays for SEO/share + As card/As commander lists (**View detail**).
 
 ## Principles (legacy EDHForge discovery)
 
@@ -22,7 +22,7 @@ Living reference for layout and components. Historical Phase 1.6–1.8 discovery
 5. **Mobile-first, desktop-dense** — sticky header / section jump as today.
 6. **Oracle hub + printings** — card at `/cards/{slug}` with Version picker (`?set=` / `?cn=` / `?finish=`).
 7. ~~Parallel commander URLs~~ — **deprecated** by pivot; merge into single detail.
-8. **Neutral Inclusion copy** — inclusion-rank wording; no fake commander meta.
+8. **Neutral EDH Inclusion copy** — inclusion-rank wording; no fake commander meta.
 
 ## Layout
 
@@ -35,13 +35,14 @@ Living reference for layout and components. Historical Phase 1.6–1.8 discovery
 | `PageShell` | `src/components/layout/page-shell.tsx` | Container, breadcrumbs, H1 |
 | `ListFilterAccess` | `src/components/layout/list-filter-access.tsx` | Dual list filters: inline panel + portals tongue/drawer into sticky `#site-header-chrome`; mounts `BackToTop` |
 | `BackToTop` | `src/components/layout/back-to-top.tsx` | Fixed FAB — always centered, `bottom-4` (same as catalog debug); appears after ~400px scroll |
+| `ScrollToTopOnPathnameChange` | `src/components/layout/scroll-to-top-on-pathname.tsx` | Window → top on pathname change (not query-only; not browser back/forward). Clears sheet body-scroll restore so unlock after in-sheet Links (e.g. View detail) cannot reapply the old `scrollY` |
 | `mainNav` | `src/lib/navigation.ts` | Header links |
 
 ### Width & spacing
 
 - Content max width: **`max-w-7xl`** (`siteContainerClassName` in `src/lib/ui/layout.ts`) — header, footer, `PageShell`
 - Page padding: `px-6`, vertical `py-10` / `lg:py-12`
-- **Sheets (`SheetContent`, `side="bottom"`):** below `lg` = full-bleed bottom sheet; `lg+` = centered dialog (`rounded-xl` + border, shared blur overlay). Optional `size`: `sm` (`max-w-md`) · `md` (`max-w-2xl`) · `lg` (`max-w-4xl`, default). Sign-in / import → `sm`; card peek → `md`; add / versions / workspace search → default `lg`
+- **Sheets (`SheetContent`, `side="bottom"`):** below `lg` = full-bleed bottom sheet; `lg+` = centered dialog (`rounded-xl` + border, shared blur overlay). Optional `size`: `sm` (`max-w-md`) · `md` (`max-w-2xl`) · `lg` (`max-w-4xl`, default). Sign-in / import / **confirm** (`ConfirmDialog`) / **create deck** → `sm`; card peek → `md`; add / versions / workspace search → default `lg`. Prefer `ConfirmDialog` over `window.confirm`. Nested sheets (e.g. Versions over `CardDetailModal`) keep their own backdrop via Base UI `forceRender` on `SheetOverlay` so outside-press dismiss works.
 - Sheet list hairlines: **`SHEET_LIST_RULE_CLASS`** on the `siteContainer` header (or **`SITE_GUTTER_BLEED_X_CLASS`** when the rule sits inside a padded container) so search / versions / import dividers share the same width
 - **Collection list:** scope tabs All / Owned / Wish + **Sort by** (Last modified · Last added · Name · Set & collector # · CMC · Color & CMC · Price) with order toggle (`?sort=` / `?order=`) + catalog-like facets (`q`, `color`, `type`, `cmc_*`, `rarity`, `format`, `finish`, `set`) in `BrowseFilterPanel`; grid is **paginated** (48 + Load more via `/api/collection`)
 - Filter chrome: shadcn `Input`, `Select`, `Label` (dense `text-xs` labels) via `BrowseSearchField` / `BrowseSelectField` — not native `<input>` / `<select>`
@@ -50,7 +51,7 @@ Living reference for layout and components. Historical Phase 1.6–1.8 discovery
 - **AppHeader:** solid `bg-background` + `border-b` (no backdrop blur / translucency)
 - **List scroll chrome** (`/browse`, `/sets`, `/sets/[code]`, `/collection`): full filter panel stays inline at the top. Tongue/drawer appear only after the **entire** inline toolbar has scrolled above the sticky nav. They portal into `#site-header-chrome` as **absolute** children of an `h-0 w-full` slot (sticky height stays nav-only). Drawer mounts only while open; chrome is **full-bleed** (`border-b` edge-to-edge); inner filters use `siteContainerClassName` + `py-3` so content matches the in-page max-width. `BrowseFilterPanel` skips Card chrome via `ListFilterDrawerContext`. Tongue is **centered** in site gutters, bottom-only radius; when closed it sits below the header border (does not cover it) with a solid fill; when open, `-mt-px` + 1px background seam cover tuck into the drawer `border-b`; idle fill is solid `background`, hover is `bg-gradient-to-t from-muted to-background` (hover color at bottom → bg at top). Open/close: one `translate3d` block (drawer + tongue); clip height is instant (iOS skips `height` transitions); `cubic-bezier(0.4, 0, 0.2, 1)`. While open (mobile + desktop): body scroll locked; sheet-like scrim (`z-35`, under sticky header `z-40`) captures outside taps — dismiss only, no click-through to cards; Escape / tongue / scrim close. **Back to top** FAB (`z-30`): always centered, `bottom-4`; hidden near page top. Not used on `/search` or card detail.
 - Notices: shadcn `Alert` (`StaleCacheBanner`, `EdhrecSyncNotice`, `FilterUnavailableNotice`)
-- Card grids: browse `CARD_FACE_GRID_CLASS` (`2 / md:3 / xl:5`); detail sections `CARD_FACE_DETAIL_GRID_CLASS` (`2 / md:3 / xl:4`)
+- Card grids: browse `CARD_FACE_GRID_CLASS` (`2 / md:3 / lg:4 / xl:5 / 2xl:6 / 3xl:7`); detail sections `CARD_FACE_DETAIL_GRID_CLASS` (`2 / md:3 / lg:3 / xl:4 / 2xl:5 / 3xl:6`) beside sticky TOC; without TOC use `CARD_FACE_DETAIL_GRID_WIDE_CLASS` (+1 col from `lg`) so full-width lists don’t oversize tiles
 - **Desktop-dense:** tighter gaps on meta lines; card grids stay roomier than EDHREC max density
 
 ## Tokens (Phase 1.6 + UI kit)
@@ -73,7 +74,7 @@ Hue split: surfaces ~255° (cool gray) · brand/primary ~75° (amber) · info/ch
 | `--accent` | Hover / pressed soft brand tint (low-chroma orange) |
 | `--border` / `--input` / `--ring` | Fields, cards, focus rings (`color-mix` from hairline / brand) |
 | `--warning` / `--warning-foreground` | Salt mid, alert warning |
-| `--info` / `--info-foreground` | Dev/sync notices (teal) |
+| `--info` / `--info-foreground` | Wish / notices (teal); wish buttons use label opacity, not solid fill |
 | `--destructive` | Errors, salt high |
 | Rank badge | `RankBadge` → shadcn `Badge` (primary) |
 | Salt badge | Shaker icon + numeric value (warning / destructive tones) |
@@ -129,9 +130,24 @@ Full catalog browse: **`/browse`**, **global search** (`/search` — same card/s
 
 Shared **`CardFaceTile`** — full-width card image (`CardMultifaceImage` / `CardImage` grid variant, proportional corner radius) + optional footer metrics. No outer border. Multiface cards show a **staggered front/back stack**; hover the back (offset strip) to raise it.
 
-- Footer: Scryfall **Price** + **Inclusion** (rank) + **Friction** (when &gt; 0) on cards and commanders browse (Inclusion = deck inclusion, not “as commander”)
+- Footer: Scryfall **Price** + **EDH Inclusion** (rank) on cards and commanders browse (EDH Inclusion = deck inclusion, not “as commander”)
+- **Collection / deck tiles:** footer meta row is `justify-between` — **info** (single finish price · `SET #cn`) | **label** (Owned/Wish or Owned×/Missing×). Deck Owned× uses muted label chrome; Missing× keeps warning + `+×N` collect. Collection CTAs: qty + Get (wish only) + Remove — no Add to wish on owned tiles.
+- **Qty inputs** site-wide share `QTY_INPUT_WIDTH_CLASS` (`w-8` → `sm:w-10`): room for ~2 digits on narrow viewports, ~3 when wider.
 
-Detail sections (role staples, relatives, set detail grid) use the same tile + `CARD_FACE_GRID_CLASS` / `CARD_FACE_DETAIL_GRID_CLASS`.
+Detail sections (role staples, relatives) use the same tile + `CARD_FACE_DETAIL_GRID_CLASS`, or `CARD_FACE_DETAIL_GRID_WIDE_CLASS` when the lists band has no sticky TOC. Set detail uses browse `CARD_FACE_GRID_CLASS`.
+
+### Deck list (`/decks`)
+
+Toolbar: deck quota + primary **New deck** → `CreateDeckDialog` (`size="sm"` sheet: name, format). No inline create form; legacy `/decks/new` redirects here. Size line uses `N M · S S`.
+
+### Deck editor (`/decks/[id]`)
+
+**Two presentations** via `DeckViewToggle` (List default · Grid): preference in `localStorage` key `mtgplayground.deckEditorView`.
+
+- **Grid:** `CARD_FACE_GRID_CLASS` + `CardFaceTile` — same density as browse/collection. Tile footer: price · set#cn | Owned/Missing (+ collect); qty, board select, Remove; face click opens the deck-mode detail modal.
+- **List (Goldfish-style):** dense rows — qty · name · mana cost · Owned/Missing chip (no collect) · price · board · Remove. Single multi-column flow (`columns-1 sm:columns-2 xl:columns-3`) across **all boards** (Main → Sideboard continuous). **Main** only uses type subsections (`break-inside-avoid`); **Sideboard** is a flat CMC→name list with title+rows kept together (no orphan “Sideboard” at column end). Hover on **name** (fine pointer) shows floating art preview; **click name** opens the detail modal. Helpers: `ManaCost` / `parseManaCost`, `CardNameWithHoverPreview`, `DeckCardList`.
+
+Boards stay **Commander / Companion / Main / Sideboard**. **Main** splits into Goldfish-style type subsections (Creature → Planeswalker → Instant → Sorcery → Artifact → Enchantment → Battle → Land · Other); within each group sort **CMC then name**. Sideboard / Commander / Companion are flat (CMC → name). Meta panel (name/format/legality/Add) sits in `ListFilterAccess` with `showFilterTongue={false}` so **Add cards** sticks under the header once the panel scrolls away. Type grouping: `src/lib/decks/card-type-groups.ts`.
 
 ### Sets browse
 
@@ -154,10 +170,10 @@ Shared **`BrowseFilterPanel`** styling on all list pages. Grid tokens live in `b
 | Sort order | **Arrow up/down** icon — right side of last filter row (`BrowseFilterPanelRow`) | Browse pages with sort |
 | Sort order (field row) | Removed from grid | — |
 | Search | Leading **search** icon; matches **name, type, oracle text** (FTS) | Browse toolbars, global search |
-| Grid / list toggle | **Backlog** — grid-only today; no unused toggle component in tree | Recreate if needed |
+| Grid / list toggle | **Deck editor only** (`DeckViewToggle`); browse/collection stay grid | `/decks/[id]` |
 | Format | Select — curated Scryfall keys; filter `legalities[format] === "legal"` | `/browse`, set detail |
-| Sort by | **Inclusion (Commander)** / **Color & CMC** / Name / CMC / Price | `/browse` |
-| Sort defaults | Format Any or Commander → Inclusion; other formats → Color & CMC; Options Commander on → Name | `/browse` |
+| Sort by | **EDH Inclusion** / **Color & CMC** / Name / CMC / Price | `/browse` |
+| Sort defaults | Format Any or Commander → EDH Inclusion; other formats → Color & CMC; Options Commander on → Name | `/browse` |
 | Commander (hub) | **Toggle pill** — `isCommander` (can be your commander), not format legality | `/browse` Options (**first**) |
 | Type contains, CMC min/max | Text + **compact number** fields (`~4.25rem`) | All card lists + set detail |
 | Set type | Select from **distinct** `mtg_sets.set_type` | `/sets` |
@@ -166,7 +182,7 @@ Shared **`BrowseFilterPanel`** styling on all list pages. Grid tokens live in `b
 
 Color filter uses **`colorIdentity`** (Commander identity), comma-separated in API `color=W,U` param.
 
-**Inclusion** on browse tiles is Commander (EDH) deck inclusion from Scryfall. Sort label is **Inclusion (Commander)**. Tile footer hides Inclusion when Format is a non-Commander constructed format **and** sort is not Inclusion (avoids implying Modern/Pioneer popularity).
+**EDH Inclusion** on browse tiles is Commander deck inclusion from Scryfall. Sort label is **EDH Inclusion**. Tile footer hides EDH Inclusion when Format is a non-Commander constructed format **and** sort is not EDH Inclusion (avoids implying Modern/Pioneer popularity).
 
 Catalog/top-card **rarity** filter matches the oracle’s **lowest** printing tier across `printings` (not “any printing”). Set detail filters each printing row directly.
 
@@ -176,10 +192,10 @@ Printed-card facts (CMC, colors, oracle, keywords) are **not** duplicated in the
 
 **Two bands:**
 
-1. **Overview** — image + set/cn caption | details panel filling the fluid column: **Status** (chips) → **Printing** (Version / Finish + **Show all versions** when multiple printings; under that **CardCollectionPanel**: Qty + Add owned / Add to wish for the active printing+finish, plus oracle rollup + linked “Your copies” list) → **Market** (prices) → **Roles | Themes** (two columns from `sm`)
+1. **Overview** — image + set/cn caption | details panel filling the fluid column: **Status | Roles | Themes** (stack under `lg`; from `lg` fixed 3-col track — when a section is missing the last block spans the leftover columns, e.g. 1+2, never an empty slot) → **Market** (prices) → **Printing** (shared with the modal: **Version** + **Show all versions** in a flex-wrap pair matching select `h-8`, capped at `max-w-md` so a missing Finish doesn’t stretch full width; when Finish is present, same 3-col track — stack under `lg`; from `lg` Version 2 / Finish 1; under that **CardCollectionPanel**: Qty + **Add owned** (primary) / Add to wish for the active printing+finish, plus oracle rollup + linked “Your copies” list). Overview column is fluid (no column `max-w`); constrain Version/Finish only.
 2. **Lists** — related sections; sticky **DetailSectionNav** (lg+) / **DetailSectionJump** (mobile) on the left of the lists band (not under the image)
 
-**As card / As commander:** When `isCommander`, a full-width **As card | As commander** ToggleGroup switches list packs via `?view=commander` (default = card). Non-commanders have no toggle and always show card lists. Version params (`set` / `cn` / `finish`) are preserved across view switches.
+**As card / As commander:** When `isCommander`, an outline **As card | As commander** ToggleGroup (active = primary **label** chrome: full `border-primary` + `bg-primary/15`; larger than Finish toggles) switches list packs via `?view=commander` (default = card). Non-commanders have no toggle and always show card lists. Version params (`set` / `cn` / `finish`) are preserved across view switches.
 
 | View | Sections |
 |---|---|
@@ -188,20 +204,38 @@ Printed-card facts (CMC, colors, oracle, keywords) are **not** duplicated in the
 
 **Version URL:** `/cards/{slug}?set={code}&cn={collector}&finish={foil|etched}&view=commander`. Bare `/cards/{slug}` still resolves the catalog-default printing and pre-selects it in the VersionPicker (no separate “Catalog default” option). Set pages link with `set`+`cn`. Nonfoil omits `finish`. Foil/etched add a CSS sheen on the hero image (same Scryfall art URI). **Collection grid** passes `finish` into `CardFaceTile` (wash always; glare on hover only — no idle loop across many tiles). Foil glare **crossfades** idle sweep ↔ pointer follow (~400ms opacity) so tilt enter/leave is not a hard cut. Browse / catalog search stay non-foil.
 
-**Show all versions:** Sheet (~85dvh; centered dialog on `lg+`) with browse-like `CardFaceTile` grid (art + `SET #cn · set name` + EUR prices). One tile per printing (`set`+`cn`); Finish stays on the VersionPicker. Click navigates with the same `buildCardVersionHref` contract (preserves finish when available + `view`). Trigger only when `printings.length > 1`.
+**Show all versions:** Sheet (~85dvh; centered dialog on `lg+`) with browse-like `CardFaceTile` grid (art + `SET #cn · set name` + EUR prices). One tile per printing (`set`+`cn`); Finish stays on the VersionPicker Finish control. Trigger uses Button `default`/`h-8` to match the Version `SelectTrigger`, and sits in a flex-wrap pair with the select (`DETAIL_PRINTING_VERSION_GROUP_CLASS`) so the two stack when the pair runs out of width. **PDP and modal** both lazy-load the full printing list via `loadOraclePrintings` when Show all versions is requested (or when the Version select is first interacted with); the sheet **opens only after** printings are ready (no skeleton). On the **PDP**, tile click navigates with `buildCardVersionHref`. In **`CardDetailModal`**, `onSelectPrinting` updates the modal preview. Trigger only when more than one printing (`printingCount`).
 
-**Workspace overlays (Phase 2.2 building blocks):** Sheets cap at **`max-h-[85dvh]`** (bottom sheet `< lg`, centered dialog `lg+`) — `VersionsBrowser`, `WorkspaceSearchOverlay`, collection add/import, `CardPeekSheet`. `WorkspaceSearchPanel` (FTS + card-face grid) powers search; collection add is a **single sheet** with search → printing steps (tile click to pick a card; **Back to search** link under the title + outside dismiss returns to search). Printing tiles use shadcn focus-ring selection (`border-ring` + `ring-3 ring-ring/50`) with inset padding. Finish is **not** a pre-select control (no foil preview in the grid): Add / wantlist commit immediately when the printing has one finish; if multiple finishes, a small **dropdown** asks Nonfoil / Foil / Etched at click time. Owned adds use a **Qty** input (default 1) beside the actions. Labels are generic (**Add owned** / **Add to wish**). Collection tiles are **one chip per row** (**Owned** amber or **Wish** teal) — owned and wish are separate DB rows. Owned tile: **Add to wish** / **On wish** (sibling). Wish tile: **Get** (move qty to owned). Filter tab label **Wish** (URL/filter id remains `wantlist`). Submit placement: **header** on `md` + fine pointer; **sticky footer** on mobile / coarse pointer. See `docs/DECISIONS.md` 2026-07-22.
+**Workspace overlays (Phase 2.2+):** Sheets cap at **`max-h-[85dvh]`** (bottom sheet `< lg`, centered dialog `lg+`). **`CardDetailModal`** (`size="xl"`) is the site-wide card overlay: stays **closed until** `loadCardDetailModal` returns, then shows header (name + type + **View detail** / **Go to set**; close absolute top-right on mobile, aligned with the action row from `sm+`) → hero grid (`CARD_DETAIL_MODAL_HERO_GRID_CLASS`: full-width art under `sm`, 16rem column from `sm` | **Status | Roles | Themes** via `ClassificationBadges` (stacked under `lg`, one row from `lg`); **Printing** via shared `VersionPicker` (Version + Show all versions, then Finish) — same as the PDP; nested **`VersionsBrowser`** loads printings first, then opens (no skeleton). Initial fetch loads only the active printing. **Mode follows the page**, not the entry point: while a deck editor is mounted it registers a deck workspace, so header search / any open also shows **Add to main** / **Add to sideboard** + **In this deck**. Collection page registers a collection workspace so successful adds close the modal (page list is feedback); browse keeps the inline “Added” line. Finish is a **ToggleGroup** (`outline` / `sm`, active = primary label chrome) when the printing has multiple finishes. Deck and collection add search share **`WorkspaceSearchPanel`** (whole-tile click; result body uses `SHEET_CARD_GRID_BODY_MIN_H_CLASS`). Primary tile clicks open the modal; `href` remains for middle-click / open-in-new-tab to `/cards/{slug}`. Collection list tiles stay **one chip per row** (Owned / Wish). See `docs/DECISIONS.md` 2026-07-28 / 2026-07-30.
+
+### Loading (block-fino-ai-dati)
+
+**Default for every PageShell route:** block until data is ready — no `loading.tsx`, no page-level Suspense fallback UI, no fake result grids. Soft navigation keeps the previous page until the new RSC (or client payload) arrives, same feel as `/decks`.
+
+**Soft-nav feedback:** a thin full-width **top progress bar** (`NavigationProgress`, `bg-primary`, ~2px, no spinner) starts on same-origin `<a>` / `Link` clicks (capture phase — Next soft-nav also `preventDefault`) and completes when the URL leaves the click origin (brief 100% hold). **Anti-flash:** show only after **100ms** so fast/prefetched navigations do not blink. Links that open overlays instead of navigating set `data-nav-progress="skip"` (tile → modal, search hits, signed-out `RequireAuthLink`). Not a page skeleton. Programmatic `router.push` / `replace` do not start the bar unless a caller invokes `startNavigationProgress()`.
+
+**On-demand overlays (card detail modal, Versions browser):** do **not** open the sheet until the catalog payload is ready — no skeleton flash. On modal open, pass tile `imageUri`/`faces` and **`preloadImage`** the front face while `loadCardDetailModal` runs so art is warm when the sheet appears; collection / deck snapshots load after open (`loadCardDetailModalUserData`) with a short pulse on inventory chrome only. Workspace / global search keep hit skeletons inside an already-open surface.
+
+**Detail heroes (PDP + modal):** `CardMultifaceImage` / `CardImage` use Next `priority` + `fetchPriority="high"` on the front face. Multiface back face is always mounted (lazy fetch); hover only raises it.
+
+**Lists already mounted:** keep previous results until the new payload swaps in. `aria-busy` is fine; **do not** dim with `opacity-60` or swap in a pending slot.
+
+**PDP:** await hero band (printing seed + classification + collection in parallel); lists stream via `CardDetailListsDeferred` with `fallback={null}`. Printings/versions stay lazy (open after load).
+
+Filtered lists share `ListFilterAccess` + `PageListMeta` chrome. Shared overlay primitives live in `loading-skeletons.tsx` (barrel `card-grid-skeleton.tsx`).
 
 **Card tilt:** Detail + grid previews use CSS 3D pointer tilt (`CardTilt` via `CardMultifaceImage`). Thumbnails stay flat. Respects `prefers-reduced-motion`; no continuous tilt on touch.
 
 **Click targets:** Set browse rows (`SetBrowseRow`) are full-surface links (no card art). Card tiles (`CardFaceTile`) link the face image only — footer metrics stay outside the hit target. Interactive chrome (`Button`, `Toggle` / filter pills & mana/rarity, `Select`, dropdown items, `TabsTrigger`) uses `cursor-pointer`. Native `<button>` / `[role="button"]` also get the hand cursor via a base CSS rule in `globals.css` (covers collection add tiles, workspace search pick, scope tabs, etc.).
 
-**Mobile (`< lg`):** overview (centered image max 300px → meta) → optional view toggle → sticky `DetailSectionJump` → sections.
+**Mobile (`< sm`):** overview (full-width image → meta stacked) → optional view toggle → sticky `DetailSectionJump` → sections.
 
-**Desktop (`lg+`):** overview (image | meta) scrolls; lists band uses sticky TOC + sections (`DETAIL_LISTS_GRID_CLASS`).
+**From `sm`:** overview image | meta (`DETAIL_HERO_GRID_CLASS`, **300px** image column). Modal uses the same `sm` split with a narrower 16rem column (`CARD_DETAIL_MODAL_*`).
+
+**Desktop (`lg+`):** lists band uses sticky TOC + sections (`DETAIL_LISTS_GRID_CLASS`) when there are ≥2 sections; section jump hides in favor of `DetailSectionNav`. With no TOC, list card grids use `CARD_FACE_DETAIL_GRID_WIDE_CLASS` (+1 column from `lg`) so tiles stay browse-sized.
 
 ```
-Overview: image + set/cn | Status → Version/Finish + Show all versions → Market → Roles | Themes
+Overview: image + set/cn | Status | Roles | Themes → Market → Version + Show all / Finish
 Lists: [As card | As commander full-width]? → sticky DetailSectionNav (lg+) | sections for active view
 ```
 
@@ -216,7 +250,7 @@ Lists: [As card | As commander full-width]? → sticky DetailSectionNav (lg+) | 
 | Element | Card detail (current) | Notes |
 |---|---|---|
 | Canonical URL | `/cards/{slug}` | `/commanders/{slug}` redirects here |
-| Inclusion rank | ✅ | Deck inclusion — not “as commander” popularity |
+| EDH Inclusion rank | ✅ | Deck inclusion — not “as commander” popularity |
 | Legal commander chip | when `isCommander` | |
 | As card / As commander lists | when `isCommander` | `?view=commander` for D2 pack |
 | Role staples / GC in CI / skeleton | As commander view | Also reusable in deck builder (2.2.6) |
@@ -265,7 +299,7 @@ Folder: `src/components/discovery/`
 | `/cards`, `/commanders` | Top lists only (no All tab); grid tiles; time window |
 | `/catalog` | Full catalog grid; commander filter; no EDHREC rank |
 | `/commanders/[slug]` | **Redirect →** `/cards/[slug]` (2.0.4) |
-| `/cards/[slug]` | Sole oracle hub; Inclusion + Legal commander chip |
+| `/cards/[slug]` | Sole oracle hub; EDH Inclusion + Legal commander chip |
 | `/search` | Card grid (`CARD_FACE_GRID_CLASS` + `CardGridTile`) and set grid (`SET_BROWSE_GRID_CLASS` + `SetBrowseRow`) — same tiles as browse / sets |
 | `/sets` | Horizontal set cards in wide grid; dense filter toolbar |
 | `/sets/[code]` | `CardFaceTile` grid; footer is centered collector `#` only; filters + **sort by** in toolbar |

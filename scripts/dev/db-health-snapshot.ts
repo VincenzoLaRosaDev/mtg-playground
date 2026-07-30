@@ -26,7 +26,6 @@ async function main() {
     commanders: await prisma.card.count({ where: { isCommander: true } }),
     withPopularity: await prisma.card.count({ where: { popularityRank: { not: null } } }),
     gameChangers: await prisma.card.count({ where: { isGameChanger: true } }),
-    withFriction: await prisma.card.count({ where: { frictionScore: { gt: 0 } } }),
     classifications: await prisma.cardClassification.count(),
     printings: await prisma.printing.count(),
     sets: await prisma.mtgSet.count(),

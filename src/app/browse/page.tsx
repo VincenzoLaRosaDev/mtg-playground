@@ -1,7 +1,4 @@
-import { Suspense } from "react";
-
 import { BrowseHubClient } from "@/app/browse/browse-hub-client";
-import { BrowseHubFallback } from "@/components/discovery/browse-hub-fallback";
 import { getBrowseHubDefaults } from "@/lib/browse/browse-defaults";
 import {
   getCachedDefaultBrowseHub,
@@ -24,7 +21,8 @@ function parseCommandersOnly(params: {
   return params.commanders_only === "true" || params.entity === "commanders";
 }
 
-async function BrowsePageContent({ searchParams }: BrowsePageProps) {
+/** Block until data — no route Suspense / loading.tsx (decks-style). */
+export default async function BrowsePage({ searchParams }: BrowsePageProps) {
   const params = await searchParams;
   const commandersOnly = parseCommandersOnly(params);
   const { toolbar, requestKey } = getBrowseHubDefaults({ commandersOnly });
@@ -41,13 +39,5 @@ async function BrowsePageContent({ searchParams }: BrowsePageProps) {
       presentRoles={facets.roles}
       presentThemes={facets.themes}
     />
-  );
-}
-
-export default function BrowsePage({ searchParams }: BrowsePageProps) {
-  return (
-    <Suspense fallback={<BrowseHubFallback />}>
-      <BrowsePageContent searchParams={searchParams} />
-    </Suspense>
   );
 }

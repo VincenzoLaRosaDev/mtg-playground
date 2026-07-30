@@ -6,6 +6,8 @@ import type { CardFaceImage } from "@/lib/scryfall/faces";
 
 type CardFaceTileProps = {
   href?: string | null;
+  /** Primary click → overlay; href kept for middle-click / new tab. */
+  onOpen?: () => void;
   imageUri?: string | null;
   faces?: CardFaceImage[] | null;
   name: string;
@@ -19,6 +21,7 @@ type CardFaceTileProps = {
  */
 export function CardFaceTile({
   href,
+  onOpen,
   imageUri,
   faces,
   name,
@@ -29,6 +32,7 @@ export function CardFaceTile({
     <article>
       <CardMultifaceImage
         href={href}
+        onOpen={onOpen}
         imageUri={imageUri}
         faces={faces}
         name={name}

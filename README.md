@@ -41,9 +41,13 @@ cp .env.example .env.local
 
 ### 3. Database migration
 
+Against Neon (including local Neon branch **`dev`**), apply pending migrations with:
+
 ```bash
-npm run db:migrate
+npm run db:migrate:deploy
 ```
+
+Use `npm run db:migrate` (`prisma migrate dev`) only on a disposable database — it may prompt for a full reset if migration history drifts. Environment map (Git × Vercel × Neon × Google): [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) § Environments.
 
 ### 4. Sync Scryfall catalog
 
@@ -67,7 +71,7 @@ npm run sync:compute-classifications
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) — try **Browse** at `/browse`, **Collection** at `/collection` (sign-in required).
+Open [http://localhost:3000](http://localhost:3000) — try **Browse** at `/browse`, **Collection** at `/collection`, **Decks** at `/decks` (sign-in required for the last two).
 
 **Phone on LAN:** open `http://<your-lan-ip>:3000`. Next 16 blocks cross-origin dev assets by default — add the host to `allowedDevOrigins` in `next.config.ts` (the blocked IP is printed in the terminal) and restart `npm run dev`, or clicks/HMR will appear broken on the device.
 
@@ -88,7 +92,8 @@ See [`docs/ROADMAP.md`](docs/ROADMAP.md).
 - **Phase 0–1.8** ✅ Catalog foundation (historical EDHForge path)
 - **Phase 2.0** ✅ MTGPlayground pivot (printings, unified detail)
 - **Phase 2.1** ✅ Auth + printing-level collection
-- **Phase 2.2** ⬜ Multi-format decks · **2.3** Precons — **current**
+- **Phase 2.2** 🔄 Multi-format deck builder (slice 1 ✅; legality / Arena / insights next)
+- **Phase 2.3** ⬜ Precons
 - **Phase 3–5** Analysis, community, launch
 
 ## Attribution

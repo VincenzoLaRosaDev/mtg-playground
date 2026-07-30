@@ -17,7 +17,7 @@ const DISCOVERY_SHORTCUTS = [
   {
     href: "/browse",
     title: "Browse cards",
-    description: "Faceted Scryfall catalog with Inclusion rank, roles, and formats.",
+    description: "Faceted Scryfall catalog with EDH Inclusion rank, roles, and formats.",
     emphasis: "primary" as const,
   },
   {

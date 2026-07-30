@@ -2,7 +2,6 @@ import { config } from "dotenv";
 
 import {
   ClassificationSource,
-  Prisma,
   SyncSource,
   SyncStatus,
 } from "../../src/generated/prisma/client";
@@ -12,7 +11,6 @@ import {
   classifyFromOverride,
   hasClassification,
 } from "../../src/lib/classification/compute";
-import { FRICTION_TAG_SLUGS } from "../../src/lib/classification/friction";
 import { loadCardOverrides } from "../../src/lib/classification/overrides";
 
 config({ path: ".env.local" });
@@ -119,42 +117,18 @@ async function main() {
       await prisma.cardClassification.createMany({ data: batch });
     }
 
-    console.log("Updating friction scores...");
-    // Reset to GC-only baseline, then +1 in one pass for any friction-family tag.
-    await prisma.$executeRaw`
-      UPDATE cards
-      SET friction_score = CASE WHEN is_game_changer THEN 2 ELSE 0 END
-    `;
-
-    const frictionSlugs = [...FRICTION_TAG_SLUGS];
-    const frictionUpdated = await prisma.$executeRaw`
-      UPDATE cards c
-      SET friction_score = LEAST(
-        CASE WHEN c.is_game_changer THEN 2 ELSE 0 END + 1,
-        3
-      )
-      WHERE EXISTS (
-        SELECT 1
-        FROM card_oracle_taggings cot
-        INNER JOIN scryfall_oracle_tags sot ON sot.id = cot.tag_id
-        WHERE cot.oracle_id = c.oracle_id
-          AND cot.weight != 'weak'
-          AND sot.slug IN (${Prisma.join(frictionSlugs)})
-      )
-    `;
-
     await prisma.syncLog.update({
       where: { id: syncLog.id },
       data: {
         status: SyncStatus.SUCCESS,
         completedAt: new Date(),
         recordsProcessed: toUpsert.length,
-        errors: { overrideCount, tagCount, frictionUpdated },
+        errors: { overrideCount, tagCount },
       },
     });
 
     console.log(
-      `Done. ${toUpsert.length} classifications; ${frictionUpdated} friction scores above GC baseline.`,
+      `Done. ${toUpsert.length} classifications (${overrideCount} overrides, ${tagCount} from tags).`,
     );
   } catch (error) {
     await prisma.syncLog.update({

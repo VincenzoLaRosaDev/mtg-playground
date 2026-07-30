@@ -14,6 +14,12 @@ import {
   buildCardVersionHref,
   type PrintingFinish,
 } from "@/lib/scryfall/card-printing";
+import {
+  LABEL_INFO_CLASS,
+  LABEL_PRIMARY_CLASS,
+  STATUS_CHIP_CLASS,
+} from "@/lib/ui/selection-chrome";
+import { QTY_INPUT_WIDTH_CLASS } from "@/lib/ui/qty-input";
 import { cn } from "@/lib/utils";
 
 type CardCollectionPanelProps = {
@@ -55,7 +61,7 @@ export function CardCollectionPanel({
       <div className="space-y-2" aria-busy="true">
         <div className="h-4 w-40 animate-pulse rounded bg-muted" />
         <div className="flex gap-2">
-          <div className="h-8 w-16 animate-pulse rounded-lg bg-muted" />
+          <div className={cn(QTY_INPUT_WIDTH_CLASS, "h-8 animate-pulse rounded-lg bg-muted")} />
           <div className="h-8 w-28 animate-pulse rounded-lg bg-muted" />
           <div className="h-8 w-28 animate-pulse rounded-lg bg-muted" />
         </div>
@@ -142,8 +148,8 @@ export function CardCollectionPanel({
         ) : null}
       </p>
 
-      <div className="flex flex-wrap items-end gap-2">
-        <div className="w-16">
+      <div className="flex flex-wrap items-center gap-2">
+        <div className={cn(QTY_INPUT_WIDTH_CLASS, "shrink-0")}>
           <label htmlFor="detail-collection-qty" className="sr-only">
             Quantity
           </label>
@@ -154,13 +160,12 @@ export function CardCollectionPanel({
             value={qty}
             disabled={pending}
             onChange={(event) => setQty(event.target.value)}
-            className="h-8"
+            className="h-8 px-1 text-center tabular-nums"
           />
         </div>
         <Button
           type="button"
-          size="sm"
-          variant="outline"
+          size="default"
           disabled={pending}
           onClick={handleAddOwned}
         >
@@ -168,10 +173,9 @@ export function CardCollectionPanel({
         </Button>
         <Button
           type="button"
-          size="sm"
-          variant="secondary"
+          size="default"
+          variant="info"
           disabled={pending}
-          className="border-info/50 bg-info/15 text-info-foreground hover:bg-info/25"
           onClick={handleAddWish}
         >
           Add to wish
@@ -210,10 +214,8 @@ export function CardCollectionPanel({
                     <span>· {finishLabel(row.finish)}</span>
                     <span
                       className={cn(
-                        "inline-flex h-5 items-center rounded-md border px-1.5 text-[10px] font-semibold leading-none tracking-wide uppercase",
-                        row.wantlist
-                          ? "border-info/55 bg-info/20 text-info-foreground"
-                          : "border-primary/45 bg-primary/15 text-primary",
+                        STATUS_CHIP_CLASS,
+                        row.wantlist ? LABEL_INFO_CLASS : LABEL_PRIMARY_CLASS,
                       )}
                     >
                       {row.wantlist ? "Wish" : "Owned"} ×{row.quantity}

@@ -15,7 +15,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { siteContainerClassName, SHEET_LIST_RULE_CLASS } from "@/lib/ui/layout";
+import { siteContainerClassName, SHEET_CARD_GRID_BODY_MIN_H_CLASS, SHEET_LIST_RULE_CLASS, DETAIL_SHOW_ALL_VERSIONS_BUTTON_CLASS } from "@/lib/ui/layout";
 import {
   CARD_FACE_GRID_CLASS,
   CARD_PRINTING_TILE_BUTTON_CLASS,
@@ -39,15 +39,24 @@ type VersionsBrowserProps = {
   view?: CardDetailView | null;
   /**
    * When set, tile click calls this instead of navigating to `/cards/{slug}?…`.
-   * Use in deck/collection embeds; omit on the public PDP.
+   * Use in deck/collection embeds and CardDetailModal; omit on the public PDP.
    */
   onSelectPrinting?: (selection: PrintingSelection) => void;
   /** Hide the built-in trigger (host opens via controlled `open`). */
   hideTrigger?: boolean;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  /**
+   * Total printings when the list is lazy-loaded (modal). Trigger shows when
+   * this or `printings.length` is greater than 1.
+   */
+  printingCount?: number;
 };
 
+/**
+ * All-versions sheet. Hosts defer `open` until printings are loaded
+ * (no in-sheet skeleton).
+ */
 export function VersionsBrowser({
   slug,
   printings,
@@ -59,6 +68,7 @@ export function VersionsBrowser({
   hideTrigger = false,
   open: openProp,
   onOpenChange,
+  printingCount,
 }: VersionsBrowserProps) {
   const router = useRouter();
   const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
@@ -66,7 +76,8 @@ export function VersionsBrowser({
   const open = controlled ? openProp : uncontrolledOpen;
   const setOpen = onOpenChange ?? setUncontrolledOpen;
 
-  if (printings.length <= 1) {
+  const totalCount = printingCount ?? printings.length;
+  if (totalCount <= 1) {
     return null;
   }
 
@@ -99,6 +110,10 @@ export function VersionsBrowser({
     }
   }
 
+  const description = onSelectPrinting
+    ? `${totalCount.toLocaleString()} printings — pick one to use here.`
+    : `${totalCount.toLocaleString()} printings — pick one to open on this page.`;
+
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       {!hideTrigger ? (
@@ -107,8 +122,8 @@ export function VersionsBrowser({
             <Button
               type="button"
               variant="outline"
-              size="sm"
-              className="mt-3 w-full sm:w-auto"
+              size="default"
+              className={DETAIL_SHOW_ALL_VERSIONS_BUTTON_CLASS}
             />
           }
         >
@@ -129,63 +144,67 @@ export function VersionsBrowser({
           )}
         >
           <SheetTitle>All versions</SheetTitle>
-          <SheetDescription>
-            {printings.length.toLocaleString()} printings — pick one to open on this page.
-          </SheetDescription>
+          <SheetDescription>{description}</SheetDescription>
         </SheetHeader>
 
         <div
           className={cn(
             siteContainerClassName,
-            "min-h-0 flex-1 overflow-y-auto py-4 pb-8",
+            SHEET_CARD_GRID_BODY_MIN_H_CLASS,
+            "flex-1 overflow-y-auto py-4 pb-8",
           )}
         >
-          <ul className={CARD_FACE_GRID_CLASS}>
-            {printings.map((option) => {
-              const selected =
-                selectedSet === option.setCode &&
-                selectedCn === option.collectorNumber;
-              const label = `${printingOptionLabel(option)} · ${option.setName}`;
-              const preferredFinish =
-                selectedFinish && option.finishes.includes(selectedFinish)
-                  ? selectedFinish
-                  : null;
+          {printings.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No printings indexed for this card.
+            </p>
+          ) : (
+            <ul className={CARD_FACE_GRID_CLASS}>
+              {printings.map((option) => {
+                const selected =
+                  selectedSet === option.setCode &&
+                  selectedCn === option.collectorNumber;
+                const label = `${printingOptionLabel(option)} · ${option.setName}`;
+                const preferredFinish =
+                  selectedFinish && option.finishes.includes(selectedFinish)
+                    ? selectedFinish
+                    : null;
 
-              return (
-                <li key={option.id}>
-                  <button
-                    type="button"
-                    onClick={() => selectPrinting(option)}
-                    className={cn(
-                      CARD_PRINTING_TILE_BUTTON_CLASS,
-                      selected && CARD_PRINTING_TILE_SELECTED_CLASS,
-                    )}
-                    aria-current={selected ? "true" : undefined}
-                    aria-label={`Select version ${label}`}
-                  >
-                    <CardFaceTile
-                      imageUri={option.imageUri}
-                      faces={option.faces}
-                      name={label}
-                      footer={
-                        <div className="space-y-1.5">
-                          <p className="truncate text-xs font-medium text-foreground">
-                            {label}
-                          </p>
-                          <EntityPreviewFooter
-                            prices={option.prices}
-                            preferredFinish={preferredFinish}
-                            showInclusionRank={false}
-                            frictionScore={null}
-                          />
-                        </div>
-                      }
-                    />
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
+                return (
+                  <li key={option.id}>
+                    <button
+                      type="button"
+                      onClick={() => selectPrinting(option)}
+                      className={cn(
+                        CARD_PRINTING_TILE_BUTTON_CLASS,
+                        selected && CARD_PRINTING_TILE_SELECTED_CLASS,
+                      )}
+                      aria-current={selected ? "true" : undefined}
+                      aria-label={`Select version ${label}`}
+                    >
+                      <CardFaceTile
+                        imageUri={option.imageUri}
+                        faces={option.faces}
+                        name={label}
+                        footer={
+                          <div className="space-y-1.5">
+                            <p className="truncate text-xs font-medium text-foreground">
+                              {label}
+                            </p>
+                            <EntityPreviewFooter
+                              prices={option.prices}
+                              preferredFinish={preferredFinish}
+                              showInclusionRank={false}
+                            />
+                          </div>
+                        }
+                      />
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </div>
       </SheetContent>
     </Sheet>

@@ -5,7 +5,7 @@ import { createPageMetadata } from "@/lib/seo/site";
 export const metadata: Metadata = createPageMetadata({
   title: "Browse",
   description:
-    "Browse Scryfall cards and legal commanders. Inclusion rank is Commander deck inclusion, not commander popularity.",
+    "Browse Scryfall cards and legal commanders. EDH Inclusion is Commander deck inclusion, not commander popularity.",
   path: "/browse",
 });
 

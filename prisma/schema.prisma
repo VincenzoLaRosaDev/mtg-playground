@@ -55,7 +55,6 @@ model Card {
   popularityRank  Int?     @map("popularity_rank")
   isGameChanger   Boolean  @default(false) @map("is_game_changer")
   isReserved      Boolean  @default(false) @map("is_reserved")
-  frictionScore   Int      @default(0) @map("friction_score")
   isCommander     Boolean  @default(false) @map("is_commander")
   /** Arena/Scryfall color order key — see `computeColorSortKey`. */
   colorSort       Int      @default(0) @map("color_sort")
@@ -82,7 +81,6 @@ model Card {
   @@index([popularityRank])
   @@index([isGameChanger])
   @@index([isReserved])
-  @@index([frictionScore])
   @@index([colorSort])
   @@index([listPriceEur])
   @@index([minRarityRank])
@@ -129,6 +127,7 @@ model Printing {
 
   set             MtgSet           @relation(fields: [setCode], references: [code], onDelete: Cascade)
   collectionItems CollectionItem[]
+  preferredInDeckCards DeckCard[]
 
   @@unique([setCode, collectorNumber])
   @@index([oracleId])
@@ -152,6 +151,7 @@ model User {
   accounts        Account[]
   sessions        Session[]
   collectionItems CollectionItem[]
+  decks           Deck[]
 
   @@map("users")
 }
@@ -222,6 +222,45 @@ model CollectionItem {
   @@index([printingId])
   @@index([userId, wantlist])
   @@map("collection_items")
+}
+
+/// Private multi-format deck workspace (Phase 2.2).
+model Deck {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  name      String
+  /** Scryfall browse format key (standard, modern, commander, …). */
+  format    String
+  notes     String?  @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  user  User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cards DeckCard[]
+
+  @@index([userId])
+  @@index([userId, updatedAt])
+  @@map("decks")
+}
+
+/// Decklist entry by oracle (+ board zone). Soft-joins Card via oracleId.
+model DeckCard {
+  id                  String @id @default(cuid())
+  deckId              String @map("deck_id")
+  oracleId            String @map("oracle_id")
+  quantity            Int    @default(1)
+  /** main | side | commander | companion */
+  board               String @default("main")
+  preferredPrintingId String? @map("preferred_printing_id")
+
+  deck              Deck      @relation(fields: [deckId], references: [id], onDelete: Cascade)
+  preferredPrinting Printing? @relation(fields: [preferredPrintingId], references: [id], onDelete: SetNull)
+
+  @@unique([deckId, oracleId, board])
+  @@index([deckId])
+  @@index([oracleId])
+  @@index([preferredPrintingId])
+  @@map("deck_cards")
 }
 
 model SyncLog {

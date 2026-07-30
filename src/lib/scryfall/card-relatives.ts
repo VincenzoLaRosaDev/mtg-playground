@@ -15,7 +15,6 @@ export type CardRelative = {
   cmc: number;
   prices: unknown;
   popularityRank: number | null;
-  frictionScore: number;
 };
 
 export async function getCardRelativesBySubtype(
@@ -47,7 +46,6 @@ export async function getCardRelativesBySubtype(
       cmc: true,
       prices: true,
       popularityRank: true,
-      frictionScore: true,
     },
     orderBy: [{ popularityRank: { sort: "asc", nulls: "last" } }, { name: "asc" }],
     take: limit,
@@ -64,7 +62,6 @@ export async function getCardRelativesBySubtype(
       cmc: row.cmc,
       prices: row.prices,
       popularityRank: row.popularityRank,
-      frictionScore: row.frictionScore,
     })),
   };
 }

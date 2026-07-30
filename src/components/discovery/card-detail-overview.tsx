@@ -25,7 +25,6 @@ type CardDetailOverviewProps = {
   collectionAction?: ReactNode;
   previewFooter: ReactNode;
   popularityRank: number | null;
-  frictionScore: number;
   isGameChanger: boolean;
   isReserved: boolean;
   isCommander: boolean;
@@ -33,7 +32,7 @@ type CardDetailOverviewProps = {
 };
 
 /**
- * Overview band: image column + filled details panel (status, printing, market, roles/themes).
+ * Overview band: image column + details panel (Status|Roles|Themes → Market → Printing).
  */
 export function CardDetailOverview({
   imageUri,
@@ -47,7 +46,6 @@ export function CardDetailOverview({
   collectionAction,
   previewFooter,
   popularityRank,
-  frictionScore,
   isGameChanger,
   isReserved,
   isCommander,
@@ -67,28 +65,22 @@ export function CardDetailOverview({
 
       <div className={DETAIL_MAIN_COLUMN_CLASS}>
         <div className={DETAIL_OVERVIEW_PANEL_CLASS}>
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Status
-            </p>
-            <DetailHeroMeta
-              popularityRank={popularityRank}
-              frictionScore={frictionScore}
-              isGameChanger={isGameChanger}
-              isReserved={isReserved}
-              isCommander={isCommander}
-            />
-          </div>
-
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Printing
-            </p>
-            <div className="mt-2 space-y-3">
-              {versionPicker}
-              {collectionAction}
-            </div>
-          </div>
+          <ClassificationBadges
+            classification={classification}
+            status={
+              <div className="min-w-0">
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Status
+                </p>
+                <DetailHeroMeta
+                  popularityRank={popularityRank}
+                  isGameChanger={isGameChanger}
+                  isReserved={isReserved}
+                  isCommander={isCommander}
+                />
+              </div>
+            }
+          />
 
           <div>
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -97,7 +89,19 @@ export function CardDetailOverview({
             <div className="mt-2">{previewFooter}</div>
           </div>
 
-          <ClassificationBadges classification={classification} />
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Printing
+            </p>
+            <div className="mt-2 space-y-3">
+              {versionPicker}
+              {collectionAction ? (
+                <div className="space-y-3 border-t border-border/50 pt-4">
+                  {collectionAction}
+                </div>
+              ) : null}
+            </div>
+          </div>
         </div>
       </div>
     </section>

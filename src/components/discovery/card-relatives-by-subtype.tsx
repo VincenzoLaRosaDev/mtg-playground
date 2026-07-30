@@ -1,8 +1,11 @@
+"use client";
+
 import { CardFaceTile } from "@/components/discovery/card-face-tile";
+import { useCardDetailModal } from "@/components/discovery/card-detail-modal-provider";
 import { EntityPreviewFooter } from "@/components/discovery/entity-preview-footer";
 import type { CardRelative } from "@/lib/scryfall/card-relatives";
 import { formatSubtypeList } from "@/lib/scryfall/type-utils";
-import { CARD_FACE_DETAIL_GRID_CLASS } from "@/lib/ui/card-face";
+import { cardFaceDetailGridClass } from "@/lib/ui/card-face";
 import {
   DETAIL_SECTION_HEADING_CLASS,
   DETAIL_SECTION_IDS,
@@ -13,12 +16,17 @@ import {
 type CardRelativesBySubtypeProps = {
   subtypes: string[];
   relatives: CardRelative[];
+  /** Full-width lists band (no sticky TOC) — denser columns from `lg`. */
+  wideGrid?: boolean;
 };
 
 export function CardRelativesBySubtype({
   subtypes,
   relatives,
+  wideGrid = false,
 }: CardRelativesBySubtypeProps) {
+  const { openCardDetail } = useCardDetailModal();
+
   if (subtypes.length === 0 || relatives.length === 0) {
     return null;
   }
@@ -32,11 +40,22 @@ export function CardRelativesBySubtype({
       <p className="mt-1 text-xs text-muted-foreground">
         Other Commander-legal cards sharing: {formatSubtypeList(subtypes)}
       </p>
-      <ul className={`mt-4 ${CARD_FACE_DETAIL_GRID_CLASS}`}>
+      <ul className={`mt-4 ${cardFaceDetailGridClass(wideGrid)}`}>
         {relatives.map((relative) => (
           <li key={`${relative.name}-${relative.typeLine}`}>
             <CardFaceTile
               href={relative.slug ? `/cards/${relative.slug}` : null}
+              onOpen={
+                relative.slug
+                  ? () =>
+                      openCardDetail({
+                        mode: "collection",
+                        slug: relative.slug!,
+                        imageUri: relative.imageUri,
+                        faces: relative.faces,
+                      })
+                  : undefined
+              }
               imageUri={relative.imageUri}
               faces={relative.faces}
               name={relative.name}
@@ -44,7 +63,6 @@ export function CardRelativesBySubtype({
                 <EntityPreviewFooter
                   prices={relative.prices}
                   popularityRank={relative.popularityRank}
-                  frictionScore={relative.frictionScore}
                 />
               }
             />

@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import { Suspense } from "react";
 
 import { auth } from "@/auth";
 import { CollectionAddPanel } from "@/components/collection/collection-add-panel";
+import { CollectionCardDetailWorkspace } from "@/components/collection/collection-card-detail-workspace";
 import { CollectionGrid } from "@/components/collection/collection-grid";
 import { CollectionImportPanel } from "@/components/collection/collection-import-panel";
 import { CollectionSignInGate } from "@/components/collection/collection-sign-in-gate";
@@ -35,6 +35,9 @@ function firstParam(value: string | string[] | undefined): string | undefined {
   return value;
 }
 
+/**
+ * Soft filter navigations keep the mounted page (block-fino-ai-dati / decks-style).
+ */
 export default async function CollectionPage({ searchParams }: CollectionPageProps) {
   const session = await auth();
   const userId = session?.user?.id;
@@ -69,27 +72,24 @@ export default async function CollectionPage({ searchParams }: CollectionPagePro
         { label: "Collection", href: "/collection" },
       ]}
       toolbar={
-        <Suspense fallback={<div className="h-24" aria-hidden />}>
-          <ListFilterAccess
-            hasActiveFilters={hasActiveCollectionFacets(query)}
-            filtersKey={JSON.stringify(query)}
-            stickyActions={<CollectionAddPanel compact />}
-          >
-            <CollectionToolbar
-              actions={
-                <>
-                  <CollectionAddPanel />
-                  <CollectionImportPanel />
-                </>
-              }
-            />
-          </ListFilterAccess>
-        </Suspense>
+        <ListFilterAccess
+          hasActiveFilters={hasActiveCollectionFacets(query)}
+          filtersKey={JSON.stringify(query)}
+          stickyActions={<CollectionAddPanel compact />}
+        >
+          <CollectionToolbar
+            actions={
+              <>
+                <CollectionAddPanel />
+                <CollectionImportPanel />
+              </>
+            }
+          />
+        </ListFilterAccess>
       }
     >
-      <Suspense fallback={<div className="h-40" aria-hidden />}>
-        <CollectionGrid initial={initial} />
-      </Suspense>
+      <CollectionCardDetailWorkspace />
+      <CollectionGrid initial={initial} />
     </PageShell>
   );
 }

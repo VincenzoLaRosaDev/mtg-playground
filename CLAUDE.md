@@ -8,7 +8,7 @@
 
 - `npm run lint` and `npm test` (Vitest, no DB required) — both must pass for files you touched
 - For any UI change: `npm run dev` and check the affected route in a browser (mobile viewport too if it touches nav/sheets/filters — this repo has a lot of responsive drawer/sheet chrome)
-- If you touched `prisma/schema.prisma`: remind the user a migration is needed (`npm run db:migrate`); never run migrations against a real `DATABASE_URL` without explicit confirmation
+- If you touched `prisma/schema.prisma`: remind the user a migration is needed — against Neon use `npm run db:migrate:deploy` (not `migrate dev` / reset); never run migrations without explicit confirmation. Env map: `docs/ARCHITECTURE.md` § Environments
 - If you touched sync scripts (`scripts/sync/*`): do not run them speculatively — they hit live Scryfall bulk endpoints and can take minutes
 
 ## Known baseline state (verify before trusting — this drifts)

@@ -1,10 +1,8 @@
-import type { ReactNode } from "react";
-
 import { CardMultifaceImage } from "@/components/discovery/card-multiface-image";
 import type { CardFaceImage } from "@/lib/scryfall/faces";
 import type { PrintingFinish } from "@/lib/scryfall/card-printing";
 import { CARD_FACE_RADIUS_CLASS } from "@/lib/ui/card-face";
-import { CARD_DETAIL_IMAGE_MAX_CLASS } from "@/lib/ui/layout";
+import { CARD_DETAIL_IMAGE_COLUMN_CLASS } from "@/lib/ui/layout";
 
 type DetailHeroAsideProps = {
   imageUri: string | null;
@@ -28,11 +26,9 @@ export function DetailHeroAside({
   collectorNumber,
 }: DetailHeroAsideProps) {
   return (
-    <div
-      className={`relative mx-auto w-full shrink-0 ${CARD_DETAIL_IMAGE_MAX_CLASS} lg:mx-0 lg:w-[300px] lg:max-w-none`}
-    >
+    <div className={CARD_DETAIL_IMAGE_COLUMN_CLASS}>
       <aside className="flex w-full flex-col gap-3">
-        <div className="mx-auto w-full shrink-0 lg:mx-0">
+        <div className="mx-auto w-full shrink-0 sm:mx-0">
           {imageUri || (faces && faces.length > 0) ? (
             <CardMultifaceImage
               imageUri={imageUri}
@@ -40,6 +36,7 @@ export function DetailHeroAside({
               name={imageAlt}
               variant="detail"
               finish={finish}
+              priority
             />
           ) : (
             <div

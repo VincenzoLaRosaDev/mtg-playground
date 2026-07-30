@@ -15,40 +15,32 @@ import {
   type GlobalSearchResponse,
 } from "@/lib/search/types";
 import { CARD_FACE_GRID_CLASS } from "@/lib/ui/card-face";
-import { SITE_GUTTER_BLEED_X_CLASS, SHEET_LIST_RULE_CLASS } from "@/lib/ui/layout";
+import { SITE_GUTTER_BLEED_X_CLASS, SHEET_CARD_GRID_BODY_MIN_H_CLASS, SHEET_LIST_RULE_CLASS } from "@/lib/ui/layout";
 import { cn } from "@/lib/utils";
 
 const DEBOUNCE_MS = 250;
 const RESULT_LIMIT = 20;
 
-export type WorkspaceSearchPickMode = "button" | "tile";
-
 type WorkspaceSearchPanelProps = {
-  /** Called when the user picks a card from results. */
+  /** Called when the user picks a card from results (whole tile is the hit target). */
   onSelectCard: (card: GlobalSearchCardResult) => void;
-  /** Optional: open CardPeek for the hit. */
+  /** Optional secondary action under each hit (rare). */
   onPeekCard?: (card: GlobalSearchCardResult) => void;
   /** Extra actions under each hit (e.g. qty). */
   renderCardActions?: (card: GlobalSearchCardResult) => ReactNode;
-  /**
-   * `button` — explicit Add control (deck default).
-   * `tile` — whole card is the hit target (collection add).
-   */
-  pickMode?: WorkspaceSearchPickMode;
-  /** When false, skip fetching (e.g. sheet closed / other step). */
+  /** When false, skip fetching (e.g. sheet closed). */
   active?: boolean;
   className?: string;
 };
 
 /**
- * Catalog FTS results body for workspace sheets (collection / deck).
- * Host owns the Sheet chrome.
+ * Shared catalog FTS results grid for workspace sheets (collection + deck add).
+ * Whole card tile is the pick target — host owns Sheet chrome.
  */
 export function WorkspaceSearchPanel({
   onSelectCard,
   onPeekCard,
   renderCardActions,
-  pickMode = "button",
   active = true,
   className,
 }: WorkspaceSearchPanelProps) {
@@ -124,7 +116,10 @@ export function WorkspaceSearchPanel({
       <div
         id={listboxId}
         role="listbox"
-        className="min-h-0 flex-1 overflow-y-auto py-4 pb-8"
+        className={cn(
+          SHEET_CARD_GRID_BODY_MIN_H_CLASS,
+          "flex-1 overflow-y-auto py-4 pb-8",
+        )}
       >
         {loading && !results ? <CardGridSkeleton count={10} /> : null}
 
@@ -145,14 +140,15 @@ export function WorkspaceSearchPanel({
                 <div className="space-y-2 text-sm">
                   <div className="min-w-0">
                     <p className="line-clamp-2 font-medium">{card.name}</p>
-                    <p className="truncate text-xs text-muted-foreground">{card.typeLine}</p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {card.typeLine}
+                    </p>
                   </div>
                   <EntityPreviewFooter
                     prices={card.prices}
                     popularityRank={card.popularityRank}
-                    frictionScore={card.frictionScore}
                   />
-                  {pickMode === "button" || onPeekCard || renderCardActions ? (
+                  {onPeekCard || renderCardActions ? (
                     <div className="flex flex-wrap items-center gap-1.5">
                       {renderCardActions?.(card)}
                       {onPeekCard ? (
@@ -168,39 +164,26 @@ export function WorkspaceSearchPanel({
                           Peek
                         </Button>
                       ) : null}
-                      {pickMode === "button" ? (
-                        <Button type="button" size="xs" onClick={() => onSelectCard(card)}>
-                          Add
-                        </Button>
-                      ) : null}
                     </div>
                   ) : null}
                 </div>
               );
 
-              const tile = (
-                <CardFaceTile
-                  imageUri={card.imageUri}
-                  faces={card.faces}
-                  name={card.name}
-                  footer={footer}
-                />
-              );
-
               return (
-                <li key={card.id} role="option">
-                  {pickMode === "tile" ? (
-                    <button
-                      type="button"
-                      className="w-full cursor-pointer rounded-lg text-left outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-                      onClick={() => onSelectCard(card)}
-                      aria-label={`Select ${card.name}`}
-                    >
-                      {tile}
-                    </button>
-                  ) : (
-                    tile
-                  )}
+                <li key={card.id} role="option" aria-selected={false}>
+                  <button
+                    type="button"
+                    className="w-full cursor-pointer rounded-lg text-left outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                    onClick={() => onSelectCard(card)}
+                    aria-label={`Select ${card.name}`}
+                  >
+                    <CardFaceTile
+                      imageUri={card.imageUri}
+                      faces={card.faces}
+                      name={card.name}
+                      footer={footer}
+                    />
+                  </button>
                 </li>
               );
             })}

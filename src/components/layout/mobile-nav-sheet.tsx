@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/sheet";
 import { RequireAuthLink } from "@/components/layout/require-auth-link";
 import { isAuthRequiredHref, mainNav } from "@/lib/navigation";
+import { clearBodyScrollRestore } from "@/lib/ui/scroll";
 import { cn } from "@/lib/utils";
 
 export function MobileNavSheet() {
@@ -66,7 +67,10 @@ export function MobileNavSheet() {
                   href={item.href}
                   className={linkClass}
                   aria-current={isActive ? "page" : undefined}
-                  onBeforeNavigate={() => setOpen(false)}
+                  onBeforeNavigate={() => {
+                    clearBodyScrollRestore();
+                    setOpen(false);
+                  }}
                 >
                   {item.label}
                 </RequireAuthLink>
@@ -77,7 +81,10 @@ export function MobileNavSheet() {
               <Link
                 key={item.href}
                 href={item.href}
-                onClick={() => setOpen(false)}
+                onClick={() => {
+                  clearBodyScrollRestore();
+                  setOpen(false);
+                }}
                 className={linkClass}
                 aria-current={isActive ? "page" : undefined}
               >

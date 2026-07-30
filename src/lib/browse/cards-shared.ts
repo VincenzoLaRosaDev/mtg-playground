@@ -23,7 +23,6 @@ export type CardBrowseItem = {
   /** Scryfall prices JSON (EUR via Cardmarket; USD via TCGPlayer). */
   prices: unknown;
   popularityRank: number | null;
-  frictionScore: number;
   isGameChanger: boolean;
   isReserved: boolean;
   /** EUR-first list price for sort (USD fallback). */
@@ -46,7 +45,7 @@ export function defaultCatalogSort(): AllCardSort {
   return "popularity";
 }
 
-/** Inclusion for Any/Commander format; Color & CMC for other formats. */
+/** EDH Inclusion for Any/Commander format; Color & CMC for other formats. */
 export function defaultCatalogSortForFormat(
   format: string | null | undefined,
 ): AllCardSort {
@@ -60,7 +59,7 @@ export function defaultCatalogOrder(sort: AllCardSort): "asc" | "desc" {
   if (sort === "name" || sort === "cmc" || sort === "price" || sort === "color") {
     return "asc";
   }
-  // Inclusion rank: lower = more often included in Commander decks
+  // EDH Inclusion rank: lower = more often included in Commander decks
   return "asc";
 }
 

@@ -13,7 +13,6 @@ export type CommanderBrowseItem = {
   /** Scryfall USD prices JSON (for preview footer). */
   prices: unknown;
   popularityRank: number | null;
-  frictionScore: number;
 };
 
 export function getCommanderBrowseSortOptions(): {

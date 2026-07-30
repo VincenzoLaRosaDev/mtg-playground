@@ -1,39 +1,31 @@
+import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
-import { CardDetailLists } from "@/components/discovery/card-detail-lists";
+import { CardDetailListsDeferred } from "@/components/discovery/card-detail-lists-deferred";
 import { CardDetailOverview } from "@/components/discovery/card-detail-overview";
 import { CardDetailPrintingControls } from "@/components/discovery/card-detail-printing-controls";
 import { EntityPreviewFooter } from "@/components/discovery/entity-preview-footer";
 import { CardCollectionPanel } from "@/components/collection/card-collection-panel";
 import { PageShell } from "@/components/layout/page-shell";
+import { Button } from "@/components/ui/button";
 import { auth } from "@/auth";
 import {
   listOracleCollectionSummary,
   toOracleCollectionSnapshot,
 } from "@/lib/collection/oracle-collection";
 import { prisma } from "@/lib/db";
-import {
-  getBuildSkeleton,
-  getCardClassification,
-  getGameChangersInCi,
-  getRoleStaplesInCi,
-  getSimilarCards,
-} from "@/lib/discovery/detail-pack";
+import { getCardClassification } from "@/lib/discovery/detail-pack";
 import { findPlayableCardBySlug } from "@/lib/scryfall/catalog-filters";
-import { getCardRelativesBySubtype } from "@/lib/scryfall/card-relatives";
 import {
   buildCardVersionHref,
-  listOraclePrintings,
   parsePrintingFinish,
   resolveActiveFinish,
   resolveCardDetailView,
   resolveCardPrinting,
+  resolveOraclePrintingOption,
 } from "@/lib/scryfall/card-printing";
-import {
-  buildCardDetailNavItems,
-  buildCommanderDetailNavItems,
-} from "@/lib/ui/detail-section-nav";
+import { parseCardFaces } from "@/lib/scryfall/faces";
 import { createPageMetadata } from "@/lib/seo/site";
 
 export const dynamic = "force-dynamic";
@@ -60,7 +52,6 @@ const cardSelect = {
   colorIdentity: true,
   prices: true,
   popularityRank: true,
-  frictionScore: true,
   isGameChanger: true,
   isReserved: true,
 } as const;
@@ -114,7 +105,7 @@ export async function generateMetadata({
 
   return createPageMetadata({
     title: card.name,
-    description: `${card.name} — ${card.typeLine}. Inclusion rank, roles, and related cards from Scryfall.`,
+    description: `${card.name} — ${card.typeLine}. EDH Inclusion rank, roles, and related cards from Scryfall.`,
     path,
     image,
   });
@@ -138,74 +129,52 @@ export default async function CardDetailPage({ params, searchParams }: CardDetai
 
   const activeView = resolveCardDetailView(card.isCommander, viewParam);
 
-  const [printing, printings, classification, relativesResult, session] =
-    await Promise.all([
-      resolveCardPrinting(
-        prisma,
-        card.oracleId,
-        {
-          catalogPrintingId: card.id,
-          imageUri: card.imageUri,
-          faces: card.faces,
-          prices: card.prices,
-        },
-        { set: setCodeParam, cn: cnParam },
-      ),
-      listOraclePrintings(prisma, card.oracleId),
-      getCardClassification(prisma, card.oracleId),
-      getCardRelativesBySubtype(card),
-      auth(),
-    ]);
-
-  const { subtypes, relatives } = relativesResult;
-
-  const similar = await getSimilarCards(prisma, {
-    oracleId: card.oracleId,
-    colorIdentity: card.colorIdentity,
-    themes: classification?.themes ?? [],
+  // Hero-critical + collection in parallel — lists stream after (no skeleton).
+  const collectionSummaryPromise = auth().then(async (session) => {
+    if (!session?.user?.id) return null;
+    return listOracleCollectionSummary(prisma, session.user.id, card.oracleId);
   });
 
-  const [roleStaples, gameChangers, buildSkeleton] = card.isCommander
-    ? await Promise.all([
-        getRoleStaplesInCi(prisma, card.colorIdentity),
-        getGameChangersInCi(prisma, card.colorIdentity),
-        getBuildSkeleton(prisma, card.colorIdentity),
-      ])
-    : [[], [], []];
+  const [activePrintingOption, printingCount, classification, collectionSummary] =
+    await Promise.all([
+      resolveOraclePrintingOption(prisma, card.oracleId, {
+        initialSet: setCodeParam,
+        initialCn: cnParam,
+        catalogPrintingId: card.id,
+        catalogImageUri: card.imageUri,
+      }),
+      prisma.printing.count({ where: { oracleId: card.oracleId } }),
+      getCardClassification(prisma, card.oracleId),
+      collectionSummaryPromise,
+    ]);
 
-  const hasRelatives = subtypes.length > 0 && relatives.length > 0;
-  const roleStapleNav = roleStaples
-    .filter((group) => group.cards.length > 0)
-    .map((group) => ({ role: group.role, label: group.label }));
-
-  const sectionNavItems =
-    activeView === "commander"
-      ? buildCommanderDetailNavItems({
-          roleStaples: roleStapleNav,
-          hasGameChangers: gameChangers.length > 0,
-          hasBuildSkeleton: buildSkeleton.length > 0,
-        })
-      : buildCardDetailNavItems({
-          hasSimilarCards: similar.length > 0,
-          hasRelatives,
-        });
+  const seedPrintings = activePrintingOption ? [activePrintingOption] : [];
+  const printingsLoaded = printingCount <= 1;
+  const printingFaces = activePrintingOption?.faces?.length
+    ? activePrintingOption.faces
+    : parseCardFaces(card.faces);
+  const printing = {
+    imageUri: activePrintingOption?.imageUri ?? card.imageUri,
+    faces: printingFaces,
+    prices: activePrintingOption?.prices ?? card.prices,
+    finishes: activePrintingOption?.finishes ?? [],
+    setCode: activePrintingOption?.setCode ?? null,
+    setName: activePrintingOption?.setName ?? null,
+    collectorNumber: activePrintingOption?.collectorNumber ?? null,
+    printingId: activePrintingOption?.id ?? null,
+  };
 
   const footerPrices = printing.prices ?? card.prices;
   const activeFinish = resolveActiveFinish(printing.finishes, selectedFinish);
 
   const collectionSnapshot =
-    session?.user?.id != null
+    collectionSummary != null
       ? toOracleCollectionSnapshot(
-          await listOracleCollectionSummary(
-            prisma,
-            session.user.id,
-            card.oracleId,
-          ),
+          collectionSummary,
           printing.printingId,
           activeFinish,
         )
       : null;
-
   return (
     <PageShell
       title={card.name}
@@ -214,6 +183,19 @@ export default async function CardDetailPage({ params, searchParams }: CardDetai
         { label: "Browse", href: "/browse" },
         { label: card.name, href: `/cards/${slug}` },
       ]}
+      headerActions={
+        printing.setCode ? (
+          <Button
+            variant="outline"
+            size="sm"
+            className="shrink-0"
+            nativeButton={false}
+            render={<Link href={`/sets/${printing.setCode}`} />}
+          >
+            Go to set
+          </Button>
+        ) : null
+      }
     >
       <CardDetailOverview
         imageUri={printing.imageUri}
@@ -226,7 +208,10 @@ export default async function CardDetailPage({ params, searchParams }: CardDetai
         versionPicker={
           <CardDetailPrintingControls
             slug={slug}
-            printings={printings}
+            oracleId={card.oracleId}
+            seedPrintings={seedPrintings}
+            printingCount={printingCount}
+            printingsLoaded={printingsLoaded}
             selectedSet={printing.setCode}
             selectedCn={printing.collectorNumber}
             selectedFinish={selectedFinish}
@@ -246,32 +231,28 @@ export default async function CardDetailPage({ params, searchParams }: CardDetai
             prices={footerPrices}
             preferredFinish={activeFinish}
             showInclusionRank={false}
-            frictionScore={null}
             className="gap-x-3 gap-y-2 text-sm"
           />
         }
         popularityRank={card.popularityRank}
-        frictionScore={card.frictionScore}
         isGameChanger={card.isGameChanger}
         isReserved={card.isReserved}
         isCommander={card.isCommander}
         classification={classification}
       />
 
-      <CardDetailLists
+      <CardDetailListsDeferred
         slug={slug}
+        cardId={card.id}
+        oracleId={card.oracleId}
+        typeLine={card.typeLine}
         isCommander={card.isCommander}
+        colorIdentity={card.colorIdentity}
+        themes={classification?.themes ?? []}
         activeView={activeView}
         setCode={printing.setCode}
         collectorNumber={printing.collectorNumber}
         finish={activeFinish}
-        sectionNavItems={sectionNavItems}
-        similar={similar}
-        subtypes={subtypes}
-        relatives={relatives}
-        roleStaples={roleStaples}
-        gameChangers={gameChangers}
-        buildSkeleton={buildSkeleton}
       />
     </PageShell>
   );

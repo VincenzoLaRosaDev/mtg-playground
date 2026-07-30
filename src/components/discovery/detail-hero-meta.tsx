@@ -7,7 +7,6 @@ type DetailHeroMetaProps = {
   popularityRank?: number | null;
   /** When false, omit inclusion chip. */
   showInclusionRank?: boolean;
-  frictionScore?: number | null;
   isGameChanger?: boolean;
   isReserved?: boolean;
   /** Legal as a commander (Scryfall catalog flag). */
@@ -17,7 +16,6 @@ type DetailHeroMetaProps = {
 export function DetailHeroMeta({
   popularityRank,
   showInclusionRank = true,
-  frictionScore,
   isGameChanger,
   isReserved,
   isCommander,
@@ -38,12 +36,6 @@ export function DetailHeroMeta({
   }
   if (isGameChanger) {
     chips.push({ label: "Game Changer", title: "Scryfall Game Changer flag" });
-  }
-  if (frictionScore != null && frictionScore > 0) {
-    chips.push({
-      label: `Friction ${frictionScore}`,
-      title: "Friction score: Game Changer (+2) and/or stax-family tags (+1), capped at 3",
-    });
   }
   if (isReserved) {
     chips.push({ label: "Reserved List", title: "On the Reserved List" });

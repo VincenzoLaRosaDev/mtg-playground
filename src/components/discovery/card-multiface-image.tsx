@@ -14,6 +14,10 @@ import { CardTilt } from "@/components/discovery/card-tilt";
 import type { PrintingFinish } from "@/lib/scryfall/card-printing";
 import { canFlipFaces, flipFaceUris, type CardFaceImage } from "@/lib/scryfall/faces";
 import { CARD_FACE_ASPECT_CLASS, CARD_FACE_RADIUS_CLASS } from "@/lib/ui/card-face";
+import {
+  NAV_PROGRESS_SKIP_ATTR,
+  NAV_PROGRESS_SKIP_VALUE,
+} from "@/lib/ui/navigation-progress";
 import { cn } from "@/lib/utils";
 
 type CardMultifaceImageProps = {
@@ -23,7 +27,14 @@ type CardMultifaceImageProps = {
   variant?: "thumbnail" | "detail" | "grid";
   /** When set, the stack links to this href. */
   href?: string | null;
+  /**
+   * Primary click opens in-app overlay (e.g. card detail modal).
+   * Middle-click / cmd-click / open-in-new-tab still follow `href`.
+   */
+  onOpen?: () => void;
   finish?: PrintingFinish | null;
+  /** LCP / hero front face — eager fetch. */
+  priority?: boolean;
 };
 
 /** Fraction of the tile reserved so the back offset stays inside the same aspect box. */
@@ -38,12 +49,17 @@ function StackFace({
   sizes,
   finish,
   glareMotion,
+  priority = false,
+  /** Prefer lazy fetch for the offset back face (front stays LCP/priority). */
+  lazy = false,
 }: {
   src: string;
   alt: string;
   sizes: string;
   finish?: PrintingFinish | null;
   glareMotion: ReturnType<typeof glareMotionForVariant>;
+  priority?: boolean;
+  lazy?: boolean;
 }) {
   const [loaded, setLoaded] = useState(false);
   const [loadedSrc, setLoadedSrc] = useState(src);
@@ -68,23 +84,61 @@ function StackFace({
         fill
         className={cn("object-cover transition-opacity", loaded ? "opacity-100" : "opacity-0")}
         sizes={sizes}
+        priority={priority}
+        fetchPriority={priority ? "high" : undefined}
+        loading={lazy && !priority ? "lazy" : undefined}
         unoptimized
         onLoad={() => setLoaded(true)}
       />
-      <CardFinishOverlay finish={finish} glareMotion={glareMotion} />
+      {loaded ? <CardFinishOverlay finish={finish} glareMotion={glareMotion} /> : null}
     </div>
   );
 }
 
-function withOptionalLink(href: string | null | undefined, node: ReactNode) {
+function withOptionalLink(
+  href: string | null | undefined,
+  node: ReactNode,
+  onOpen?: () => void,
+) {
   if (href) {
     return (
       <Link
         href={href}
         className="block w-full cursor-pointer transition-opacity hover:opacity-90"
+        {...(onOpen
+          ? {
+              [NAV_PROGRESS_SKIP_ATTR]: NAV_PROGRESS_SKIP_VALUE,
+            }
+          : null)}
+        onClick={(event) => {
+          if (!onOpen) return;
+          // Keep middle-click / modified clicks as real navigation to the PDP.
+          if (
+            event.metaKey ||
+            event.ctrlKey ||
+            event.shiftKey ||
+            event.altKey ||
+            event.button !== 0
+          ) {
+            return;
+          }
+          event.preventDefault();
+          onOpen();
+        }}
       >
         {node}
       </Link>
+    );
+  }
+  if (onOpen) {
+    return (
+      <button
+        type="button"
+        className="block w-full cursor-pointer text-left transition-opacity hover:opacity-90"
+        onClick={onOpen}
+      >
+        {node}
+      </button>
     );
   }
   return node;
@@ -116,17 +170,24 @@ export function CardMultifaceImage({
   name,
   variant = "grid",
   href,
+  onOpen,
   finish = null,
+  priority = false,
 }: CardMultifaceImageProps) {
   const uris = flipFaceUris(faces, imageUri);
   const stacked = canFlipFaces(faces) && variant !== "thumbnail";
   const [backRaised, setBackRaised] = useState(false);
-  const sizes = variant === "detail" ? "300px" : "300px";
+  const sizes =
+    variant === "detail"
+      ? "(max-width: 639px) 100vw, 300px"
+      : variant === "grid"
+        ? "(max-width: 639px) 16rem, 16rem"
+        : "300px";
   const glareMotion = glareMotionForVariant(variant);
 
   if (uris.length === 0) {
     const placeholder = <CardFacePlaceholder variant={variant} label={name} />;
-    return withOptionalLink(href, withTilt(variant, placeholder));
+    return withOptionalLink(href, withTilt(variant, placeholder), onOpen);
   }
 
   if (!stacked) {
@@ -136,9 +197,10 @@ export function CardMultifaceImage({
         alt={faces?.[0]?.name ?? name}
         variant={variant}
         finish={finish}
+        priority={priority}
       />
     );
-    return withOptionalLink(href, withTilt(variant, image));
+    return withOptionalLink(href, withTilt(variant, image), onOpen);
   }
 
   const frontUri = uris[0]!;
@@ -174,6 +236,7 @@ export function CardMultifaceImage({
               sizes={sizes}
               finish={finish}
               glareMotion={glareMotion}
+              lazy
             />
           </div>
 
@@ -189,6 +252,7 @@ export function CardMultifaceImage({
               sizes={sizes}
               finish={finish}
               glareMotion={glareMotion}
+              priority={priority}
             />
           </div>
         </div>
@@ -196,5 +260,5 @@ export function CardMultifaceImage({
     </div>
   );
 
-  return withOptionalLink(href, withTilt(variant, stack));
+  return withOptionalLink(href, withTilt(variant, stack), onOpen);
 }

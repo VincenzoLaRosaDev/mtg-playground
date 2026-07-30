@@ -13,8 +13,12 @@ import { authConfig } from "@/auth.config";
  */
 const { auth } = NextAuth(authConfig);
 
-/** Page routes that require a signed-in user. */
-const PROTECTED_PAGES = ["/collection", "/decks"];
+/**
+ * Page routes that require a signed-in user via middleware redirect.
+ * `/collection` and `/decks` intentionally omit this — they use
+ * `RequireAuthLink` + sign-in gates (sheet-only UX). See docs/DECISIONS.md.
+ */
+const PROTECTED_PAGES: string[] = [];
 
 /** API routes that require a signed-in user (answer 401 instead of redirecting). */
 const PROTECTED_APIS = ["/api/collection"];
@@ -42,5 +46,5 @@ export default auth((req) => {
 });
 
 export const config = {
-  matcher: ["/collection/:path*", "/decks/:path*", "/api/collection/:path*"],
+  matcher: ["/api/collection/:path*"],
 };

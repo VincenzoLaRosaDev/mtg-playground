@@ -34,6 +34,8 @@ function revalidateCollection() {
   revalidatePath("/collection");
   // Card detail SSR inventory (oracle summary under Printing).
   revalidatePath("/cards", "layout");
+  // Deck owned/missing depends on collection.
+  revalidatePath("/decks", "layout");
 }
 
 const itemKey = (userId: string, printingId: string, finish: PrintingFinish, wantlist: boolean) => ({

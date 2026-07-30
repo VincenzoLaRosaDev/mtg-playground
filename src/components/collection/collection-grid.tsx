@@ -1,10 +1,10 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import { CardFaceTile } from "@/components/discovery/card-face-tile";
+import { useCardDetailModal } from "@/components/discovery/card-detail-modal-provider";
 import { PriceChip } from "@/components/discovery/price-chip";
 import { ListLoadMoreRow } from "@/components/layout/list-load-more-row";
 import { PageListMeta } from "@/components/layout/page-list-meta";
@@ -14,7 +14,6 @@ import {
   obtainFromWish,
   removeCollectionItem,
   setCollectionQuantity,
-  setWishSibling,
 } from "@/lib/collection/actions";
 import type {
   CollectionListItem,
@@ -22,6 +21,12 @@ import type {
 } from "@/lib/collection/collection";
 import { buildCardVersionHref } from "@/lib/scryfall/card-printing";
 import { CARD_FACE_GRID_CLASS } from "@/lib/ui/card-face";
+import { QTY_INPUT_WIDTH_CLASS } from "@/lib/ui/qty-input";
+import {
+  LABEL_INFO_CLASS,
+  LABEL_PRIMARY_CLASS,
+  STATUS_CHIP_CLASS,
+} from "@/lib/ui/selection-chrome";
 import { cn } from "@/lib/utils";
 
 type CollectionGridProps = {
@@ -93,6 +98,7 @@ export function CollectionGrid({ initial }: CollectionGridProps) {
 
 function CollectionItemCard({ item }: { item: CollectionListItem }) {
   const router = useRouter();
+  const { openCardDetail } = useCardDetailModal();
   const [pending, startTransition] = useTransition();
   const [qty, setQty] = useState(String(item.quantity));
   const [syncedQuantity, setSyncedQuantity] = useState(item.quantity);
@@ -111,41 +117,54 @@ function CollectionItemCard({ item }: { item: CollectionListItem }) {
 
   const isWish = item.wantlist;
 
+  function openModal() {
+    if (!item.slug) return;
+    openCardDetail({
+      mode: "collection",
+      slug: item.slug,
+      preferredPrintingId: item.printingId,
+      initialSet: item.setCode,
+      initialCn: item.collectorNumber,
+      initialFinish: item.finish,
+      imageUri: item.imageUri,
+      faces: item.faces,
+    });
+  }
+
   return (
     <CardFaceTile
       href={href}
+      onOpen={item.slug ? openModal : undefined}
       imageUri={item.imageUri}
       faces={item.faces}
       name={item.name}
       finish={item.finish}
       footer={
         <div className="space-y-2 text-sm">
-          <div className="flex flex-wrap gap-1">
+          <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-2 gap-y-1">
+            <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+              <PriceChip
+                prices={item.prices}
+                preferredFinish={item.finish}
+                mode="finish"
+                className="min-w-0"
+              />
+              <span className="min-w-0 truncate text-xs text-muted-foreground">
+                {item.setCode.toUpperCase()} #{item.collectorNumber}
+              </span>
+            </div>
             {isWish ? (
-              <span className="inline-flex h-5 items-center rounded-md border border-info/55 bg-info/20 px-1.5 text-[10px] font-semibold leading-none tracking-wide text-info-foreground uppercase">
+              <span className={cn(STATUS_CHIP_CLASS, "shrink-0", LABEL_INFO_CLASS)}>
                 Wish
               </span>
             ) : (
-              <span className="inline-flex h-5 items-center rounded-md border border-primary/45 bg-primary/15 px-1.5 text-[10px] font-semibold leading-none tracking-wide text-primary uppercase">
+              <span
+                className={cn(STATUS_CHIP_CLASS, "shrink-0", LABEL_PRIMARY_CLASS)}
+              >
                 Owned
               </span>
             )}
           </div>
-
-          <div className="min-w-0">
-            {href ? (
-              <Link href={href} className="line-clamp-2 font-medium hover:underline">
-                {item.name}
-              </Link>
-            ) : (
-              <p className="line-clamp-2 font-medium">{item.name}</p>
-            )}
-            <p className="truncate text-xs text-muted-foreground">
-              {item.setCode.toUpperCase()} #{item.collectorNumber} · {item.finish}
-            </p>
-          </div>
-
-          <PriceChip prices={item.prices} preferredFinish={item.finish} />
 
           <div className="flex flex-wrap items-center gap-1.5">
             <label className="sr-only" htmlFor={`qty-${item.id}`}>
@@ -155,7 +174,10 @@ function CollectionItemCard({ item }: { item: CollectionListItem }) {
               id={`qty-${item.id}`}
               type="number"
               min={1}
-              className="h-7 w-16"
+              className={cn(
+                QTY_INPUT_WIDTH_CLASS,
+                "h-6 shrink-0 rounded-[min(var(--radius-md),10px)] px-1 text-center text-xs tabular-nums md:text-xs",
+              )}
               value={qty}
               disabled={pending}
               onChange={(event) => setQty(event.target.value)}
@@ -173,9 +195,7 @@ function CollectionItemCard({ item }: { item: CollectionListItem }) {
               <Button
                 type="button"
                 size="xs"
-                variant="secondary"
                 disabled={pending}
-                className="border-primary/45 bg-primary/15 text-primary hover:bg-primary/25"
                 onClick={() => {
                   startTransition(async () => {
                     await obtainFromWish({ id: item.id });
@@ -185,34 +205,12 @@ function CollectionItemCard({ item }: { item: CollectionListItem }) {
               >
                 Get
               </Button>
-            ) : (
-              <Button
-                type="button"
-                size="xs"
-                variant={item.hasWishSibling ? "secondary" : "outline"}
-                disabled={pending}
-                className={cn(
-                  item.hasWishSibling &&
-                    "border-info/50 bg-info/20 text-info-foreground hover:bg-info/30",
-                )}
-                onClick={() => {
-                  startTransition(async () => {
-                    await setWishSibling({
-                      printingId: item.printingId,
-                      finish: item.finish,
-                      onWish: !item.hasWishSibling,
-                    });
-                    router.refresh();
-                  });
-                }}
-              >
-                {item.hasWishSibling ? "On wish" : "Add to wish"}
-              </Button>
-            )}
+            ) : null}
             <Button
               type="button"
               size="xs"
               variant="ghost"
+              className="text-destructive hover:text-destructive"
               disabled={pending}
               onClick={() => {
                 startTransition(async () => {

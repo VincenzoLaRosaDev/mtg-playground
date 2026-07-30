@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 
 import { CardFacePlaceholder, CardImage } from "@/components/discovery/card-image";
+import { useCardDetailModal } from "@/components/discovery/card-detail-modal-provider";
 import { SearchHitListSkeleton } from "@/components/discovery/loading-skeletons";
 import { SetIcon } from "@/components/mtg/set-icon";
 import { Input } from "@/components/ui/input";
@@ -17,6 +18,10 @@ import {
 } from "@/lib/search/types";
 import { CARD_TEXT_SEARCH_PLACEHOLDER } from "@/lib/search/card-text-search";
 import { formatSetType } from "@/lib/scryfall/sets";
+import {
+  NAV_PROGRESS_SKIP_ATTR,
+  NAV_PROGRESS_SKIP_VALUE,
+} from "@/lib/ui/navigation-progress";
 
 const DEBOUNCE_MS = 250;
 const DROPDOWN_LIMIT = GLOBAL_SEARCH_DEFAULT_LIMIT;
@@ -45,17 +50,38 @@ function SearchSection({
 function SearchResultLink({
   href,
   onSelect,
+  onOpen,
   children,
 }: {
   href: string;
   onSelect: () => void;
+  /** When set, primary click opens overlay instead of navigating. */
+  onOpen?: () => void;
   children: React.ReactNode;
 }) {
   return (
     <li>
       <Link
         href={href}
-        onClick={onSelect}
+        {...(onOpen
+          ? { [NAV_PROGRESS_SKIP_ATTR]: NAV_PROGRESS_SKIP_VALUE }
+          : null)}
+        onClick={(event) => {
+          if (
+            onOpen &&
+            !event.metaKey &&
+            !event.ctrlKey &&
+            !event.shiftKey &&
+            !event.altKey &&
+            event.button === 0
+          ) {
+            event.preventDefault();
+            onSelect();
+            onOpen();
+            return;
+          }
+          onSelect();
+        }}
         className="flex cursor-pointer items-center gap-3 px-3 py-2 text-sm hover:bg-accent"
       >
         {children}
@@ -66,6 +92,7 @@ function SearchResultLink({
 
 export function GlobalSearch() {
   const router = useRouter();
+  const { openCardDetail } = useCardDetailModal();
   const listboxId = useId();
   const containerRef = useRef<HTMLDivElement>(null);
   const [query, setQuery] = useState("");
@@ -224,6 +251,13 @@ export function GlobalSearch() {
                         key={`${card.slug}-${card.name}`}
                         href={href}
                         onSelect={handleSelect}
+                        onOpen={() =>
+                          openCardDetail({
+                            slug: card.slug ?? undefined,
+                            cardId: card.id,
+                            imageUri: card.imageUri,
+                          })
+                        }
                       >
                         {card.imageUri ? (
                           <CardImage src={card.imageUri} alt="" variant="thumbnail" />

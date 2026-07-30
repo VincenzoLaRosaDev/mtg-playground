@@ -25,7 +25,6 @@ import {
 } from "../../src/lib/scryfall/card-utils";
 import { mapScryfallFaces } from "../../src/lib/scryfall/faces";
 import { shouldIndexScryfallCard } from "../../src/lib/scryfall/catalog-filters";
-import { computeFrictionScore } from "../../src/lib/classification/friction";
 import { computeColorSortKey } from "../../src/lib/browse/color-sort";
 import { buildCardSearchDocumentFromScryfall } from "../../src/lib/search/card-text-search";
 import { parseCatalogListPrice } from "../../src/lib/scryfall/card-prices";
@@ -104,8 +103,6 @@ function mapCard(card: ScryfallCard) {
     popularityRank: card.edhrec_rank ?? null,
     isGameChanger,
     isReserved: Boolean(card.reserved),
-    // Tag-based +1 applied later by classifications job; GC contributes here.
-    frictionScore: computeFrictionScore({ isGameChanger, tagSlugs: [] }),
     isCommander: isCommanderLegal(card),
     colorSort: computeColorSortKey(card.colors ?? []),
     listPriceEur: parseCatalogListPrice(card.prices),
@@ -161,7 +158,6 @@ async function upsertBatch(
       popularity_rank,
       is_game_changer,
       is_reserved,
-      friction_score,
       is_commander,
       color_sort,
       list_price_eur,
@@ -194,7 +190,6 @@ async function upsertBatch(
           ${card.popularityRank},
           ${card.isGameChanger},
           ${card.isReserved},
-          ${card.frictionScore},
           ${card.isCommander},
           ${card.colorSort},
           ${card.listPriceEur},
@@ -226,7 +221,6 @@ async function upsertBatch(
       popularity_rank = EXCLUDED.popularity_rank,
       is_game_changer = EXCLUDED.is_game_changer,
       is_reserved = EXCLUDED.is_reserved,
-      friction_score = EXCLUDED.friction_score,
       is_commander = EXCLUDED.is_commander,
       color_sort = EXCLUDED.color_sort,
       list_price_eur = EXCLUDED.list_price_eur,

@@ -173,7 +173,7 @@ Wave 7 → polish
 | Ops.1 | Browse sync health includes `top_lists` + `EdhrecSyncNotice` on `/cards` `/commanders` | ✅ | 2026-07-16 |
 | Ops.2 | Weekly EDHREC workflow purges expired `edhrec_page_variants` (still gated off) | ✅ | 2026-07-16 |
 | Ops.3 | Docs/.env: drop phantom `SYNC_CRON_SECRET` / `/api/sync` | ✅ | 2026-07-16 |
-| Ops.4 | Enable GH Actions sync (`DATABASE_URL` secret + `SYNC_JOBS_ENABLED` + cron) | ⬜ | When ready |
+| Ops.4 | Enable GH Actions sync (`DATABASE_URL` secret + cron; no push trigger) | ✅ | 2026-07-30 |
 | Ops.5 | Delete leftover browse/search code + refresh ARCHITECTURE tree | ✅ | 2026-07-16 |
 | Ops.6 | `useBrowseList` hook + split `lib/browse/cards*` modules | ✅ | 2026-07-16 |
 | Ops.7 | Vitest unit tests: browse cursor, slug, cardlists parsers | ✅ | 2026-07-16 |
@@ -248,7 +248,7 @@ Wave 7 → polish
 
 **Follow-up (2026-07-20):** Dropped Related parts / `card_relations` (Scryfall `all_parts`) from PDP + sync — see `docs/DECISIONS.md`.
 
-**Follow-up (2026-07-21):** Card detail two-band layout + **As card / As commander** list packs (`?view=commander`) — see `docs/DECISIONS.md`. D2 helpers remain on detail for commander view; Phase **2.2.6** still covers deck-builder reuse.
+**Follow-up (2026-07-21):** Card detail two-band layout + **As card / As commander** list packs (`?view=commander`) — see `docs/DECISIONS.md`. D2 helpers reused in deck-builder insights (2.2.6 ✅).
 
 **Next:** Phase 2.2 Multi-format deck builder.
 
@@ -275,27 +275,32 @@ Wave 7 → polish
 
 ---
 
-## Phase 2.2 — Multi-format deck builder ⬜
+## Phase 2.2 — Multi-format deck builder ✅
 
 **Goal:** Create/import/edit decks for multiple formats; owned/missing vs collection.
 
-| # | Task | Status |
-|---|---|---|
-| 2.2.1 | Prisma: Deck, DeckCard (+ format, optional preferred printing) | ⬜ |
-| 2.2.2 | Live editor UI | ⬜ |
+| # | Task | Status | Done |
+|---|---|---|---|
+| 2.2.1 | Prisma: Deck, DeckCard (+ format, optional preferred printing) | ✅ | 2026-07-26 |
+| 2.2.2 | Live editor UI | ✅ | 2026-07-26 |
 | 2.2.2a | Workspace search overlay (Add) — building block ready | ✅ | 2026-07-22 |
 | 2.2.2b | CardPeek Sheet (inspect + printing callback + Open full page) — building block ready | ✅ | 2026-07-22 |
 | 2.2.2c | VersionPicker / VersionsBrowser `onSelectPrinting` callback mode | ✅ | 2026-07-22 |
-| 2.2.3 | Multi-format legality engine | ⬜ |
-| 2.2.4 | Arena paste parser | ⬜ |
-| 2.2.5 | Owned / missing vs collection (oracle aggregate) | ⬜ |
-| 2.2.6 | Builder insights (roles / GC / friction / relations — reuse detail D2 helpers) | ⬜ |
-| 2.2.7 | Deck CRUD `/my/decks` + limits | ⬜ |
-| 2.2.8 | Guest analyze (optional) | ⬜ |
+| 2.2.3 | Multi-format legality engine | ✅ | 2026-07-27 |
+| 2.2.4 | Arena + plain-text paste import (oracle) | ✅ | 2026-07-27 |
+| 2.2.5 | Owned / missing vs collection (oracle aggregate) | ✅ | 2026-07-26 |
+| 2.2.6 | Builder insights (roles / GC — reuse detail D2 helpers; Friction removed 2026-07-29) | ✅ | 2026-07-27 |
+| 2.2.7 | Deck CRUD `/decks` + limits (50 decks / 250 cards) | ✅ | 2026-07-26 |
+| 2.2.8 | Guest analyze (optional) | ⏭️ | skipped 2026-07-27 |
 
-**UX note (2026-07-22):** Workspace uses contextual overlays; catalog keeps full PDP — see `docs/DECISIONS.md`. Wire 2.2.2a–b into the live editor when 2.2.2 ships.
+**Slice 1 (2026-07-26):** Schema + `/decks` CRUD + live editor + owned/missing.
+**Follow-up (2026-07-27):** Unified **CardDetailModal** site-wide (browse/search/collection/deck); PDP kept + View detail.
+**Scope lock (2026-07-27):** Legality = B + **block** (Scryfall + size/singleton/CI/commander); import = Arena + plain text → oracle; insights = in-builder counts (not Phase 3 curve); guest analyze skipped; notes UI deferred. See `docs/DECISIONS.md`.
 
-**Demo:** Build a Modern deck → see missing cards vs collection → save.
+**UX note (2026-07-22):** Workspace uses contextual overlays; catalog keeps full PDP — see `docs/DECISIONS.md`. Editor wires 2.2.2a–c (peek evolved into CardDetailModal).
+**UX note (2026-07-30):** Editor card list → **grid** + Main/Side **type sections** (CMC sort); see `docs/UI.md` / `docs/DECISIONS.md`.
+
+**Demo:** Build a Modern deck → see missing cards vs collection → save. Import an Arena/EDHREC paste → legality + insights update.
 
 ---
 
@@ -323,7 +328,7 @@ Wave 7 → polish
 | 3.3 | Theme overlap (deck-level) | ⬜ |
 | 3.4 | Format coherence alerts | ⬜ |
 | 3.5 | Compare vs precon / own publications (not EDHREC) | ⬜ |
-| 3.6 | Analysis page `/my/decks/[id]/analysis` | ⬜ |
+| 3.6 | Analysis page `/decks/[id]/analysis` | ⬜ |
 
 **Supersedes:** Old Phase 3 “vs EDHREC profile” tasks.
 

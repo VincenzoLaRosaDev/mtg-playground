@@ -15,9 +15,22 @@ let savedBodyStyle: LockedBodyStyle | null = null;
 let savedScrollY = 0;
 
 /**
+ * While a sheet lock is active, drop the restore target to top.
+ * Used on pathname navigations so unlock does not undo scroll-to-top
+ * (e.g. View detail from CardDetailModal after the page was scrolled).
+ */
+export function clearBodyScrollRestore() {
+  if (bodyLockCount === 0) return;
+  savedScrollY = 0;
+  if (document.body.style.position === "fixed") {
+    document.body.style.top = "0";
+  }
+}
+
+/**
  * Reference-counted `position: fixed` body scroll lock (base-ui's Dialog has
  * no built-in one — without this, background content still scrolls under an
- * open sheet on touch devices). Counted so nested sheets (e.g. CardPeek
+ * open sheet on touch devices). Counted so nested sheets (e.g. card detail
  * opening VersionsBrowser) don't restore scroll early when the inner one closes.
  */
 export function lockBodyScroll(): () => void {
@@ -59,5 +72,8 @@ export function lockBodyScroll(): () => void {
 
 /** Scroll the window to the very top, respecting reduced-motion. */
 export function scrollWindowToTop() {
-  window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? "auto" : "smooth" });
+  window.scrollTo({
+    top: 0,
+    behavior: prefersReducedMotion() ? "auto" : "smooth",
+  });
 }

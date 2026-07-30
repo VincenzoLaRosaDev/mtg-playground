@@ -24,10 +24,17 @@ function SheetPortal({ ...props }: SheetPrimitive.Portal.Props) {
   return <SheetPrimitive.Portal data-slot="sheet-portal" {...props} />
 }
 
-function SheetOverlay({ className, ...props }: SheetPrimitive.Backdrop.Props) {
+function SheetOverlay({
+  className,
+  forceRender = true,
+  ...props
+}: SheetPrimitive.Backdrop.Props) {
   return (
     <SheetPrimitive.Backdrop
       data-slot="sheet-overlay"
+      // Base UI skips nested backdrops unless forced — without one, outside-press
+      // cannot dismiss a sheet opened over another (e.g. Versions over CardDetail).
+      forceRender={forceRender}
       className={cn(
         "fixed inset-0 z-50 bg-black/10 transition-opacity duration-150 data-ending-style:opacity-0 data-starting-style:opacity-0 supports-backdrop-filter:backdrop-blur-xs",
         className
@@ -45,7 +52,7 @@ const sheetDesktopSizeClassName = {
    *  grows past `lg` so `CARD_FACE_GRID_CLASS`'s wider column tiers have room
    *  instead of cramming into a fixed 896px box. `3xl:` needs `!important` —
    *  see the cascade-order note in globals.css. */
-  xl: "lg:max-w-[1536px]!",
+  xl: "lg:max-w-4xl xl:max-w-5xl 2xl:max-w-6xl 3xl:max-w-[1536px]!",
 } as const
 
 type SheetDesktopSize = keyof typeof sheetDesktopSizeClassName

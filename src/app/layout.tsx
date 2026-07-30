@@ -1,12 +1,15 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { Suspense } from "react";
 
 import { auth } from "@/auth";
 import { AppFooter } from "@/components/layout/app-footer";
 import { AppHeader } from "@/components/layout/app-header";
+import { NavigationProgress } from "@/components/layout/navigation-progress";
 import { ScrollToTopOnPathnameChange } from "@/components/layout/scroll-to-top-on-pathname";
 import { SessionProvider } from "@/components/auth/session-provider";
 import { SignInSheetProvider } from "@/components/auth/sign-in-sheet";
+import { CardDetailModalProvider } from "@/components/discovery/card-detail-modal-provider";
 import { ThemeProvider } from "@/components/layout/theme-provider";
 import { CatalogDebugPanel } from "@/components/dev/catalog-debug-panel";
 import { rootMetadata } from "@/lib/seo/site";
@@ -49,11 +52,16 @@ export default async function RootLayout({
               hasDiscord={hasDiscord}
               hasEmail={hasEmail}
             >
-              <ScrollToTopOnPathnameChange />
-              <AppHeader />
-              <main className="flex-1 bg-background">{children}</main>
-              <AppFooter />
-              <CatalogDebugPanel />
+              <CardDetailModalProvider>
+                <ScrollToTopOnPathnameChange />
+                <Suspense fallback={null}>
+                  <NavigationProgress />
+                </Suspense>
+                <AppHeader />
+                <main className="flex-1 bg-background">{children}</main>
+                <AppFooter />
+                <CatalogDebugPanel />
+              </CardDetailModalProvider>
             </SignInSheetProvider>
           </SessionProvider>
         </ThemeProvider>

@@ -40,11 +40,16 @@ const browseSymbolToggleClassName =
 type BrowseFilterSectionProps = {
   title: string;
   children: ReactNode;
+  className?: string;
 };
 
-export function BrowseFilterSection({ title, children }: BrowseFilterSectionProps) {
+export function BrowseFilterSection({
+  title,
+  children,
+  className,
+}: BrowseFilterSectionProps) {
   return (
-    <div className="min-w-0 space-y-1.5">
+    <div className={cn("min-w-0", className)}>
       <span className={browseFilterLabelClassName}>{title}</span>
       {children}
     </div>
@@ -165,7 +170,7 @@ export function BrowseFilterPill({ label, selected, onClick }: BrowseFilterPillP
       onPressedChange={() => onClick()}
       variant="outline"
       size="sm"
-      className="rounded-full px-2.5 text-xs data-pressed:bg-primary data-pressed:text-primary-foreground data-pressed:hover:bg-primary/80 aria-pressed:bg-primary aria-pressed:text-primary-foreground"
+      className="rounded-full px-2.5 text-xs"
     >
       {label}
     </Toggle>
