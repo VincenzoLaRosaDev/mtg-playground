@@ -1,15 +1,14 @@
 name: Scryfall sync
 
-# TEMP: scheduled + manual runs disabled until GitHub secrets are configured.
-# Re-enable: set SYNC_JOBS_ENABLED to "true" and uncomment `schedule` below.
-env:
-  SYNC_JOBS_ENABLED: "true"
+# Runs on cron + manual dispatch only (never on push).
+# Requires repository secret DATABASE_URL → Neon production pooled URL.
+# To pause schedules: comment out the `schedule` block (manual dispatch still works).
 
 on:
   schedule:
-  #   # Daily oracle_cards check + sync when bulk changed (03:00 UTC)
+    # Daily oracle_cards check + sync when bulk changed (03:00 UTC)
     - cron: "0 3 * * *"
-  #   # Weekly sets + set index (Sundays 04:30 UTC)
+    # Weekly sets + printings + tags + classifications (Sundays 04:30 UTC)
     - cron: "30 4 * * 0"
   workflow_dispatch:
     inputs:
@@ -25,10 +24,10 @@ on:
 
 jobs:
   sync-oracle-cards:
+    # `env` is not available in job-level `if` — gate with event only.
     if: >
-      env.SYNC_JOBS_ENABLED == 'true' &&
-      ((github.event_name == 'schedule' && github.event.schedule == '0 3 * * *') ||
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.mode != 'sets-only'))
+      (github.event_name == 'schedule' && github.event.schedule == '0 3 * * *') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.mode != 'sets-only')
     runs-on: ubuntu-latest
     timeout-minutes: 90
 
@@ -60,9 +59,8 @@ jobs:
 
   sync-sets:
     if: >
-      env.SYNC_JOBS_ENABLED == 'true' &&
-      ((github.event_name == 'schedule' && github.event.schedule == '30 4 * * 0') ||
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.mode == 'sets-only'))
+      (github.event_name == 'schedule' && github.event.schedule == '30 4 * * 0') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.mode == 'sets-only')
     runs-on: ubuntu-latest
     timeout-minutes: 360
 

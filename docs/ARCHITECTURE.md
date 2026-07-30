@@ -112,7 +112,7 @@ EDHREC removed (2026-07-20). No third-party meta scrape. See pivot decision in `
 | Rankings recompute | Weekly | `scripts/sync/recompute-rankings.ts` (Phase 4) |
 | MTGJSON precons | Monthly | `scripts/sync/mtgjson-precons.ts` (Phase 5) |
 
-GitHub Actions (`.github/workflows/sync-*.yml`): **temporarily disabled** (`SYNC_JOBS_ENABLED: "false"`, cron commented out) until `DATABASE_URL` is set on GitHub and syncs are intentionally enabled — see `README.md` § GitHub Actions. When enabled: Scryfall daily/weekly sync only.
+GitHub Actions (`.github/workflows/sync-scryfall.yml`): **cron + `workflow_dispatch` only** (never on push). Requires repository secret `DATABASE_URL` → Neon **production** pooled URL. Daily `oracle_cards` (`0 3 * * *` UTC) and weekly sets/printings/tags/classifications (`30 4 * * 0` UTC). Pause schedules by commenting out the `schedule` block. Note: job-level `if:` cannot use the `env` context — gate with `github.event_*` only.
 
 Daily Scryfall runs fetch bulk metadata only when `updated_at` matches the last successful sync (`sync_logs.errors.bulkUpdatedAt`); full download runs when Scryfall publishes a new bulk file.
 

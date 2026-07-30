@@ -173,7 +173,7 @@ Wave 7 → polish
 | Ops.1 | Browse sync health includes `top_lists` + `EdhrecSyncNotice` on `/cards` `/commanders` | ✅ | 2026-07-16 |
 | Ops.2 | Weekly EDHREC workflow purges expired `edhrec_page_variants` (still gated off) | ✅ | 2026-07-16 |
 | Ops.3 | Docs/.env: drop phantom `SYNC_CRON_SECRET` / `/api/sync` | ✅ | 2026-07-16 |
-| Ops.4 | Enable GH Actions sync (`DATABASE_URL` secret + `SYNC_JOBS_ENABLED` + cron) | ⬜ | When ready |
+| Ops.4 | Enable GH Actions sync (`DATABASE_URL` secret + cron; no push trigger) | ✅ | 2026-07-30 |
 | Ops.5 | Delete leftover browse/search code + refresh ARCHITECTURE tree | ✅ | 2026-07-16 |
 | Ops.6 | `useBrowseList` hook + split `lib/browse/cards*` modules | ✅ | 2026-07-16 |
 | Ops.7 | Vitest unit tests: browse cursor, slug, cardlists parsers | ✅ | 2026-07-16 |
