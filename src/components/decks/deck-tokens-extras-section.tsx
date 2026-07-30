@@ -162,7 +162,7 @@ function TokenExtraListRow({
         name={item.name}
         imageUri={item.imageUri}
         faces={item.faces}
-        onOpen={item.slug ? onOpen : undefined}
+        onOpen={onOpen}
         className="min-w-0 flex-1"
       />
       {item.typeLine ? (
