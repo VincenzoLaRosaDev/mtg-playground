@@ -287,11 +287,8 @@ export function ListFilterAccess({
 
   // Mount / unmount drawer. Do not start the open slide here — wait until measured.
   useEffect(() => {
-    if (!showFilterTongue) {
-      setDrawerMounted(false);
-      setDrawerShown(false);
-      return;
-    }
+    // Sticky-actions-only mode (no Filters tongue): never mount the drawer.
+    if (!showFilterTongue) return;
 
     // Bump synchronously (not deferred below) so the open-slide effect's
     // `gen` capture always sees this cycle, invalidating any stale in-flight

@@ -137,6 +137,12 @@ export function CardDetailModal({
   );
   const [versionsOpen, setVersionsOpen] = useState(false);
   const [userDataLoading, setUserDataLoading] = useState(false);
+  const sessionUserId = session?.user?.id ?? null;
+  const [syncedSessionUserId, setSyncedSessionUserId] = useState(sessionUserId);
+  const needsUserData = Boolean(
+    open && payload && sessionUserId && status !== "loading",
+  );
+  const [syncedNeedsUserData, setSyncedNeedsUserData] = useState(needsUserData);
 
   // Reset local selection when a new payload arrives (React “adjust during render”).
   if (payload !== syncedPayload) {
@@ -157,20 +163,29 @@ export function CardDetailModal({
     setActiveDeckCardId(deckCardId);
   }
 
-  // Collection / deck CTAs load after the catalog hero opens.
-  useEffect(() => {
-    if (!open || !payload) return;
-    if (status === "loading") return;
-
-    if (!session?.user) {
+  // Signed-out: clear user data during render (same pattern as payload sync above).
+  if (sessionUserId !== syncedSessionUserId) {
+    setSyncedSessionUserId(sessionUserId);
+    if (!sessionUserId) {
       setCollectionBase(null);
       setDeckSnapshot(null);
       setUserDataLoading(false);
-      return;
     }
+  }
+
+  // Kick loading flag when a signed-in fetch becomes necessary (not inside the effect).
+  if (needsUserData !== syncedNeedsUserData) {
+    setSyncedNeedsUserData(needsUserData);
+    if (needsUserData) {
+      setUserDataLoading(true);
+    }
+  }
+
+  // Collection / deck CTAs load after the catalog hero opens.
+  useEffect(() => {
+    if (!needsUserData || !payload || !sessionUserId) return;
 
     let cancelled = false;
-    setUserDataLoading(true);
     void loadCardDetailModalUserData({
       oracleId: payload.oracleId,
       deckId: mode === "deck" ? deckId : null,
@@ -186,14 +201,7 @@ export function CardDetailModal({
     return () => {
       cancelled = true;
     };
-  }, [
-    open,
-    payload,
-    mode,
-    deckId,
-    status,
-    session?.user?.id,
-  ]);
+  }, [needsUserData, payload, mode, deckId, sessionUserId]);
 
   const activePrinting =
     printings.find((p) => p.id === activePrintingId) ??

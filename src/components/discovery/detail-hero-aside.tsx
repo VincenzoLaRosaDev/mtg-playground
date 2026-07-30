@@ -1,5 +1,3 @@
-import type { ReactNode } from "react";
-
 import { CardMultifaceImage } from "@/components/discovery/card-multiface-image";
 import type { CardFaceImage } from "@/lib/scryfall/faces";
 import type { PrintingFinish } from "@/lib/scryfall/card-printing";
