@@ -94,40 +94,44 @@ export function DeckInsightsPanel({
           />
         </StatCell>
 
-        {/* Explicit pair rows (not multi-column flow) so left/right order stays fixed. */}
-        <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
-          <StatCell title="Colors">
-            <DeckColorsStats
-              manaPips={manaPips}
-              manaProduction={
-                landsOnlyProduction ? manaProductionLandsOnly : manaProduction
-              }
-              includeColorless={includeColorless}
-              onIncludeColorless={setIncludeColorless}
-              landsOnlyProduction={landsOnlyProduction}
-              onLandsOnlyProduction={setLandsOnlyProduction}
-            />
-          </StatCell>
-          <StatCell title="Mana curve">
-            <DeckCurveStats
-              composition={composition}
-              curveBreakdowns={curveBreakdowns}
-            />
-          </StatCell>
-        </div>
-
-        <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
-          <StatCell title="Quantities">
-            <DeckQuantitiesStats quantityBreakdowns={quantityBreakdowns} />
-          </StatCell>
-          <StatCell title="Odds">
-            <DeckOddsStats
-              format={format}
-              deckSize={composition.countedCopies}
-              quantityBreakdowns={quantityBreakdowns}
-              cardNameQuantities={cardNameQuantities}
-            />
-          </StatCell>
+        {/*
+          Column mosaic at lg+: left Colors→Quantities, right Mana curve→Odds.
+          Below lg, `contents` + order keeps reading order Colors → Curve → Quantities → Odds.
+        */}
+        <div className="flex flex-col gap-4 lg:grid lg:grid-cols-2 lg:items-start">
+          <div className="contents lg:flex lg:flex-col lg:gap-4">
+            <StatCell title="Colors" className="order-1">
+              <DeckColorsStats
+                manaPips={manaPips}
+                manaProduction={
+                  landsOnlyProduction ? manaProductionLandsOnly : manaProduction
+                }
+                includeColorless={includeColorless}
+                onIncludeColorless={setIncludeColorless}
+                landsOnlyProduction={landsOnlyProduction}
+                onLandsOnlyProduction={setLandsOnlyProduction}
+              />
+            </StatCell>
+            <StatCell title="Quantities" className="order-3">
+              <DeckQuantitiesStats quantityBreakdowns={quantityBreakdowns} />
+            </StatCell>
+          </div>
+          <div className="contents lg:flex lg:flex-col lg:gap-4">
+            <StatCell title="Mana curve" className="order-2">
+              <DeckCurveStats
+                composition={composition}
+                curveBreakdowns={curveBreakdowns}
+              />
+            </StatCell>
+            <StatCell title="Odds" className="order-4">
+              <DeckOddsStats
+                format={format}
+                deckSize={composition.countedCopies}
+                quantityBreakdowns={quantityBreakdowns}
+                cardNameQuantities={cardNameQuantities}
+              />
+            </StatCell>
+          </div>
         </div>
       </div>
     </section>
