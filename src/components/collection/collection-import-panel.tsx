@@ -1,5 +1,6 @@
 "use client";
 
+import { XIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
@@ -8,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
   Sheet,
+  SheetClose,
   SheetContent,
   SheetDescription,
   SheetHeader,
@@ -59,16 +61,17 @@ export function CollectionImportPanel() {
       <SheetContent
         side="bottom"
         size="xl"
+        showCloseButton={false}
         className="flex max-h-[85dvh] flex-col gap-0 overflow-hidden p-0"
       >
         <SheetHeader
           className={cn(
             siteContainerClassName,
-            "shrink-0 py-4 pr-12",
+            "shrink-0 py-4",
             SHEET_LIST_RULE_CLASS,
           )}
         >
-          <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
               <SheetTitle>Import collection</SheetTitle>
               <SheetDescription>
@@ -76,15 +79,30 @@ export function CollectionImportPanel() {
                 <code className="text-xs">1,MH2,240,foil</code>. Unresolved rows are reported.
               </SheetDescription>
             </div>
-            <Button
-              type="button"
-              size="sm"
-              className={cn(SHEET_ACTIONS_IN_HEADER_CLASS, "shrink-0 self-start")}
-              disabled={importDisabled}
-              onClick={handleImport}
-            >
-              Import rows
-            </Button>
+            <div className="flex shrink-0 items-center gap-2">
+              <Button
+                type="button"
+                size="sm"
+                className={cn(SHEET_ACTIONS_IN_HEADER_CLASS)}
+                disabled={importDisabled}
+                onClick={handleImport}
+              >
+                Import rows
+              </Button>
+              <SheetClose
+                render={
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    className="shrink-0"
+                  />
+                }
+              >
+                <XIcon />
+                <span className="sr-only">Close</span>
+              </SheetClose>
+            </div>
           </div>
         </SheetHeader>
 

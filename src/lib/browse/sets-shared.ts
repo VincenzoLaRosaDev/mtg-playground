@@ -9,6 +9,8 @@ export type SetBrowseItem = {
   iconUri: string | null;
   digital: boolean;
   indexedCardCount: number;
+  /** First indexed printing image (normal URI); UI shows art_crop. */
+  coverImageUri: string | null;
 };
 
 export type SetTypeFilterOption = { value: string; label: string };

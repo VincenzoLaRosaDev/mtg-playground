@@ -12,14 +12,19 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useActiveDetailSectionId } from "@/hooks/use-active-detail-section-id";
 import type { DetailSectionNavItem } from "@/lib/ui/detail-section-nav";
-import { DETAIL_SECTION_JUMP_STICKY_CLASS } from "@/lib/ui/layout";
+import { DETAIL_SECTION_JUMP_STICKY_CLASS, DETAIL_SECTION_JUMP_STICKY_SHEET_CLASS } from "@/lib/ui/layout";
 import { cn } from "@/lib/utils";
 
 type DetailSectionJumpProps = {
   items: DetailSectionNavItem[];
+  /** Sticky chrome — page (under site header) or sheet (scrollport top). */
+  variant?: "page" | "sheet";
 };
 
-export function DetailSectionJump({ items }: DetailSectionJumpProps) {
+export function DetailSectionJump({
+  items,
+  variant = "page",
+}: DetailSectionJumpProps) {
   const [activeId, setActiveId] = useActiveDetailSectionId(items);
 
   if (items.length < 2) {
@@ -30,8 +35,13 @@ export function DetailSectionJump({ items }: DetailSectionJumpProps) {
     items.find((item) => item.id === activeId)?.label ?? items[0]?.label ?? "Sections";
 
   return (
-    <div className={DETAIL_SECTION_JUMP_STICKY_CLASS}>
-      <DropdownMenu>
+    <div
+      className={
+        variant === "sheet"
+          ? DETAIL_SECTION_JUMP_STICKY_SHEET_CLASS
+          : DETAIL_SECTION_JUMP_STICKY_CLASS
+      }
+    >      <DropdownMenu>
         <DropdownMenuTrigger
           render={
             <Button

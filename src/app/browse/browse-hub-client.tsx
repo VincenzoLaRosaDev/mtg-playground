@@ -121,6 +121,10 @@ export function BrowseHubClient({
     <PageShell
       title="Browse"
       description={description}
+      breadcrumbs={[
+        { label: "Home", href: "/" },
+        { label: "Browse", href: "/browse" },
+      ]}
       toolbar={
         <ListFilterAccess hasActiveFilters={hasActiveFilters} filtersKey={requestKey}>
           <BrowseHubToolbar

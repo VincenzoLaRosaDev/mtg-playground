@@ -291,6 +291,7 @@ Wave 7 → polish
 | 2.2.5 | Owned / missing vs collection (oracle aggregate) | ✅ | 2026-07-26 |
 | 2.2.6 | Builder insights (roles / GC — reuse detail D2 helpers; Friction removed 2026-07-29) | ✅ | 2026-07-27 |
 | 2.2.7 | Deck CRUD `/decks` + limits (50 decks / 250 cards) | ✅ | 2026-07-26 |
+| 2.2.7a | Tokens & Extras after stats (inferred token vs extra; no extras board) | ✅ | 2026-07-31 |
 | 2.2.8 | Guest analyze (optional) | ⏭️ | skipped 2026-07-27 |
 
 **Slice 1 (2026-07-26):** Schema + `/decks` CRUD + live editor + owned/missing.
@@ -304,33 +305,41 @@ Wave 7 → polish
 
 ---
 
-## Phase 2.3 — Precons (MTGJSON) ⬜
+## Phase 2.3 — Precons (MTGJSON) ✅
 
-**Goal:** Official precon browse + fork into deck + gap vs collection.
+**Goal:** Official precon browse + fork into deck + gap vs collection. **Completed 2026-07-30.**
+
+| # | Task | Status | Done |
+|---|---|---|---|
+| 2.3.1 | MTGJSON precon sync | ✅ | 2026-07-30 |
+| 2.3.2 | `/precons` browse + detail | ✅ | 2026-07-30 |
+| 2.3.3 | Fork precon → deck | ✅ | 2026-07-30 |
+| 2.3.4 | Owned vs precon checklist | ✅ | 2026-07-30 |
+
+**Scope:** Constructed-format MTGJSON decks only (commander, challenger, starter, …); fork copies oracle + preferred printing when resolved; `Deck.sourcePreconId` provenance. See `docs/DECISIONS.md`.
+
+**Follow-up (2026-07-30):** Precon PDP mounts shared deck stats (`DeckInsightsPanel`); sets/precons PLPs use browse-density preview cards (art_crop + set icon; precon Cost bar). Precon browse: widened search + type + color-identity filter (`Precon.colorIdentity` denorm).
+
+**Follow-up (2026-07-31):** Deck Tokens & Extras after stats (relations + token sets + MTGJSON precon `tokens` → `PreconCard.board=token` on PDP; both tabs read-only inferred; no deck `extras` board).
+
+**Next:** Phase 3 Analysis (platform-native).
+
+## Phase 3 — Analysis (platform-native) ✅
+
+**Goal:** In-builder deck intelligence (composition, roles/themes, soft coherence) without external meta scrape. No dedicated analysis route. **Completed 2026-07-30.**
 
 | # | Task | Status |
 |---|---|---|
-| 2.3.1 | MTGJSON precon sync | ⬜ |
-| 2.3.2 | `/precons` browse + detail | ⬜ |
-| 2.3.3 | Fork precon → deck | ⬜ |
-| 2.3.4 | Owned vs precon checklist | ⬜ |
+| 3.1 | Curve, types, lands, colors | ✅ | 2026-07-30 |
+| 3.2 | Functional role counts (classifications) | ✅ | 2026-07-30 |
+| 3.3 | Theme overlap (deck-level) | ✅ | 2026-07-30 |
+| 3.4 | Format coherence alerts | ✅ | 2026-07-30 |
+| 3.5 | Compare vs precon / own publications | ❌ | Cancelled 2026-07-30 — decks diverge by design; `sourcePreconId` stays provenance only |
+| 3.6 | Analysis page `/decks/[id]/analysis` | ❌ | Cancelled 2026-07-30 — analysis stays inside the deck editor |
 
----
+**Supersedes:** Old Phase 3 “vs EDHREC profile” tasks. See `docs/DECISIONS.md` (2026-07-30 Phase 3 scope).
 
-## Phase 3 — Analysis (platform-native) ⬜
-
-**Goal:** Deck intelligence without external meta scrape.
-
-| # | Task | Status |
-|---|---|---|
-| 3.1 | Curve, types, lands, colors | ⬜ |
-| 3.2 | Functional role counts (classifications) | ⬜ |
-| 3.3 | Theme overlap (deck-level) | ⬜ |
-| 3.4 | Format coherence alerts | ⬜ |
-| 3.5 | Compare vs precon / own publications (not EDHREC) | ⬜ |
-| 3.6 | Analysis page `/decks/[id]/analysis` | ⬜ |
-
-**Supersedes:** Old Phase 3 “vs EDHREC profile” tasks.
+**Next:** Phase 4 Community (multi-format).
 
 ---
 

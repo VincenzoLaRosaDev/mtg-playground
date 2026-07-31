@@ -39,6 +39,14 @@ export type ScryfallCard = {
   }>;
   legalities: Record<string, string>;
   prices?: Record<string, string | null>;
+  all_parts?: Array<{
+    object?: string;
+    id: string;
+    component: string;
+    name: string;
+    type_line: string;
+    uri?: string;
+  }> | null;
 };
 
 export type ScryfallBulkData = {

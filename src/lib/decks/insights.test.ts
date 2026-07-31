@@ -56,12 +56,20 @@ describe("summarizeDeckInsights", () => {
     );
 
     expect(result.roleCounts).toEqual([
-      { key: "ramp", label: "ramp", count: 3 },
-      { key: "draw", label: "draw", count: 2 },
+      { key: "ramp", label: "ramp", count: 3, percent: 100 },
+      { key: "draw", label: "draw", count: 2, percent: 66.7 },
     ]);
     expect(result.themeCounts).toEqual([
-      { key: "artifacts_matter", label: "artifacts matter", count: 1 },
+      {
+        key: "artifacts_matter",
+        label: "artifacts matter",
+        count: 1,
+        percent: 33.3,
+      },
     ]);
+    expect(result.themeOverlap.themedCopies).toBe(1);
+    expect(result.themeOverlap.multiThemeCopies).toBe(0);
+    expect(result.themeOverlap.topThemes).toHaveLength(1);
   });
 
   it("builds skeleton progress from role counts when requested", () => {

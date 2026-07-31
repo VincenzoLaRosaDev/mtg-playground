@@ -6,7 +6,7 @@ import { CardDetailListsDeferred } from "@/components/discovery/card-detail-list
 import { CardDetailOverview } from "@/components/discovery/card-detail-overview";
 import { CardDetailPrintingControls } from "@/components/discovery/card-detail-printing-controls";
 import { EntityPreviewFooter } from "@/components/discovery/entity-preview-footer";
-import { CardCollectionPanel } from "@/components/collection/card-collection-panel";
+import { CardDetailManageSection } from "@/components/discovery/card-detail-manage-section";
 import { PageShell } from "@/components/layout/page-shell";
 import { Button } from "@/components/ui/button";
 import { auth } from "@/auth";
@@ -50,6 +50,7 @@ const cardSelect = {
   faces: true,
   isCommander: true,
   colorIdentity: true,
+  legalities: true,
   prices: true,
   popularityRank: true,
   isGameChanger: true,
@@ -180,6 +181,7 @@ export default async function CardDetailPage({ params, searchParams }: CardDetai
       title={card.name}
       description={card.typeLine}
       breadcrumbs={[
+        { label: "Home", href: "/" },
         { label: "Browse", href: "/browse" },
         { label: card.name, href: `/cards/${slug}` },
       ]}
@@ -219,11 +221,15 @@ export default async function CardDetailPage({ params, searchParams }: CardDetai
           />
         }
         collectionAction={
-          <CardCollectionPanel
+          <CardDetailManageSection
             slug={slug}
+            cardId={card.id}
+            oracleId={card.oracleId}
+            typeLine={card.typeLine}
+            legalities={card.legalities}
             printingId={printing.printingId}
             finish={activeFinish}
-            snapshot={collectionSnapshot}
+            collectionSnapshot={collectionSnapshot}
           />
         }
         previewFooter={

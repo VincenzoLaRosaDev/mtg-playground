@@ -65,13 +65,27 @@ npm run sync:compute-classifications
 ```
 
 `sync:scryfall-printings` downloads Scryfall **`default_cards`** bulk (larger than oracle; often tens of minutes on first run) and upserts the `printings` table.
+
+After printings are indexed, load official constructed precons (MTGJSON):
+
+```bash
+npm run sync:mtgjson-precons
+# optional: --if-changed   # skip deck fetch when DeckList meta.date unchanged
+#                          # (still recomputes Precon.colorIdentity for browse filters)
+# optional: --limit 20     # smoke test
+```
+
+After adding the `color_identity` column, apply migrations then run sync (or `--if-changed`) so browse color pills have data.
+
+CI: `.github/workflows/sync-mtgjson-precons.yml` runs monthly (1st 05:00 UTC, `--if-changed`) and via Actions **workflow_dispatch** (`if-changed` / `full`) against the `DATABASE_URL` secret (production Neon).
+
 ### 5. Run dev server
 
 ```bash
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) — try **Browse** at `/browse`, **Collection** at `/collection`, **Decks** at `/decks` (sign-in required for the last two).
+Open [http://localhost:3000](http://localhost:3000) — try **Browse** at `/browse`, **Precons** at `/precons`, **Collection** at `/collection`, **Decks** at `/decks` (sign-in required for the last two).
 
 **Phone on LAN:** open `http://<your-lan-ip>:3000`. Next 16 blocks cross-origin dev assets by default — add the host to `allowedDevOrigins` in `next.config.ts` (the blocked IP is printed in the terminal) and restart `npm run dev`, or clicks/HMR will appear broken on the device.
 
@@ -92,9 +106,11 @@ See [`docs/ROADMAP.md`](docs/ROADMAP.md).
 - **Phase 0–1.8** ✅ Catalog foundation (historical EDHForge path)
 - **Phase 2.0** ✅ MTGPlayground pivot (printings, unified detail)
 - **Phase 2.1** ✅ Auth + printing-level collection
-- **Phase 2.2** 🔄 Multi-format deck builder (slice 1 ✅; legality / Arena / insights next)
-- **Phase 2.3** ⬜ Precons
-- **Phase 3–5** Analysis, community, launch
+- **Phase 2.2** ✅ Multi-format deck builder
+- **Phase 2.3** ✅ Precons (MTGJSON)
+- **Phase 3** ✅ Analysis (in-builder)
+- **Phase 4** ⬜ Community (multi-format)
+- **Phase 5** Polish & launch
 
 ## Attribution
 

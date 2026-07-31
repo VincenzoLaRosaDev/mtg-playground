@@ -22,6 +22,8 @@ export type SetBrowseItem = {
   iconUri: string | null;
   digital: boolean;
   indexedCardCount: number;
+  /** First indexed printing image (normal URI); UI shows art_crop. */
+  coverImageUri: string | null;
 };
 
 export type SetBrowseFilters = {
@@ -175,7 +177,51 @@ function mapSetRow(
     iconUri: row.iconUri,
     digital: row.digital,
     indexedCardCount: row._count.printings,
+    coverImageUri: null,
   };
+}
+
+/** Lowest collector-number printing with an image per set code. */
+export async function loadFirstIndexedCoversBySetCode(
+  prisma: PrismaClient,
+  codes: string[],
+): Promise<Map<string, string>> {
+  const unique = [...new Set(codes.map((c) => c.trim()).filter(Boolean))];
+  const out = new Map<string, string>();
+  if (unique.length === 0) return out;
+
+  const printings = await prisma.printing.findMany({
+    where: {
+      setCode: { in: unique },
+      imageUri: { not: null },
+    },
+    select: {
+      setCode: true,
+      imageUri: true,
+      collectorNumber: true,
+    },
+    orderBy: [{ setCode: "asc" }, { collectorNumber: "asc" }],
+  });
+
+  for (const row of printings) {
+    if (!row.imageUri || out.has(row.setCode)) continue;
+    out.set(row.setCode, row.imageUri);
+  }
+  return out;
+}
+
+async function attachSetCovers(
+  prisma: PrismaClient,
+  items: SetBrowseItem[],
+): Promise<SetBrowseItem[]> {
+  const covers = await loadFirstIndexedCoversBySetCode(
+    prisma,
+    items.map((i) => i.code),
+  );
+  return items.map((item) => ({
+    ...item,
+    coverImageUri: covers.get(item.code) ?? null,
+  }));
 }
 
 function cursorPayload(item: SetBrowseItem, sort: SetBrowseSort, order: BrowseOrder) {
@@ -252,7 +298,8 @@ export async function querySetsBrowse(
     }
 
     const slice = mapped.slice(startIndex, startIndex + limit + 1);
-    return buildBrowseListResponse(slice, limit, total, (item) =>
+    const withCovers = await attachSetCovers(prisma, slice);
+    return buildBrowseListResponse(withCovers, limit, total, (item) =>
       cursorPayload(item, sort, order),
     );
   }
@@ -269,7 +316,7 @@ export async function querySetsBrowse(
     select: setSelect,
   });
 
-  const items = rows.map(mapSetRow);
+  const items = await attachSetCovers(prisma, rows.map(mapSetRow));
 
   return buildBrowseListResponse(items, limit, total, (item) =>
     cursorPayload(item, sort, order),

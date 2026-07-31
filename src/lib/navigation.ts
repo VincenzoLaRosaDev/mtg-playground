@@ -1,6 +1,7 @@
 export const mainNav = [
   { href: "/browse", label: "Browse" },
   { href: "/sets", label: "Sets" },
+  { href: "/precons", label: "Precons" },
   { href: "/collection", label: "Collection" },
   { href: "/decks", label: "Decks" },
 ] as const;

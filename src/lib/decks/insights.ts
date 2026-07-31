@@ -1,5 +1,5 @@
 /**
- * In-builder deck insights (Phase 2.2.6): roles / themes / GC.
+ * In-builder deck insights (Phase 2.2.6 + 3.2/3.3): roles / themes / GC / theme overlap.
  * Counts copies on main + commander boards (side / companion excluded).
  */
 
@@ -26,6 +26,8 @@ export type DeckInsightCount = {
   key: string;
   label: string;
   count: number;
+  /** Share of counted copies (0–100). Role/theme tags can sum over 100%. */
+  percent: number;
 };
 
 export type DeckSkeletonProgress = {
@@ -35,11 +37,23 @@ export type DeckSkeletonProgress = {
   inDeck: number;
 };
 
+export type DeckThemeOverlap = {
+  /** Copies (main+commander) that have ≥1 theme. */
+  themedCopies: number;
+  /** Share of counted copies with ≥1 theme (0–100). */
+  themedPercent: number;
+  /** Copies tagged with ≥2 themes. */
+  multiThemeCopies: number;
+  /** Top themes by count (max 3). */
+  topThemes: DeckInsightCount[];
+};
+
 export type DeckInsights = {
   countedCopies: number;
   gameChangerCount: number;
   roleCounts: DeckInsightCount[];
   themeCounts: DeckInsightCount[];
+  themeOverlap: DeckThemeOverlap;
   /** Present only when `includeSkeleton` — commander-like build targets. */
   skeleton: DeckSkeletonProgress[] | null;
 };
@@ -50,6 +64,14 @@ function facetLabel(key: string): string {
 
 function isCountedBoard(board: DeckBoard): boolean {
   return COUNTED_BOARDS.has(board);
+}
+
+function withPercent(
+  count: number,
+  countedCopies: number,
+): number {
+  if (countedCopies <= 0) return 0;
+  return Math.round((count / countedCopies) * 1000) / 10;
 }
 
 /**
@@ -70,6 +92,8 @@ export function summarizeDeckInsights(
 
   let countedCopies = 0;
   let gameChangerCount = 0;
+  let themedCopies = 0;
+  let multiThemeCopies = 0;
   const roleMap = new Map<string, number>();
   const themeMap = new Map<string, number>();
 
@@ -82,22 +106,36 @@ export function summarizeDeckInsights(
     if (card.isGameChanger) gameChangerCount += qty;
 
     const cls = classifications.get(card.oracleId);
-    if (cls) {
-      for (const role of cls.roles) {
-        roleMap.set(role, (roleMap.get(role) ?? 0) + qty);
-      }
-      for (const theme of cls.themes) {
-        themeMap.set(theme, (themeMap.get(theme) ?? 0) + qty);
-      }
+    const themes = cls?.themes ?? [];
+    const roles = cls?.roles ?? [];
+
+    if (themes.length >= 1) themedCopies += qty;
+    if (themes.length >= 2) multiThemeCopies += qty;
+
+    for (const role of roles) {
+      roleMap.set(role, (roleMap.get(role) ?? 0) + qty);
+    }
+    for (const theme of themes) {
+      themeMap.set(theme, (themeMap.get(theme) ?? 0) + qty);
     }
   }
 
   const roleCounts = [...roleMap.entries()]
-    .map(([key, count]) => ({ key, label: facetLabel(key), count }))
+    .map(([key, count]) => ({
+      key,
+      label: facetLabel(key),
+      count,
+      percent: withPercent(count, countedCopies),
+    }))
     .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
 
   const themeCounts = [...themeMap.entries()]
-    .map(([key, count]) => ({ key, label: facetLabel(key), count }))
+    .map(([key, count]) => ({
+      key,
+      label: facetLabel(key),
+      count,
+      percent: withPercent(count, countedCopies),
+    }))
     .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
 
   let skeleton: DeckSkeletonProgress[] | null = null;
@@ -121,6 +159,12 @@ export function summarizeDeckInsights(
     gameChangerCount,
     roleCounts,
     themeCounts,
+    themeOverlap: {
+      themedCopies,
+      themedPercent: withPercent(themedCopies, countedCopies),
+      multiThemeCopies,
+      topThemes: themeCounts.slice(0, 3),
+    },
     skeleton,
   };
 }

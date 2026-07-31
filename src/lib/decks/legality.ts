@@ -1,4 +1,7 @@
-import { isCommanderLikeFormat, type DeckBoard } from "@/lib/decks/boards";
+import {
+  isCommanderLikeFormat,
+  type DeckBoard,
+} from "@/lib/decks/boards";
 
 export type ScryfallLegalityStatus =
   | "legal"
@@ -174,7 +177,7 @@ export function evaluateDeckLegality(
   const deckCoreCount =
     mainCount + commanderCards.reduce((s, c) => s + c.quantity, 0);
 
-  // Per-card format legality + copy limits (oracle across all boards)
+  // Per-card format legality + copy limits (oracle across list boards)
   const qtyByOracle = new Map<
     string,
     { qty: number; name: string; typeLine: string; status: ScryfallLegalityStatus }
@@ -223,7 +226,11 @@ export function evaluateDeckLegality(
   }
 
   if (rules.kind === "constructed") {
-    if (cards.length > 0 && rules.mainMin != null && mainCount < rules.mainMin) {
+    if (
+      cards.length > 0 &&
+      rules.mainMin != null &&
+      mainCount < rules.mainMin
+    ) {
       issues.push({
         code: "main_size",
         message: `Main deck needs at least ${rules.mainMin} cards (has ${mainCount}).`,
@@ -251,7 +258,11 @@ export function evaluateDeckLegality(
       });
     }
 
-    if (rules.requiresCommander && commanderCount < 1 && cards.length > 0) {
+    if (
+      rules.requiresCommander &&
+      commanderCount < 1 &&
+      cards.length > 0
+    ) {
       issues.push({
         code: "missing_commander",
         message: "Add a commander for this format.",
@@ -336,6 +347,7 @@ export function mutationBlockReason(input: {
   next: Omit<DeckLegalityCardInput, "quantity"> & { quantity: number };
 }): string | null {
   const { format, existing, next } = input;
+
   const rules = formatDeckRules(format);
   const status = readFormatLegality(next.legalities, format);
 

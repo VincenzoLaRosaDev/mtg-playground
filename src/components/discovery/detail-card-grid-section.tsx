@@ -16,6 +16,8 @@ type DetailCardGridSectionProps = {
   uniqueToView?: boolean;
   /** Full-width lists band (no sticky TOC) — denser columns from `lg`. */
   wideGrid?: boolean;
+  /** Page PDP vs modal sheet column density. */
+  gridDensity?: "page" | "sheet";
 };
 
 export function DetailCardGridSection({
@@ -25,6 +27,7 @@ export function DetailCardGridSection({
   emptyMessage = "No cards in this section yet.",
   uniqueToView = false,
   wideGrid = false,
+  gridDensity = "page",
 }: DetailCardGridSectionProps) {
   const { openCardDetail } = useCardDetailModal();
 
@@ -33,7 +36,7 @@ export function DetailCardGridSection({
       {cards.length === 0 ? (
         <p className="mt-3 text-sm text-muted-foreground">{emptyMessage}</p>
       ) : (
-        <div className={`mt-4 ${cardFaceDetailGridClass(wideGrid)}`}>
+        <div className={`mt-4 ${cardFaceDetailGridClass(wideGrid, gridDensity)}`}>
           {cards.map((card) => {
             const href = card.slug ? `/cards/${card.slug}` : null;
             return (
@@ -73,9 +76,11 @@ export function DetailCardGridSection({
 export function RoleStaplesSection({
   groups,
   wideGrid = false,
+  gridDensity = "page",
 }: {
   groups: Array<{ role: string; label: string; cards: DetailCardLite[] }>;
   wideGrid?: boolean;
+  gridDensity?: "page" | "sheet";
 }) {
   const nonEmpty = groups.filter((group) => group.cards.length > 0);
   if (nonEmpty.length === 0) {
@@ -91,6 +96,7 @@ export function RoleStaplesSection({
           title={capitalizeLabel(group.label)}
           cards={group.cards}
           wideGrid={wideGrid}
+          gridDensity={gridDensity}
         />
       ))}
     </>

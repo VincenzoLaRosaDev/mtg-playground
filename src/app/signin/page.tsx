@@ -40,7 +40,10 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
           ? "This account can't access MTGPlayground yet."
           : "Opening the sign-in dialog…"
       }
-      breadcrumbs={[{ label: "Home", href: "/" }]}
+      breadcrumbs={[
+        { label: "Home", href: "/" },
+        { label: "Sign in", href: "/signin" },
+      ]}
     >
       <SignInRouteBridge callbackUrl={safeCallback} denied={denied} />
     </PageShell>

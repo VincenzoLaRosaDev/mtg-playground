@@ -1,6 +1,6 @@
 # MTGPlayground — Product Specification
 
-> Last updated: 2026-07-26 · **Pivot** from EDHForge commander-center → catalog + collection + multi-format decks  
+> Last updated: 2026-07-30 · **Pivot** from EDHForge commander-center → catalog + collection + multi-format decks  
 > Package/UI: MTGPlayground · local folder / GitHub may still be `edhforge` until rename ops.
 
 ## Vision
@@ -47,7 +47,8 @@
 - Owner only — routes `/decks`, `/decks/[id]` (not public)
 - Format field (Scryfall keys: Commander, Standard, Modern, …)
 - Boards: main / side / commander / companion (commander-like formats surface commander+companion)
-- Import: Arena paste (planned), manual editor, fork, precon (later)
+- Import: Arena paste, manual editor, fork precon → private deck
+- Search + browse cards (facets); sets; **precons** (`/precons`, MTGJSON constructed)
 - Commander/Partner: deck cards on `commander` board (legality engine enforces rules later)
 
 ### DeckPublication (public snapshot)
@@ -83,7 +84,7 @@ PublicationRating: 1 per user per publication (power, budget, originality 1–10
 
 **Catalog (public)**
 
-- Search + browse cards (facets); sets; precons (when MTGJSON lands)
+- Search + browse cards (facets); sets; precons (`/precons`)
 - Card detail: oracle hub + **version picker** (set/art/foil) + multiface toggle
 - Popularity shown only as Scryfall **EDH Inclusion** rank (honest copy), not commander popularity; commanders hub is a legality filter (name-first)
 - Deprecated: dual `/commanders/[slug]` meta detail as a product surface (redirect/merge into card detail)
@@ -99,7 +100,7 @@ PublicationRating: 1 per user per publication (power, budget, originality 1–10
 - Multi-format editor + legality (block: Scryfall status + size / copies / CI / commander)
 - Owned / missing vs collection (oracle aggregation)
 - Arena + plain-text paste import (oracle; Arena / EDHREC / MTGGoldfish style lists)
-- Insights from classifications (roles, themes, GC; commander-like skeleton) **inside builder**, not as a second detail mode
+- Insights + **Archidekt-inspired deck stats** (header Size/Avg MV/Est cost; Overview · Colors · Curve with by-facet mini-curves · Quantities · Odds stacked **below the list**) **inside builder**, not a second detail mode or `/analysis` route — no salt/bracket parity
 - Card inspect / add flows use the unified **`CardDetailModal`** (browse, search, collection, decks); full `/cards/{slug}` remains the public catalog hub (lists + SEO) via **View detail**
 
 **Community (after collection + decks work)**
@@ -111,7 +112,6 @@ PublicationRating: 1 per user per publication (power, budget, originality 1–10
 ### Later
 
 - Comments, follow, notifications
-- Deeper analysis vs precon / own corpus
 - URL import from other builders **only** with ToS-safe methods or partnerships
 - Premium limits
 - Repo/GitHub folder rename `edhforge` → `mtgplayground` (package/UI done in 2.0.2)

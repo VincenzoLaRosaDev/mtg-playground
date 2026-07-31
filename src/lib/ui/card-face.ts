@@ -30,7 +30,27 @@ export const CARD_FACE_DETAIL_GRID_CLASS =
 export const CARD_FACE_DETAIL_GRID_WIDE_CLASS =
   "grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 3xl:grid-cols-7!";
 
-export function cardFaceDetailGridClass(wide = false): string {
+/**
+ * Modal lists beside sticky TOC — one column denser than the PDP (narrower sheet).
+ */
+export const CARD_FACE_DETAIL_GRID_SHEET_CLASS =
+  "grid grid-cols-2 gap-3 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 3xl:grid-cols-5!";
+
+/**
+ * Modal lists with no TOC — +1 column from `lg` vs sheet+TOC.
+ */
+export const CARD_FACE_DETAIL_GRID_SHEET_WIDE_CLASS =
+  "grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 3xl:grid-cols-6!";
+
+export function cardFaceDetailGridClass(
+  wide = false,
+  density: "page" | "sheet" = "page",
+): string {
+  if (density === "sheet") {
+    return wide
+      ? CARD_FACE_DETAIL_GRID_SHEET_WIDE_CLASS
+      : CARD_FACE_DETAIL_GRID_SHEET_CLASS;
+  }
   return wide ? CARD_FACE_DETAIL_GRID_WIDE_CLASS : CARD_FACE_DETAIL_GRID_CLASS;
 }
 

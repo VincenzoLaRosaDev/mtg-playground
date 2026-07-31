@@ -15,6 +15,8 @@ const pipSizeClass: Record<ManaSymbolSize, string> = {
   sm: "size-5 text-xs",
   md: "size-6 text-sm",
   lg: "size-8 text-base",
+  xl: "size-10 text-lg",
+  "2xl": "size-12 text-xl",
 };
 
 /** Scryfall mana cost as a horizontal pip row. */

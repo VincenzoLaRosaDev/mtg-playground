@@ -27,6 +27,7 @@ export type GlobalSearchSetResult = {
   digital: boolean;
   cardCount: number;
   indexedCardCount: number;
+  coverImageUri: string | null;
 };
 
 export type GlobalSearchResponse = {

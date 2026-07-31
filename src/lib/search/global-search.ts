@@ -1,5 +1,6 @@
 import type { PrismaClient } from "@/generated/prisma/client";
 
+import { loadFirstIndexedCoversBySetCode } from "@/lib/browse/sets";
 import { listRankedCardIdsMatchingTextSearch } from "@/lib/search/card-text-search-query";
 import { parseCardFaces } from "@/lib/scryfall/faces";
 import {
@@ -100,6 +101,11 @@ export async function queryGlobalSearch(
     },
   });
 
+  const covers = await loadFirstIndexedCoversBySetCode(
+    prisma,
+    setRows.map((row) => row.code),
+  );
+
   const sets: GlobalSearchSetResult[] = setRows.map((row) => ({
     code: row.code,
     name: row.name,
@@ -109,6 +115,7 @@ export async function queryGlobalSearch(
     digital: row.digital,
     cardCount: row.cardCount,
     indexedCardCount: row._count.printings,
+    coverImageUri: covers.get(row.code) ?? null,
   }));
 
   return { query, cards, sets };

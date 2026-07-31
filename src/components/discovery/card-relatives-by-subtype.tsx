@@ -18,12 +18,14 @@ type CardRelativesBySubtypeProps = {
   relatives: CardRelative[];
   /** Full-width lists band (no sticky TOC) — denser columns from `lg`. */
   wideGrid?: boolean;
+  gridDensity?: "page" | "sheet";
 };
 
 export function CardRelativesBySubtype({
   subtypes,
   relatives,
   wideGrid = false,
+  gridDensity = "page",
 }: CardRelativesBySubtypeProps) {
   const { openCardDetail } = useCardDetailModal();
 
@@ -40,7 +42,7 @@ export function CardRelativesBySubtype({
       <p className="mt-1 text-xs text-muted-foreground">
         Other Commander-legal cards sharing: {formatSubtypeList(subtypes)}
       </p>
-      <ul className={`mt-4 ${cardFaceDetailGridClass(wideGrid)}`}>
+      <ul className={`mt-4 ${cardFaceDetailGridClass(wideGrid, gridDensity)}`}>
         {relatives.map((relative) => (
           <li key={`${relative.name}-${relative.typeLine}`}>
             <CardFaceTile

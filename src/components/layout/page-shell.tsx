@@ -19,7 +19,7 @@ type PageShellProps = {
   toolbar?: ReactNode;
   /**
    * Actions aligned with the title block (right on `sm+`, under title on mobile).
-   * Homologous to CardDetailModal header actions (View detail / Go to set).
+   * Homologous to CardDetailModal header actions (Go to page / Go to set).
    */
   headerActions?: ReactNode;
 };

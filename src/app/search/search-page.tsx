@@ -13,7 +13,7 @@ import {
   GLOBAL_SEARCH_PAGE_LIMIT,
   type GlobalSearchResponse,
 } from "@/lib/search/types";
-import { CARD_FACE_GRID_CLASS, SET_BROWSE_GRID_CLASS } from "@/lib/ui/card-face";
+import { CARD_FACE_GRID_CLASS } from "@/lib/ui/card-face";
 
 function ResultSection({
   title,
@@ -103,6 +103,10 @@ export default function SearchPage() {
     <PageShell
       title="Search"
       description="Find cards by name, type, or rules text — and sets by name or code."
+      breadcrumbs={[
+        { label: "Home", href: "/" },
+        { label: "Search", href: "/search" },
+      ]}
     >
       {hasQuery ? (
         <PageListMeta>
@@ -146,7 +150,7 @@ export default function SearchPage() {
           <ResultSection
             title="Sets"
             count={results.sets.length}
-            listClassName={SET_BROWSE_GRID_CLASS}
+            listClassName={CARD_FACE_GRID_CLASS}
           >
             {results.sets.map((set) => (
               <SetBrowseRow key={set.code} set={set} />

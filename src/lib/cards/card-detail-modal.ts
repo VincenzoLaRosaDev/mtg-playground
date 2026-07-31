@@ -7,6 +7,10 @@ import {
 } from "@/lib/collection/oracle-collection";
 import type { CardClassificationSummary } from "@/lib/discovery/detail-pack";
 import {
+  listDecksForPicker,
+  type DeckPickerItem,
+} from "@/lib/decks/decks";
+import {
   listOracleDeckSnapshot,
   type OracleDeckSnapshot,
 } from "@/lib/decks/oracle-deck";
@@ -27,6 +31,7 @@ export type CardDetailModalPayload = {
   slug: string;
   name: string;
   typeLine: string;
+  colorIdentity: string[];
   popularityRank: number | null;
   isGameChanger: boolean;
   isReserved: boolean;
@@ -83,6 +88,7 @@ export type LoadCardDetailModalUserDataInput = {
 export type CardDetailModalUserData = {
   collection: OracleCollectionSnapshot | null;
   deck: OracleDeckSnapshot | null;
+  decks: DeckPickerItem[];
 };
 
 /** Pick active printing for the modal — mirrors PDP catalog-default rules. */
@@ -168,6 +174,7 @@ export async function getCardDetailModalPayload(
         slug: true,
         name: true,
         typeLine: true,
+        colorIdentity: true,
         imageUri: true,
         faces: true,
         popularityRank: true,
@@ -209,6 +216,7 @@ export async function getCardDetailModalPayload(
     slug: card.slug,
     name: card.name,
     typeLine: card.typeLine,
+    colorIdentity: card.colorIdentity,
     popularityRank: card.popularityRank,
     isGameChanger: card.isGameChanger,
     isReserved: card.isReserved,
@@ -243,16 +251,17 @@ export async function getCardDetailModalUserData(
 ): Promise<CardDetailModalUserData> {
   const oracleId = input.oracleId.trim();
   if (!oracleId) {
-    return { collection: null, deck: null };
+    return { collection: null, deck: null, decks: [] };
   }
 
   const finish = input.finish ?? "nonfoil";
 
-  const [summary, deck] = await Promise.all([
+  const [summary, deck, decks] = await Promise.all([
     listOracleCollectionSummary(prisma, input.userId, oracleId),
     input.deckId
       ? listOracleDeckSnapshot(prisma, input.userId, input.deckId, oracleId)
       : Promise.resolve(null),
+    listDecksForPicker(prisma, input.userId),
   ]);
 
   return {
@@ -262,6 +271,7 @@ export async function getCardDetailModalUserData(
       finish,
     ),
     deck,
+    decks,
   };
 }
 

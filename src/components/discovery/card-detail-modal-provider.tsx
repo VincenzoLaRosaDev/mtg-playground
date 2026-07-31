@@ -19,7 +19,10 @@ import type {
 import { flipFaceUris, type CardFaceImage } from "@/lib/scryfall/faces";
 import { preloadImage } from "@/lib/ui/preload-image";
 
-/** Page-scoped deck workspace — when set, detail modal uses deck CTAs. */
+/**
+ * Page-scoped deck workspace — when set, detail modal defaults the deck
+ * select to this deck and syncs preferred printing for deck rows.
+ */
 export type DeckCardDetailWorkspace = {
   deckId: string;
   /** Scryfall format key — caps Add qty in the modal. */
@@ -49,6 +52,11 @@ export type OpenCardDetailOptions = {
   deckCardId?: string | null;
   onDeckMutated?: () => void;
   /**
+   * After a successful add that closes the modal (workspace pages) — e.g. close
+   * the host search sheet that stayed open under the detail modal.
+   */
+  onSuccessfulAdd?: () => void;
+  /**
    * Known art from the tile/search hit — warm the browser cache while the
    * modal payload loads so the hero paints immediately on open.
    */
@@ -59,8 +67,8 @@ type CardDetailModalContextValue = {
   openCardDetail: (options: OpenCardDetailOptions) => void;
   closeCardDetail: () => void;
   /**
-   * Register the current deck editor page. While set, any openCardDetail
-   * (header search, browse tiles, deck list) uses add-to-deck CTAs.
+   * Register the current deck editor page. While set, openCardDetail defaults
+   * the Add-to-deck select to this deck (select remains visible).
    */
   setDeckWorkspace: (workspace: DeckCardDetailWorkspace | null) => void;
   /**
@@ -86,6 +94,7 @@ type SessionState = {
   /** Close modal after a successful add (collection or deck workspace pages). */
   closeAfterAdd: boolean;
   onCollectionMutated?: () => void;
+  onSuccessfulAdd?: () => void;
 };
 
 const INITIAL: SessionState = {
@@ -134,6 +143,7 @@ export function CardDetailModalProvider({ children }: { children: ReactNode }) {
         onDeckMutated: options.onDeckMutated ?? deckWorkspace?.onDeckMutated,
         closeAfterAdd,
         onCollectionMutated: collectionWorkspace?.onCollectionMutated,
+        onSuccessfulAdd: options.onSuccessfulAdd,
       });
 
       void loadCardDetailModal({
@@ -183,6 +193,7 @@ export function CardDetailModalProvider({ children }: { children: ReactNode }) {
         onDeckMutated={state.onDeckMutated}
         closeAfterAdd={state.closeAfterAdd}
         onCollectionMutated={state.onCollectionMutated}
+        onSuccessfulAdd={state.onSuccessfulAdd}
       />
     </CardDetailModalContext.Provider>
   );

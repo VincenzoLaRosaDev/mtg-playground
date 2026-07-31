@@ -2,13 +2,15 @@ import type { ManaColor } from "@/lib/mtg/mana-types";
 import { manaColorLabel } from "@/lib/mtg/mana-labels";
 import { MANA_SYMBOL_INNER_SVG } from "@/lib/mtg/mana-symbol-data";
 
-export type ManaSymbolSize = "xs" | "sm" | "md" | "lg";
+export type ManaSymbolSize = "xs" | "sm" | "md" | "lg" | "xl" | "2xl";
 
 const sizeClassName: Record<ManaSymbolSize, string> = {
   xs: "h-3.5 w-3.5",
   sm: "h-5 w-5",
   md: "h-6 w-6",
   lg: "h-8 w-8",
+  xl: "h-10 w-10",
+  "2xl": "h-12 w-12",
 };
 
 type ManaSymbolProps = {
