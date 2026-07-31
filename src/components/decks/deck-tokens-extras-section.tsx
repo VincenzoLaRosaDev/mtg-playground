@@ -9,8 +9,8 @@ import {
 } from "@/components/decks/deck-card-list";
 import {
   DeckViewToggle,
-  useDeckEditorView,
-  usePreconDeckView,
+  useDeckTokensExtrasView,
+  usePreconTokensExtrasView,
   type DeckEditorViewMode,
 } from "@/components/decks/deck-view-toggle";
 import type { DeckTokenFace, DeckTokensExtras } from "@/lib/decks/tokens-extras";
@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils";
 
 type DeckTokensExtrasSectionProps = {
   tokensExtras: DeckTokensExtras;
-  /** Share List/Grid preference with deck editor or precon detail. */
+  /** Which page’s Tokens & Extras preference to use (independent of main deck/precon list). */
   viewPreference?: "deck" | "precon";
   className?: string;
 };
@@ -30,8 +30,8 @@ export function DeckTokensExtrasSection({
   className,
 }: DeckTokensExtrasSectionProps) {
   const { openCardDetail } = useCardDetailModal();
-  const [deckView, setDeckView] = useDeckEditorView();
-  const [preconView, setPreconView] = usePreconDeckView();
+  const [deckView, setDeckView] = useDeckTokensExtrasView();
+  const [preconView, setPreconView] = usePreconTokensExtrasView();
   const view: DeckEditorViewMode =
     viewPreference === "precon" ? preconView : deckView;
   const setView =

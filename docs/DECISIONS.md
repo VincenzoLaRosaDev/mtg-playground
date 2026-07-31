@@ -705,6 +705,11 @@ Format for new entries:
 3. Drop multi-column mosaico for this panel.
 **Consequences:** Supersedes “Deck stats mosaic layout (lg+)” and “Deck stats mosaic stacks until xl” for section placement. Same panel for deck editor and precon PDP. Pair rows use `lg` (not `xl`) so side-by-side is visible on typical laptop widths.
 
+## 2026-07-31 — Deck stats: column mosaic (keep pair order)
+**Context:** Pair rows aligned cells to the taller sibling, so height gaps were vertical and the classic mosaic never formed. Users still want Colors|Curve then Quantities|Odds reading order.
+**Decision:** At `lg+`, two real columns (`items-start`): left Colors→Quantities, right Mana curve→Odds. Below `lg`, wrappers use `display: contents` + flex `order` so stack stays Colors → Mana curve → Quantities → Odds. Overview unchanged (own row).
+**Consequences:** Sections pack by natural height within each column (mosaic) without CSS `columns` reordering. Supersedes pair-row placement in “Deck stats: Overview row + fixed 2-col pairs” (Overview rule kept).
+
 ## 2026-07-31 — Collection | Decks manage stacks until lg
 **Context:** With both Collection and Decks CTAs always present, `sm:grid-cols-2` felt cramped in the card detail modal and on the PDP at mid widths.
 **Decision:** `CardManagePanels` uses `grid-cols-1` → `lg:grid-cols-2` (stack below `lg`). Shared by modal and PDP.
@@ -761,3 +766,9 @@ Format for new entries:
 **Context:** Tokens|Extras tabs hid one list; users want both visible and the same List/Grid control as the deck.
 **Decision:** Stack Tokens then Extras (omit empty groups). Replace the category tabs with `DeckViewToggle`, sharing `mtgplayground.deckEditorView` / `preconDeckView`. List mode uses Goldfish-style name rows (+ type line); grid keeps face tiles.
 **Consequences:** Toggling view in the section syncs with the main deck/precon list above.
+
+## 2026-07-31 — Tokens & Extras List/Grid independent of deck list
+**Context:** Shared preference meant toggling List/Grid on Tokens & Extras also flipped the main deck/precon list (and vice versa); users expect the two lists to be independent.
+**Decision:** Give Tokens & Extras its own persisted keys (`mtgplayground.deckTokensExtrasView` / `preconTokensExtrasView`) via `useDeckTokensExtrasView` / `usePreconTokensExtrasView`. Keep stacked Tokens then Extras and the same `DeckViewToggle` UI.
+**Consequences:** Main deck/precon view and Tokens & Extras view no longer sync. Defaults remain List.
+**Supersedes:** “Tokens & Extras stacked + shared List/Grid” (sharing part only; stacking unchanged).

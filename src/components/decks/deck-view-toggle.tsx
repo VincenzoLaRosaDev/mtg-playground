@@ -9,6 +9,8 @@ export type DeckEditorViewMode = "grid" | "list";
 
 const DECK_EDITOR_VIEW_KEY = "mtgplayground.deckEditorView";
 const PRECON_DECK_VIEW_KEY = "mtgplayground.preconDeckView";
+const DECK_TOKENS_EXTRAS_VIEW_KEY = "mtgplayground.deckTokensExtrasView";
+const PRECON_TOKENS_EXTRAS_VIEW_KEY = "mtgplayground.preconTokensExtrasView";
 
 function createPersistedViewStore(storageKey: string) {
   const listeners = new Set<() => void>();
@@ -93,3 +95,13 @@ export const useDeckEditorView = createPersistedViewStore(DECK_EDITOR_VIEW_KEY);
 
 /** Precon detail List/Grid preference (`mtgplayground.preconDeckView`) — independent of deck editor. */
 export const usePreconDeckView = createPersistedViewStore(PRECON_DECK_VIEW_KEY);
+
+/** Tokens & Extras List/Grid on deck editor — independent of the main deck list. */
+export const useDeckTokensExtrasView = createPersistedViewStore(
+  DECK_TOKENS_EXTRAS_VIEW_KEY,
+);
+
+/** Tokens & Extras List/Grid on precon detail — independent of the main precon list. */
+export const usePreconTokensExtrasView = createPersistedViewStore(
+  PRECON_TOKENS_EXTRAS_VIEW_KEY,
+);
