@@ -8,6 +8,7 @@ import { GlobalSearch } from "@/components/discovery/global-search";
 import { UserMenu } from "@/components/auth/user-menu";
 import { MobileNavSheet } from "@/components/layout/mobile-nav-sheet";
 import { NavLinks } from "@/components/layout/nav-links";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { CARD_TEXT_SEARCH_PLACEHOLDER } from "@/lib/search/card-text-search";
 import {
@@ -63,17 +64,22 @@ export function AppHeader() {
         <div className={cn(siteContainerClassName, "py-3 lg:py-4")}>
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between lg:gap-6">
             <div className="flex items-center justify-between gap-4">
-              <Link href="/" className="shrink-0" aria-label="MTGPlayground home">
-                <Image
-                  src="/mtgplayground-mark.svg"
-                  alt="MTGPlayground"
-                  width={240}
-                  height={240}
-                  unoptimized
-                  className="h-8 w-8"
-                  priority
-                />
-              </Link>
+              <div className="flex shrink-0 items-center gap-4">
+                <Link href="/" aria-label="MTGPlayground home">
+                  <Image
+                    src="/mtgplayground-mark.svg"
+                    alt="MTGPlayground"
+                    width={240}
+                    height={240}
+                    unoptimized
+                    className="h-8 w-8"
+                    priority
+                  />
+                </Link>
+                <Badge variant="default" className="h-6 px-2.5 text-sm">
+                  Beta
+                </Badge>
+              </div>
 
               <div className="flex items-center gap-2 lg:hidden">
                 <UserMenu />

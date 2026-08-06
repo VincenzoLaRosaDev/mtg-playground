@@ -18,6 +18,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${baseUrl}/browse`, changeFrequency: "weekly", priority: 0.9 },
     { url: `${baseUrl}/sets`, changeFrequency: "weekly", priority: 0.8 },
     { url: `${baseUrl}/precons`, changeFrequency: "weekly", priority: 0.8 },
+    { url: `${baseUrl}/about`, changeFrequency: "monthly", priority: 0.5 },
+    { url: `${baseUrl}/privacy`, changeFrequency: "yearly", priority: 0.3 },
+    { url: `${baseUrl}/terms`, changeFrequency: "yearly", priority: 0.3 },
   ];
 
   const [cards, sets] = await Promise.all([
