@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 export const SITE_NAME = "MTGPlayground";
 
 const DEFAULT_DESCRIPTION =
-  "Magic: The Gathering catalog, collection, and multi-format decks — browse cards and sets from Scryfall.";
+  "Magic: The Gathering catalog, personal collection, and multi-format deck builder — browse cards, sets, and precons from Scryfall and MTGJSON.";
 
 export function getSiteUrl(): string {
   const configured = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "");
@@ -16,6 +16,11 @@ export function getSiteUrl(): string {
   }
 
   return "http://localhost:3000";
+}
+
+/** Site-wide fallback social preview — src/app/opengraph-image.tsx only auto-applies to `/`. */
+export function getDefaultOgImageUrl(): string {
+  return `${getSiteUrl()}/opengraph-image`;
 }
 
 type PageMetadataOptions = {
@@ -34,6 +39,7 @@ export function createPageMetadata({
   noIndex = false,
 }: PageMetadataOptions): Metadata {
   const url = `${getSiteUrl()}${path.startsWith("/") ? path : `/${path}`}`;
+  const resolvedImage = image ?? getDefaultOgImageUrl();
 
   return {
     title,
@@ -46,13 +52,13 @@ export function createPageMetadata({
       siteName: SITE_NAME,
       locale: "en_US",
       type: "website",
-      ...(image ? { images: [{ url: image, alt: title }] } : {}),
+      images: [{ url: resolvedImage, width: 1200, height: 630, alt: title }],
     },
     twitter: {
-      card: image ? "summary_large_image" : "summary",
+      card: "summary_large_image",
       title: `${title} | ${SITE_NAME}`,
       description,
-      ...(image ? { images: [image] } : {}),
+      images: [resolvedImage],
     },
     ...(noIndex ? { robots: { index: false, follow: false } } : {}),
   };
@@ -74,5 +80,10 @@ export const rootMetadata: Metadata = {
     siteName: SITE_NAME,
     locale: "en_US",
     type: "website",
+    images: [{ url: getDefaultOgImageUrl(), width: 1200, height: 630, alt: SITE_NAME }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    images: [getDefaultOgImageUrl()],
   },
 };

@@ -13,9 +13,9 @@
 
 ## Known baseline state (verify before trusting — this drifts)
 
-- `npm run lint` currently fails with **15 pre-existing errors** unrelated to typical feature work: `react-hooks/refs` in `src/hooks/use-browse-list.ts` (ref mutation during render — an intentional lazy-ref pattern the newer eslint-plugin-react-hooks flags) and `react-hooks/set-state-in-effect` in `src/hooks/use-active-detail-section-id.ts`. Don't assume you introduced these; don't silently "fix" them as a drive-by unless asked.
-- No CI workflow lints/tests/builds on push or PR — only `.github/workflows/sync-scryfall.yml` (data sync, currently disabled via `SYNC_JOBS_ENABLED: "false"`) exists. Nothing gates broken code from landing on `main` except this session.
-- `npm outdated` shows `next` one patch behind (16.2.10 → 16.2.11), which resolves 4 high-severity `npm audit` advisories (bundled `postcss`/`sharp`). Low-risk patch bump if asked to address it.
+- `npm run lint` and `npm test` are clean (0 errors, 150+ passing) as of 2026-08-05. The former 15 pre-existing `react-hooks/refs` / `react-hooks/set-state-in-effect` errors were fixed 2026-07-24 (see `docs/DECISIONS.md`).
+- `.github/workflows/ci.yml` runs lint → test → build on push/PR to `main` (no DB secret needed — all routes are `force-dynamic`). `.github/workflows/sync-scryfall.yml` (daily/weekly) and `.github/workflows/sync-mtgjson-precons.yml` (monthly) are active cron jobs, not disabled.
+- `npm audit` is clean (0 vulnerabilities) as of 2026-08-05. `npm outdated` still shows minor bumps available (Prisma, Next patch, React, ESLint 10) — none urgent; re-check before assuming this is current.
 
 ## Working in this repo
 

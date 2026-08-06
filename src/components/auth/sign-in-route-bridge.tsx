@@ -36,12 +36,22 @@ export function SignInRouteBridge({ callbackUrl, denied = false }: SignInRouteBr
     return (
       <div className="flex max-w-md flex-col items-start gap-4">
         <p className="text-sm text-muted-foreground">
-          MTGPlayground is in closed beta and this Google account is not on the invite
-          list yet. If you think this is a mistake, ask for your address to be added.
+          MTGPlayground is in closed beta and this account is not on the invite list yet.
+          Request access below and we&apos;ll add your address.
         </p>
-        <Button type="button" variant="outline" onClick={() => router.push("/browse")}>
-          Back to browse
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            nativeButton={false}
+            render={
+              <a href="mailto:v.larosa.dev@gmail.com?subject=MTGPlayground%20beta%20access%20request" />
+            }
+          >
+            Request access
+          </Button>
+          <Button type="button" variant="outline" onClick={() => router.push("/browse")}>
+            Back to browse
+          </Button>
+        </div>
       </div>
     );
   }
