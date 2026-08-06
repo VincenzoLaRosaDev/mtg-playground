@@ -143,11 +143,32 @@ function CardRow({ row }: { row: Row }) {
   );
 }
 
+/**
+ * Card art fan — rendered back-to-front (background cards first, commander last)
+ * so the commander stays on top. Staggered rightward and at uneven heights.
+ */
+const CARD_FAN = [
+  { file: "sol-ring.jpg", left: 325, top: 405, width: 170, opacity: 0.85 },
+  { file: "dragonlord-atarka.jpg", left: 270, top: 290, width: 190, opacity: 0.88 },
+  { file: "bladewing-the-risen.jpg", left: 220, top: 365, width: 205, opacity: 0.9 },
+  { file: "scion-of-the-ur-dragon.jpg", left: 165, top: 270, width: 220, opacity: 0.93 },
+  { file: "the-ur-dragon.jpg", left: 75, top: 331, width: 300, opacity: 1 },
+] as const;
+/** Real card aspect ratio (Scryfall "normal" size, 488×680). */
+const CARD_ASPECT = 680 / 488;
+
 export default async function OpengraphImage() {
   const logoSvg = await readFile(
     join(process.cwd(), "public/mtgplayground-lockup-horizontal.svg"),
   );
   const logoDataUri = `data:image/svg+xml;base64,${logoSvg.toString("base64")}`;
+
+  const cardFanUris = await Promise.all(
+    CARD_FAN.map(async (card) => {
+      const buffer = await readFile(join(process.cwd(), "public/og", card.file));
+      return `data:image/jpeg;base64,${buffer.toString("base64")}`;
+    }),
+  );
 
   return new ImageResponse(
     (
@@ -176,6 +197,26 @@ export default async function OpengraphImage() {
           <polygon points="0,0 400,0 220,630 0,630" fill="url(#wedge)" />
           <line x1="400" y1="0" x2="220" y2="630" stroke={AMBER} strokeWidth="3" strokeOpacity="0.55" />
         </svg>
+
+        {/* Card fan — commander art rises from the bottom of the logo column, others staggered behind it */}
+        {CARD_FAN.map((card, i) => (
+          <img
+            key={card.file}
+            src={cardFanUris[i]}
+            alt=""
+            width={card.width}
+            height={Math.round(card.width * CARD_ASPECT)}
+            style={{
+              position: "absolute",
+              left: card.left,
+              top: card.top,
+              opacity: card.opacity,
+              borderRadius: 14,
+              border: "2px solid rgba(255,255,255,0.14)",
+              boxShadow: "0 -10px 30px rgba(0,0,0,0.45)",
+            }}
+          />
+        ))}
 
         {/* Deck + stats mockup panel — right side */}
         <div
