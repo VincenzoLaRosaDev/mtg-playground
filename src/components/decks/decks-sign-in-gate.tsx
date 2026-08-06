@@ -32,8 +32,8 @@ export function DecksSignInGate({
     >
       <div className="flex max-w-md flex-col items-start gap-4">
         <p className="text-sm text-muted-foreground">
-          Your decks are private. Sign in with Google, Discord, or a magic link
-          to continue.
+          Your decks are private. Sign in with Google or a magic link to
+          continue.
         </p>
         <Button
           type="button"

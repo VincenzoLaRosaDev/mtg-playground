@@ -34,7 +34,7 @@ export default function PrivacyPage() {
           <h2 className="text-lg font-semibold text-foreground">What we collect</h2>
           <p>Creating an account requires signing in with one of:</p>
           <ul className="list-disc space-y-1 pl-5">
-            <li>Google or Discord (OAuth) — we receive your email address and basic profile info from the provider.</li>
+            <li>Google (OAuth) — we receive your email address and basic profile info from the provider.</li>
             <li>Email magic link (via Resend) — we receive the email address you sign in with.</li>
           </ul>
           <p>
@@ -93,16 +93,7 @@ export default function PrivacyPage() {
               >
                 Google
               </a>{" "}
-              — OAuth sign-in (optional).
-            </li>
-            <li>
-              <a
-                href="https://discord.com/privacy"
-                className="font-medium text-foreground/80 underline-offset-4 hover:text-primary hover:underline"
-              >
-                Discord
-              </a>{" "}
-              — OAuth sign-in (optional).
+              — OAuth sign-in.
             </li>
             <li>
               <a
