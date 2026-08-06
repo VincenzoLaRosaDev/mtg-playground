@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 
 import { signIn } from "next-auth/react";
 
+import { GoogleIcon } from "@/components/auth/google-icon";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -48,6 +49,7 @@ export function SignInForm({
             })
           }
         >
+          <GoogleIcon className="size-4" />
           Continue with Google
         </Button>
       ) : null}

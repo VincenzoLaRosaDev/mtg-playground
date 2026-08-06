@@ -86,7 +86,7 @@ export function SignInSheetProvider({
           <SheetHeader className="shrink-0 px-4 py-4 sm:px-6">
             <SheetTitle>Sign in</SheetTitle>
             <SheetDescription>
-              Use Google, Discord, or a magic link to access your collection.
+              Use Google or a magic link to access your collection.
             </SheetDescription>
           </SheetHeader>
           <div className="px-4 pb-8 sm:px-6">
