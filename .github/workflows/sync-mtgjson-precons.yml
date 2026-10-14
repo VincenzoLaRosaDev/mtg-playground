@@ -1,52 +1,52 @@
-name: MTGJSON precons sync
+# name: MTGJSON precons sync
 
-# Monthly cron + manual dispatch only (never on push).
-# Requires repository secret DATABASE_URL → Neon production pooled URL.
-# Run after Scryfall printings are indexed (weekly Sunday job).
-# To pause schedule: comment out the `schedule` block (manual dispatch still works).
+# # Monthly cron + manual dispatch only (never on push).
+# # Requires repository secret DATABASE_URL → Neon production pooled URL.
+# # Run after Scryfall printings are indexed (weekly Sunday job).
+# # To pause schedule: comment out the `schedule` block (manual dispatch still works).
 
-on:
-  schedule:
-    # Monthly constructed precons (1st of month 05:00 UTC)
-    - cron: "0 5 1 * *"
-  workflow_dispatch:
-    inputs:
-      mode:
-        description: Sync mode
-        required: true
-        default: if-changed
-        type: choice
-        options:
-          - if-changed
-          - full
+# on:
+#   schedule:
+#     # Monthly constructed precons (1st of month 05:00 UTC)
+#     - cron: "0 5 1 * *"
+#   workflow_dispatch:
+#     inputs:
+#       mode:
+#         description: Sync mode
+#         required: true
+#         default: if-changed
+#         type: choice
+#         options:
+#           - if-changed
+#           - full
 
-jobs:
-  sync-precons:
-    runs-on: ubuntu-latest
-    timeout-minutes: 180
+# jobs:
+#   sync-precons:
+#     runs-on: ubuntu-latest
+#     timeout-minutes: 180
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+#     steps:
+#       - name: Checkout
+#         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: npm
+#       - name: Setup Node.js
+#         uses: actions/setup-node@v4
+#         with:
+#           node-version: "22"
+#           cache: npm
 
-      - name: Install dependencies
-        run: npm ci
+#       - name: Install dependencies
+#         run: npm ci
 
-      - name: Generate Prisma client
-        run: npm run db:generate
+#       - name: Generate Prisma client
+#         run: npm run db:generate
 
-      - name: Sync MTGJSON constructed precons
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.mode }}" = "full" ]; then
-            npm run sync:mtgjson-precons
-          else
-            npm run sync:mtgjson-precons -- --if-changed
-          fi
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+#       - name: Sync MTGJSON constructed precons
+#         run: |
+#           if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.mode }}" = "full" ]; then
+#             npm run sync:mtgjson-precons
+#           else
+#             npm run sync:mtgjson-precons -- --if-changed
+#           fi
+#         env:
+#           DATABASE_URL: ${{ secrets.DATABASE_URL }}
